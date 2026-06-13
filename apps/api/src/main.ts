@@ -31,6 +31,21 @@ async function bootstrap() {
 
   app.set('trust proxy', true);
 
+  // 全域中介軟體 (Cookie 解析)
+  app.use((req: any, _res: any, next: any) => {
+    const rawCookies = req.headers.cookie;
+    req.cookies = {};
+    if (rawCookies) {
+      rawCookies.split(';').forEach((cookie: string) => {
+        const parts = cookie.split('=');
+        const name = parts[0].trim();
+        const value = parts.slice(1).join('=');
+        req.cookies[name] = decodeURIComponent(value);
+      });
+    }
+    next();
+  });
+
   app.use(
     helmet({
       contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,

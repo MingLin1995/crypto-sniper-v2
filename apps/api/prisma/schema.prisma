@@ -1,0 +1,93 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SystemConfig {
+  key   String @id
+  value String
+}
+
+model User {
+  id         String   @id @default(uuid())
+  account    String   @unique
+  password   String
+  role       String   @default("USER") // USER, ADMIN
+  email      String?
+  phone      String?
+  lineUserId String?
+
+  refreshTokens RefreshToken[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // 軟刪除：NULL 表示未刪除，有值表示已刪除
+
+  @@index([deletedAt]) // 加速查詢未刪除的用戶
+  @@index([account, deletedAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   // Hashed Refresh Token
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// 系統日誌
+model SystemLog {
+  id String @id @default(uuid())
+
+  // 日誌等級
+  level String // INFO, WARN, ERROR
+
+  // 日誌類型（用於分類）
+  type String // REQUEST, ERROR
+
+  // 基本資訊
+  message     String
+  errorType   String? // 錯誤類型（如 UnauthorizedException）
+  errorStack  String? @db.Text // Stack Trace
+
+  // HTTP 請求資訊
+  method     String? // GET, POST, PATCH, DELETE
+  url        String? // 請求 URL
+  statusCode Int? // HTTP 狀態碼
+  duration   Int? // 執行時間（毫秒）
+
+  // 請求內容
+  requestBody   String? @db.Text
+  requestParams String? @db.Text
+  requestQuery  String? @db.Text
+
+  // 客戶端資訊
+  clientIp  String?
+  userAgent String? @db.Text
+
+  // 用戶資訊
+  userId      String?
+  userAccount String?
+
+  // 額外資訊（彈性欄位）
+  metadata Json? // 其他需要記錄的資訊
+
+  createdAt DateTime @default(now())
+
+  @@index([level])
+  @@index([type])
+  @@index([createdAt])
+  @@index([userId])
+  @@index([statusCode])
+  @@index([level, createdAt])
+}

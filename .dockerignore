@@ -1,0 +1,52 @@
+# Node.js 相關
+node_modules
+npm-debug.log
+yarn-error.log
+# package-lock.json
+yarn.lock
+
+# NestJS 編譯輸出
+dist
+build
+
+# 日誌檔案
+logs
+*.log
+*.log.*
+
+# 環境變數檔案
+.env
+.env.local
+.env.development
+.env.production
+
+# 測試相關
+coverage
+test
+tests
+__tests__
+
+# 編輯器和 IDE 檔案
+.vscode
+.idea
+*.sublime-project
+*.sublime-workspace
+
+# 系統檔案
+.DS_Store
+Thumbs.db
+
+# 臨時檔案
+*.tmp
+*.bak
+*.swp
+*~
+
+# Docker 相關
+Dockerfile
+docker-compose.yml
+docker-compose.*.yml
+
+# Git 相關
+.git
+.gitignore

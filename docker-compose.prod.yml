@@ -1,0 +1,135 @@
+name: ${PROJECT_NAME:-app}-prod
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ${PROJECT_NAME:-app}-db-prod
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # 警告：此處直接映射 Port 5432。若使用 AWS 安全群組，請務必限縮來源 IP。
+    # 更安全的替代方案：移除此處 ports 宣告，改用 SSH Port Forwarding 連線資料庫：
+    # ssh -L 5432:localhost:5432 -i your-key.pem ubuntu@your-ec2-ip
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network-prod
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${PROJECT_NAME:-app}-redis-prod
+    # Redis 僅限內部通訊使用，不對外暴露 Port
+    restart: unless-stopped
+    networks:
+      - app-network-prod
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  app:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.prod
+    container_name: ${PROJECT_NAME:-app}-api-prod
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network-prod
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--spider', 'http://localhost:3000/']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile.prod
+    container_name: ${PROJECT_NAME:-app}-web-prod
+    ports:
+      - '3001:3001'
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - API_URL=http://app:3000/api/v1
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--spider', 'http://localhost:3001/']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - app-network-prod
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+volumes:
+  postgres_data_prod:
+    name: ${PROJECT_NAME:-app}_postgres_data_prod
+
+networks:
+  app-network-prod:
+    name: ${PROJECT_NAME:-app}_network_prod
+    driver: bridge

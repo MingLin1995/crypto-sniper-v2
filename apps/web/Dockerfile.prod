@@ -1,0 +1,37 @@
+# Build stage
+FROM oven/bun:1-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json bun.lock* ./
+RUN bun install --frozen-lockfile
+
+COPY . .
+RUN bun run build
+
+# Production stage
+FROM oven/bun:1-alpine
+
+WORKDIR /app
+
+# 建立非 root 使用者
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
+
+# Install netcat (optional but useful for consistency)
+RUN apk add --no-cache netcat-openbsd
+
+COPY --chown=nextjs:nodejs package.json bun.lock* ./
+RUN bun install --frozen-lockfile --production
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+
+USER nextjs
+
+EXPOSE 3001
+ENV PORT=3001
+ENV NODE_ENV=production
+
+CMD ["bun", "run", "start"]

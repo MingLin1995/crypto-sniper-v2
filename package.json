@@ -1,0 +1,21 @@
+{
+  "name": "crypto-sniper-v2",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "bun@1.3.3",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "./dev.sh",
+    "dev:local": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.ts\" \"**/*.tsx\" \"**/*.js\" \"**/*.jsx\""
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "prettier": "^3.8.0"
+  }
+}

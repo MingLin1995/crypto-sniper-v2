@@ -12,7 +12,8 @@
     "dev": "./dev.sh",
     "dev:local": "turbo run dev",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.ts\" \"**/*.tsx\" \"**/*.js\" \"**/*.jsx\""
+    "format": "prettier --write \"**/*.ts\" \"**/*.tsx\" \"**/*.js\" \"**/*.jsx\"",
+    "test": "turbo run test"
   },
   "devDependencies": {
     "turbo": "^2.0.0",

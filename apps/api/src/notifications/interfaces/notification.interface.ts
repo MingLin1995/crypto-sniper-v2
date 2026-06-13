@@ -10,7 +10,8 @@ export enum RecipientType {
 export enum NotificationChannel {
   EMAIL = 'EMAIL',
   SMS = 'SMS',
-  LINE = 'LINE',
+  TELEGRAM = 'TELEGRAM',
+  DISCORD = 'DISCORD',
 }
 
 export interface NotificationPayload {
@@ -19,7 +20,8 @@ export interface NotificationPayload {
   recipient: {
     email?: string;
     phone?: string;
-    lineUserId?: string;
+    telegramChatId?: string;
+    discordWebhook?: string;
   };
   data: NotificationData;
   channels?: NotificationChannel[];
@@ -30,7 +32,8 @@ export interface NotificationData {
   role: string;
   email?: string;
   phone?: string;
-  lineUserId?: string;
+  telegramChatId?: string;
+  discordWebhook?: string;
 }
 
 export interface NotificationService {

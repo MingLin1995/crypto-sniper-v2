@@ -18,7 +18,7 @@ export class AuthService {
   async validateUser(loginDto: LoginDto): Promise<AuthenticatedUser> {
     const user = await this.usersService.findByAccount(loginDto.account);
 
-    if (!user) {
+    if (!user || !user.password) {
       throw new UnauthorizedException('帳號或密碼錯誤');
     }
 

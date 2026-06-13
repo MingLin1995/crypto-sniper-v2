@@ -17,13 +17,22 @@ model SystemConfig {
 model User {
   id         String   @id @default(uuid())
   account    String   @unique
-  password   String
+  password   String?  // 第三方免密登入時，密碼可為空
   role       String   @default("USER") // USER, ADMIN
-  email      String?
+  email      String?  @unique
   phone      String?
-  lineUserId String?
 
-  refreshTokens RefreshToken[]
+  // 第三方登入唯一 ID 綁定
+  googleId   String?  @unique
+  telegramId String?  @unique
+  discordId  String?  @unique
+
+  // 告警通知管道綁定
+  telegramChatId String?
+  discordWebhook String?
+
+  refreshTokens    RefreshToken[]
+  webSubscriptions WebSubscription[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -31,6 +40,7 @@ model User {
 
   @@index([deletedAt]) // 加速查詢未刪除的用戶
   @@index([account, deletedAt])
+  @@index([email, deletedAt])
 }
 
 model RefreshToken {
@@ -90,4 +100,28 @@ model SystemLog {
   @@index([userId])
   @@index([statusCode])
   @@index([level, createdAt])
+}
+
+// 瀏覽器 Web Push 訂閱資訊
+model WebSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// IP 黑名單列表
+model BlacklistedIp {
+  id        String   @id @default(uuid())
+  ip        String   @unique
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ip])
 }

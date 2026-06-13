@@ -28,6 +28,14 @@ export class UsersService {
       throw new ConflictException('帳號已存在');
     }
 
+    const existingEmail = await this.prisma.client.user.findUnique({
+      where: { email: registerDto.email },
+    });
+
+    if (existingEmail) {
+      throw new ConflictException('Email 已被使用');
+    }
+
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
     const userData = {
       ...registerDto,
@@ -37,6 +45,42 @@ export class UsersService {
 
     return this.prisma.client.user.create({
       data: userData,
+      omit: { password: true },
+    });
+  }
+
+  async createSocialUser(data: {
+    account: string;
+    email?: string;
+    googleId?: string;
+    telegramId?: string;
+    discordId?: string;
+  }) {
+    if (data.email) {
+      const existingEmail = await this.prisma.client.user.findUnique({
+        where: { email: data.email },
+      });
+      if (existingEmail) {
+        throw new ConflictException('Email 已被使用');
+      }
+    }
+
+    const existingUser = await this.prisma.client.user.findUnique({
+      where: { account: data.account },
+    });
+    if (existingUser) {
+      throw new ConflictException('帳號已存在');
+    }
+
+    return this.prisma.client.user.create({
+      data: {
+        account: data.account,
+        email: data.email,
+        googleId: data.googleId,
+        telegramId: data.telegramId,
+        discordId: data.discordId,
+        role: Role.USER,
+      },
       omit: { password: true },
     });
   }

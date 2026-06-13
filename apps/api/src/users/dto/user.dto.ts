@@ -22,23 +22,14 @@ export class UpdateUserDto {
   phone?: string;
 
   @ApiProperty({
-    description: 'LINE User ID',
-    example: 'U4af49806ea6bd.....',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  lineUserId?: string;
-
-  @ApiProperty({
     description: '密碼',
-    example: '000000',
+    example: '000000a1',
     required: false,
-    minLength: 6,
+    minLength: 8,
   })
   @IsString()
   @IsOptional()
-  @MinLength(6)
+  @MinLength(8)
   password?: string;
 }
 
@@ -58,8 +49,20 @@ export class UserResponseDto {
   @ApiProperty({ example: '0912345678', required: false, nullable: true })
   phone?: string;
 
-  @ApiProperty({ example: 'U4af49806ea6bd.....', required: false, nullable: true })
-  lineUserId?: string;
+  @ApiProperty({ example: 'google-id', required: false, nullable: true })
+  googleId?: string;
+
+  @ApiProperty({ example: 'telegram-id', required: false, nullable: true })
+  telegramId?: string;
+
+  @ApiProperty({ example: 'discord-id', required: false, nullable: true })
+  discordId?: string;
+
+  @ApiProperty({ example: 'telegram-chat-id', required: false, nullable: true })
+  telegramChatId?: string;
+
+  @ApiProperty({ example: 'discord-webhook-url', required: false, nullable: true })
+  discordWebhook?: string;
 
   @ApiProperty()
   createdAt!: Date;

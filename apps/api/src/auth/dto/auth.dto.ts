@@ -12,8 +12,8 @@ export class RegisterDto {
 
   @ApiProperty({
     description: '密碼',
-    example: '000000',
-    minLength: 6,
+    example: '000000a1',
+    minLength: 8,
   })
   @IsString()
   @IsNotEmpty()
@@ -26,11 +26,11 @@ export class RegisterDto {
   @ApiProperty({
     description: 'Email',
     example: 'user@example.com',
-    required: false,
+    required: true,
   })
   @IsEmail()
-  @IsOptional()
-  email?: string;
+  @IsNotEmpty()
+  email!: string;
 
   @ApiProperty({
     description: '電話',
@@ -40,15 +40,6 @@ export class RegisterDto {
   @IsString()
   @IsOptional()
   phone?: string;
-
-  @ApiProperty({
-    description: 'LINE User ID',
-    example: 'U4af49806ea6bd.....',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  lineUserId?: string;
 }
 
 export class LoginDto {

@@ -1,0 +1,52 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+  pull_request:
+    branches:
+      - dev
+      - main
+
+jobs:
+  test:
+    name: 執行單元測試與產生報告
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      checks: write # 必須允許 checks 寫入權限，用來建立測試報告 check runs
+
+    steps:
+      - name: 檢出專案程式碼
+        uses: actions/checkout@v4
+
+      - name: 安裝 Bun 環境
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.3
+
+      - name: 安裝 Monorepo 依賴套件
+        run: bun install --frozen-lockfile
+
+      - name: 重新產生 Prisma Client
+        run: bun --cwd apps/api prisma generate
+
+      - name: 執行 Jest 單元測試 (產生 JUnit XML)
+        working-directory: apps/api
+        run: bun run test -- --reporters=default --reporters=jest-junit
+        env:
+          JEST_JUNIT_OUTPUT_DIR: "."
+          JEST_JUNIT_OUTPUT_NAME: "junit.xml"
+        # 即使測試失敗也繼續，以便下一階段發布完整報告
+        continue-on-error: true
+
+      - name: 發布測試報告至 GitHub Action UI
+        uses: dorny/test-reporter@v1
+        with:
+          name: NestJS API 單元測試報告
+          path: apps/api/junit.xml
+          reporter: jest-junit
+          fail-on-error: true # 若有任何測試失敗，此 Step 也會判定為失敗，確保 CI 正常擋下錯誤

@@ -4,7 +4,11 @@ export interface AuthenticatedUser {
   role: string;
   email?: string | null;
   phone?: string | null;
-  lineUserId?: string | null;
+  googleId?: string | null;
+  telegramId?: string | null;
+  discordId?: string | null;
+  telegramChatId?: string | null;
+  discordWebhook?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

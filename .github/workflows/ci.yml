@@ -35,9 +35,9 @@ jobs:
         run: bun --cwd apps/api prisma generate
 
       - name: 執行 Jest 單元測試 (產生 JUnit XML)
-        run: bun run test -- --reporters=default --reporters=jest-junit
+        run: bun --cwd apps/api run test -- --reporters=default --reporters=jest-junit
         env:
-          JEST_JUNIT_OUTPUT_DIR: "./apps/api"
+          JEST_JUNIT_OUTPUT_DIR: "."
           JEST_JUNIT_OUTPUT_NAME: "junit.xml"
         # 即使測試失敗也繼續，以便下一階段發布完整報告
         continue-on-error: true
@@ -48,4 +48,4 @@ jobs:
           name: NestJS API 單元測試報告
           path: apps/api/junit.xml
           reporter: jest-junit
-          fail-on-error: true # 若有任何測試失敗，此 Step 也會判定為失敗，確保 CI 正常檔下錯誤
+          fail-on-error: true # 若有任何測試失敗，此 Step 也會判定為失敗，確保 CI 正常擋下錯誤

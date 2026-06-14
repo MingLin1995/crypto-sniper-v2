@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { RefreshTokenStrategy } from './refresh-token.strategy';
+import { TelegramBotService } from './telegram-bot.service';
 import { UsersModule } from '../users/users.module';
 import type { StringValue } from 'ms';
 
@@ -24,7 +25,7 @@ import type { StringValue } from 'ms';
     UsersModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, RefreshTokenStrategy],
-  exports: [AuthService],
+  providers: [AuthService, JwtStrategy, RefreshTokenStrategy, TelegramBotService],
+  exports: [AuthService, TelegramBotService],
 })
 export class AuthModule { }

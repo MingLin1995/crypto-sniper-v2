@@ -1,6 +1,6 @@
-# 第三方服務註冊與金鑰設定指南 (Google, Discord, Telegram, Web Push)
+# 第三方服務註冊與 API 金鑰設定指南 (Google, Discord, Telegram, Web Push, SMTP)
 
-本指南說明如何為 **CryptoSniper v2** 的第三方登入、帳號綁定以及通知管道（Sub-task 1.4）申請所需的 API 金鑰與相關設定。
+本指南說明如何為 **CryptoSniper v2** 的第三方登入、帳號綁定、Email 驗證碼以及通知管道申請所需的 API 金鑰與相關設定。
 
 ---
 
@@ -107,9 +107,15 @@ Telegram 的綁定與通知機制是透過 **Telegram Bot** 來實現：
    - 建立成功後，`@BotFather` 會提供一串 **API Token**（例如：`1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ`）。
 
 2. **啟用 Widget 登入 (選用)**
-   - 如果您希望在網頁上直接放「Telegram 登入按鈕」，需要向 `@BotFather` 註冊網域：
-     - 發送 `/setdomain` 給 `@BotFather`。
-     - 選擇您的機器人，並輸入網域（本機開發為 `localhost` 或包含連接埠，如 `http://localhost:3001` 或使用 ngrok 穿透的網址）。
+   - 如果您希望在網頁上直接放「Telegram 登入按鈕」，需要向 `@BotFather` 註冊網域。
+   - **重要限制**：
+     - Telegram `/setdomain` 只接受**純網域**（例如 `localhost` 或 `your-ngrok-domain.ngrok-free.app`），**不能包含協議 (`http://` 或 `https://`)，也不能包含通訊埠（Port，例如 `:3001`）**。
+     - 由於 Telegram Widget 載入時會嚴格驗證瀏覽器地址列的 Origin，而瀏覽器的 `localhost:3001` 在 Telegram 看來與 `localhost` 不匹配，因此**直接在 `localhost:3001` 測試會顯示 `Bot domain invalid`**。
+   - **本地開發的測試方式 (使用 ngrok)**：
+     1. 發送 `/setdomain` 給 `@BotFather`。
+     2. 選擇您的機器人，輸入您的 ngrok 網域（例如：`your-ngrok-domain.ngrok-free.app`）。
+     3. 啟動 ngrok 將流量導向您的前端埠（如 `ngrok http 3001`）。
+     4. **關鍵**：您必須透過 `https://your-ngrok-domain.ngrok-free.app/login` 訪問網頁，不能使用 `localhost:3001`。這樣 Widget 就能比對成功並正常運作。
 
 ### `.env` 設定項目：
 
@@ -149,3 +155,36 @@ VAPID_PUBLIC_KEY=你的WebPush公鑰
 VAPID_PRIVATE_KEY=你的WebPush私鑰
 VAPID_SUBJECT=mailto:你的聯絡電子信箱 (例如 mailto:your-email@example.com)
 ```
+
+---
+
+## 5. Gmail SMTP 與應用程式密碼設定 (用於 Email 驗證碼發送)
+
+在註冊時發送驗證信需要使用 SMTP 伺服器。如果是使用個人 Gmail 帳號發送，必須啟用「兩步驟驗證」並產生「應用程式密碼」。
+
+### 申請與設定步驟：
+
+1. **啟用 Google 帳號的「兩步驟驗證」**
+   - 登入並進入 [Google 帳戶管理](https://myaccount.google.com/)。
+   - 點擊左側選單的 **「安全性 (Security)」**。
+   - 在「如何登入 Google」區塊中，點擊 **「兩步驟驗證 (2-Step Verification)」**，並依指示啟用。
+
+2. **建立應用程式密碼 (App Password)**
+   - 啟用兩步驟驗證後，回到「安全性」頁面，再次進入「兩步驟驗證」頁面。
+   - 滾動到頁面最下方，會看到 **「應用程式密碼 (App passwords)」**（如果沒看到，可直接在上方搜尋框搜尋「應用程式密碼」）。
+   - 輸入密碼名稱（例如 `CryptoSniper`），然後點擊 **「建立 (Create)」**。
+   - 系統會彈出一個視窗，顯示一串 **16 字元的密碼**（例如：`abcd efgh ijkl mnop`）。
+   - **請立即複製此密碼**（關閉視窗後將無法再次查看）。
+
+3. **填入設定值**
+   - 將剛才複製的 16 字元密碼（**去除中間的空白字元**，合併為 16 位字母）填入 `.env` 中的 `SMTP_PASS`。
+
+### `.env` 設定項目：
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=你的Gmail信箱 (例如 your-email@gmail.com)
+SMTP_PASS=你的16位應用程式密碼 (不含空白，例如 abcdefghijklmnop)
+```
+

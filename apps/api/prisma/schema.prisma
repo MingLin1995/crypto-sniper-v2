@@ -16,11 +16,10 @@ model SystemConfig {
 
 model User {
   id         String   @id @default(uuid())
-  account    String   @unique
+  nickname   String
   password   String?  // 第三方免密登入時，密碼可為空
   role       String   @default("USER") // USER, ADMIN
   email      String?  @unique
-  phone      String?
 
   // 第三方登入唯一 ID 綁定
   googleId   String?  @unique
@@ -39,7 +38,7 @@ model User {
   deletedAt DateTime? // 軟刪除：NULL 表示未刪除，有值表示已刪除
 
   @@index([deletedAt]) // 加速查詢未刪除的用戶
-  @@index([account, deletedAt])
+  @@index([nickname, deletedAt])
   @@index([email, deletedAt])
 }
 

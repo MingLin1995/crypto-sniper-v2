@@ -20,6 +20,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Public } from '../common/decorators/public.decorator';
 import { RefreshTokenGuard } from './refresh-token.guard';
 import { LoginDto, RegisterDto, AuthResponseDto, LogoutResponseDto } from './dto/auth.dto';
+import { SendVerificationEmailDto } from './dto/email-verification.dto';
 import { TelegramWidgetLoginDto } from './dto/oauth.dto';
 import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
@@ -86,6 +87,14 @@ export class AuthController {
 
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Post('send-verification-email')
+  @ApiOperation({ summary: '發送註冊 Email 驗證碼' })
+  async sendVerificationEmail(@Body() sendEmailDto: SendVerificationEmailDto) {
+    return this.authService.sendVerificationEmail(sendEmailDto.email);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('register')
   @ApiOperation({ summary: '註冊' })
   @ApiBody({ type: RegisterDto })
@@ -144,7 +153,21 @@ export class AuthController {
     @Res() res: Response,
   ) {
     const state = crypto.randomUUID();
+    const referer = req.headers.referer;
+    let origin = '';
+    if (referer) {
+      try {
+        const refUrl = new URL(referer);
+        origin = `${refUrl.protocol}//${refUrl.host}`;
+      } catch (e) {
+        // ignore
+      }
+    }
+
     const stateData: any = { action };
+    if (origin) {
+      stateData.origin = origin;
+    }
 
     if (action === 'link') {
       const userId = this.getUserIdFromRequest(req);
@@ -173,7 +196,8 @@ export class AuthController {
     @Query('state') state: string,
     @Res() res: Response,
   ) {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    const defaultFrontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    let frontendUrl = defaultFrontendUrl;
     
     if (!code || !state) {
       return res.redirect(`${frontendUrl}/profile?status=error&message=${encodeURIComponent('缺少 code 或 state 參數')}`);
@@ -181,11 +205,13 @@ export class AuthController {
 
     const redis = this.redisService.getClient();
     const stateDataStr = await redis.get(`oauth_state:${state}`);
+    
     if (!stateDataStr) {
-      return res.redirect(`${frontendUrl}/profile?status=error&message=${encodeURIComponent('驗證時效已過期')}`);
+      return res.redirect(`${defaultFrontendUrl}/profile?status=error&message=${encodeURIComponent('驗證時效已過期或無效的 state')}`);
     }
 
     const stateData = JSON.parse(stateDataStr);
+    frontendUrl = stateData.origin || defaultFrontendUrl;
     await redis.del(`oauth_state:${state}`);
 
     try {
@@ -228,7 +254,21 @@ export class AuthController {
     @Res() res: Response,
   ) {
     const state = crypto.randomUUID();
+    const referer = req.headers.referer;
+    let origin = '';
+    if (referer) {
+      try {
+        const refUrl = new URL(referer);
+        origin = `${refUrl.protocol}//${refUrl.host}`;
+      } catch (e) {
+        // ignore
+      }
+    }
+
     const stateData: any = { action };
+    if (origin) {
+      stateData.origin = origin;
+    }
 
     if (action === 'link') {
       const userId = this.getUserIdFromRequest(req);
@@ -257,7 +297,8 @@ export class AuthController {
     @Query('state') state: string,
     @Res() res: Response,
   ) {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    const defaultFrontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    let frontendUrl = defaultFrontendUrl;
 
     if (!code || !state) {
       return res.redirect(`${frontendUrl}/profile?status=error&message=${encodeURIComponent('缺少 code 或 state 參數')}`);
@@ -265,11 +306,13 @@ export class AuthController {
 
     const redis = this.redisService.getClient();
     const stateDataStr = await redis.get(`oauth_state:${state}`);
+    
     if (!stateDataStr) {
-      return res.redirect(`${frontendUrl}/profile?status=error&message=${encodeURIComponent('驗證時效已過期')}`);
+      return res.redirect(`${defaultFrontendUrl}/profile?status=error&message=${encodeURIComponent('驗證時效已過期或無效的 state')}`);
     }
 
     const stateData = JSON.parse(stateDataStr);
+    frontendUrl = stateData.origin || defaultFrontendUrl;
     await redis.del(`oauth_state:${state}`);
 
     try {

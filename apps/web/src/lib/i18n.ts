@@ -1,0 +1,138 @@
+export type Locale = "zh-TW" | "en-US";
+
+export const translations = {
+  "zh-TW": {
+    // Login
+    loginTitle: "登入 CryptoSniper",
+    loginDesc: "請輸入您的信箱密碼，或使用第三方服務登入",
+    email: "Email 信箱",
+    password: "密碼",
+    loginBtn: "信箱登入",
+    orOAuth: "或使用快速登入",
+    noAccount: "尚未擁有帳號？",
+    registerNow: "立即註冊",
+    
+    // Register
+    registerTitle: "建立新帳號",
+    registerDesc: "請輸入電子信箱、驗證信箱並設定密碼以完成註冊",
+    nickname: "暱稱",
+    code: "Email 驗證碼",
+    sendCode: "傳送驗證碼",
+    sending: "傳送中...",
+    registerBtn: "立即註冊",
+    hasAccount: "已經擁有帳號？",
+    loginLink: "點此登入",
+    
+    // Profile
+    profileTitle: "帳號設定中心",
+    profileDesc: "管理您的基本資料、第三方綁定與通知管道",
+    logoutBtn: "安全登出",
+    basicTitle: "個人基本資料",
+    basicDesc: "您的帳戶基本資訊",
+    emailLabel: "電子信箱 (登入帳號)",
+    nicknameLabel: "帳號暱稱",
+    roleLabel: "角色權限",
+    createdAtLabel: "加入時間",
+    oauthTitle: "第三方帳號綁定",
+    oauthDesc: "連結您的社交平台，以便快速登入並接收即時策略告警。",
+    unlinkBtn: "解除綁定",
+    linkBtn: "連結帳號",
+    googleAccount: "Google 帳號",
+    discordAccount: "Discord 帳號",
+    telegramAccount: "Telegram 通知與綁定",
+    tgBoundDesc: "已連結 (ID: {id})",
+    googleBoundDesc: "已連結 (ID: {id})",
+    discordBoundDesc: "已連結 (ID: {id})",
+    tgUnboundDesc: "尚未連結 Telegram，連結後可啟用即時 Telegram 告警通知",
+    tgMethodA: "一鍵綁定",
+    tgMethodB: "機器人綁定",
+    getBotLink: "獲取 Bot 綁定連結",
+    openBot: "開啟 Telegram Bot",
+    botGuidance: "請於 Bot 聊天室點擊「開始 (Start)」，此頁面將自動檢測完成綁定。",
+    
+    // Notifications / Alerts
+    unlinkedMsg: "已解除 {provider} 的連結。",
+    linkedMsg: "成功連結 {provider} 帳號！",
+    errorMsg: "發生錯誤：{msg}",
+    successMsg: "成功！",
+    loginSuccess: "登入成功！正在跳轉...",
+    registerSuccess: "註冊成功！正在為您導向登入頁面...",
+    
+    // Validation
+    enterAllFields: "請填寫所有欄位",
+    enterEmailFirst: "請先輸入電子信箱",
+    invalidEmail: "請輸入正確格式的電子信箱",
+    enterCode: "請輸入 6 位數驗證碼",
+    invalidCode: "請輸入 6 位數驗證碼",
+    invalidPassword: "密碼必須至少包含一個英文字母和一個數字，且長度至少 8 碼",
+    codeSent: "驗證碼已發送至您的信箱",
+    enterNickname: "請輸入您的暱稱"
+  },
+  "en-US": {
+    // Login
+    loginTitle: "Login to CryptoSniper",
+    loginDesc: "Please enter your email and password, or login with social accounts",
+    email: "Email Address",
+    password: "Password",
+    loginBtn: "Email Login",
+    orOAuth: "Or Login With",
+    noAccount: "Don't have an account?",
+    registerNow: "Register now",
+    
+    // Register
+    registerTitle: "Create New Account",
+    registerDesc: "Enter your email, verify it, and set a password to register",
+    nickname: "Nickname",
+    code: "Email Code",
+    sendCode: "Send Code",
+    sending: "Sending...",
+    registerBtn: "Register Now",
+    hasAccount: "Already have an account?",
+    loginLink: "Login here",
+    
+    // Profile
+    profileTitle: "Account Settings",
+    profileDesc: "Manage your profile, linked accounts, and notifications",
+    logoutBtn: "Log Out",
+    basicTitle: "Basic Profile",
+    basicDesc: "Your account credentials and details",
+    emailLabel: "Email (Login ID)",
+    nicknameLabel: "Nickname",
+    roleLabel: "Role / Permission",
+    createdAtLabel: "Joined Date",
+    oauthTitle: "Linked Social Accounts",
+    oauthDesc: "Connect your social profiles to login faster and receive instant alerts.",
+    unlinkBtn: "Unlink",
+    linkBtn: "Link Account",
+    googleAccount: "Google Account",
+    discordAccount: "Discord Account",
+    telegramAccount: "Telegram Alerts",
+    tgBoundDesc: "Linked (ID: {id})",
+    googleBoundDesc: "Linked (ID: {id})",
+    discordBoundDesc: "Linked (ID: {id})",
+    tgUnboundDesc: "Not linked. Link to receive instant alert notifications.",
+    tgMethodA: "One-Click Link",
+    tgMethodB: "Bot Link",
+    getBotLink: "Get Bot Link",
+    openBot: "Open Telegram Bot",
+    botGuidance: "Click 'Start' inside the Bot chat, and this page will automatically detect the binding.",
+    
+    // Notifications / Alerts
+    unlinkedMsg: "Successfully unlinked {provider}.",
+    linkedMsg: "Successfully linked {provider}!",
+    errorMsg: "Error: {msg}",
+    successMsg: "Success!",
+    loginSuccess: "Login successful! Redirecting...",
+    registerSuccess: "Register successful! Redirecting to login...",
+    
+    // Validation
+    enterAllFields: "Please fill out all fields",
+    enterEmailFirst: "Please enter email first",
+    invalidEmail: "Please enter a valid email address",
+    enterCode: "Please enter a 6-digit verification code",
+    invalidCode: "Invalid 6-digit code format",
+    invalidPassword: "Password must be at least 8 characters long, containing letters and numbers",
+    codeSent: "Verification code sent to your email",
+    enterNickname: "Please enter your nickname"
+  }
+};

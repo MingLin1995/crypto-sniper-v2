@@ -4,7 +4,7 @@ import { PaginationMetaDto } from '../../common/dto/paginated-response.dto';
 
 export class UpdateUserDto {
   @ApiProperty({
-    description: 'Email',
+    description: 'Email 電子信箱',
     example: 'user@example.com',
     required: false,
   })
@@ -13,13 +13,13 @@ export class UpdateUserDto {
   email?: string;
 
   @ApiProperty({
-    description: '電話',
-    example: '0912345678',
+    description: '使用者暱稱',
+    example: '新暱稱',
     required: false,
   })
   @IsString()
   @IsOptional()
-  phone?: string;
+  nickname?: string;
 
   @ApiProperty({
     description: '密碼',
@@ -37,32 +37,29 @@ export class UserResponseDto {
   @ApiProperty({ example: 'uuid-string' })
   id!: string;
 
-  @ApiProperty({ example: 'user001' })
-  account!: string;
+  @ApiProperty({ example: '小明' })
+  nickname!: string;
 
   @ApiProperty({ example: 'USER' })
   role!: string;
 
   @ApiProperty({ example: 'user@example.com', required: false, nullable: true })
-  email?: string;
-
-  @ApiProperty({ example: '0912345678', required: false, nullable: true })
-  phone?: string;
+  email?: string | null;
 
   @ApiProperty({ example: 'google-id', required: false, nullable: true })
-  googleId?: string;
+  googleId?: string | null;
 
   @ApiProperty({ example: 'telegram-id', required: false, nullable: true })
-  telegramId?: string;
+  telegramId?: string | null;
 
   @ApiProperty({ example: 'discord-id', required: false, nullable: true })
-  discordId?: string;
+  discordId?: string | null;
 
   @ApiProperty({ example: 'telegram-chat-id', required: false, nullable: true })
-  telegramChatId?: string;
+  telegramChatId?: string | null;
 
   @ApiProperty({ example: 'discord-webhook-url', required: false, nullable: true })
-  discordWebhook?: string;
+  discordWebhook?: string | null;
 
   @ApiProperty()
   createdAt!: Date;

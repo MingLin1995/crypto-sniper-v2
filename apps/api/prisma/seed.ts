@@ -34,15 +34,18 @@ async function seedAdminAccounts() {
 
   const defaultAdmins = [
     {
-      account: process.env.ADMIN_ACCOUNT_1 || 'admin001',
+      email: process.env.ADMIN_EMAIL_1 || 'admin001@example.com',
+      nickname: process.env.ADMIN_NICKNAME_1 || 'admin001',
       password: process.env.ADMIN_PASSWORD_1 || '000000',
     },
     {
-      account: process.env.ADMIN_ACCOUNT_2 || 'admin002',
+      email: process.env.ADMIN_EMAIL_2 || 'admin002@example.com',
+      nickname: process.env.ADMIN_NICKNAME_2 || 'admin002',
       password: process.env.ADMIN_PASSWORD_2 || '000000',
     },
     {
-      account: process.env.ADMIN_ACCOUNT_3 || 'admin003',
+      email: process.env.ADMIN_EMAIL_3 || 'admin003@example.com',
+      nickname: process.env.ADMIN_NICKNAME_3 || 'admin003',
       password: process.env.ADMIN_PASSWORD_3 || '000000',
     },
   ];
@@ -50,23 +53,24 @@ async function seedAdminAccounts() {
   await prisma.$transaction(async (tx) => {
     for (const admin of defaultAdmins) {
       const existingUser = await tx.user.findUnique({
-        where: { account: admin.account },
+        where: { email: admin.email },
       });
 
       if (existingUser) {
-        console.info(`Admin account ${admin.account} already exists, skipping.`);
+        console.info(`Admin account ${admin.email} already exists, skipping.`);
         continue;
       }
 
       const hashedPassword = await bcrypt.hash(admin.password, 10);
       await tx.user.create({
         data: {
-          account: admin.account,
+          email: admin.email,
+          nickname: admin.nickname,
           password: hashedPassword,
           role: 'ADMIN',
         },
       });
-      console.info(`Admin account ${admin.account} created successfully.`);
+      console.info(`Admin account ${admin.email} created successfully.`);
     }
 
     await tx.systemConfig.create({

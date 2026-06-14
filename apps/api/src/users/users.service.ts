@@ -17,6 +17,9 @@ export class UsersService {
       where: {
         email,
       },
+      omit: {
+        password: false,
+      },
     });
   }
 
@@ -39,43 +42,12 @@ export class UsersService {
 
     return this.prisma.client.user.create({
       data: userData,
-      omit: { password: true },
-    });
-  }
-
-  async createSocialUser(data: {
-    nickname: string;
-    email?: string;
-    googleId?: string;
-    telegramId?: string;
-    discordId?: string;
-  }) {
-    if (data.email) {
-      const existingEmail = await this.prisma.client.user.findUnique({
-        where: { email: data.email },
-      });
-      if (existingEmail) {
-        throw new ConflictException('Email 已被使用');
-      }
-    }
-
-    return this.prisma.client.user.create({
-      data: {
-        nickname: data.nickname,
-        email: data.email || null,
-        googleId: data.googleId,
-        telegramId: data.telegramId,
-        discordId: data.discordId,
-        role: Role.USER,
-      },
-      omit: { password: true },
     });
   }
 
   async findOne(id: string) {
     const user = await this.prisma.client.user.findFirst({
       where: { id, },
-      omit: { password: true },
     });
 
     if (!user) {
@@ -114,7 +86,6 @@ export class UsersService {
         where,
         skip,
         take,
-        omit: { password: true },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.client.user.count({ where }),
@@ -142,7 +113,6 @@ export class UsersService {
     return this.prisma.client.user.update({
       where: { id },
       data: dataToUpdate,
-      omit: { password: true },
     });
   }
 

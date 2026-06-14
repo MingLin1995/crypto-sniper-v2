@@ -1,6 +1,7 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { LoggerService, LogLevel, LogType } from '../logger/logger.service';
+import { maskSensitiveData } from '../utils/mask-sensitive.helper';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -47,7 +48,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       method,
       url,
       statusCode: status,
-      requestBody: body,
+      requestBody: maskSensitiveData(body),
       requestParams: params,
       requestQuery: query,
       clientIp: ip,

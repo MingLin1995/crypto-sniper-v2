@@ -1,18 +1,15 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Public } from './common/decorators/public.decorator';
-import * as fs from 'fs';
-import * as path from 'path';
+import { ConfigService } from '@nestjs/config';
 
 @ApiTags('API Check')
 @Controller()
 export class AppController {
   private readonly appVersion: string;
 
-  constructor() {
-    const packageJsonPath = path.resolve(__dirname, '../../package.json');
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    this.appVersion = packageJson.version;
+  constructor(private readonly configService: ConfigService) {
+    this.appVersion = this.configService.get<string>('APP_VERSION') || '1.0.0';
   }
 
   @Public()

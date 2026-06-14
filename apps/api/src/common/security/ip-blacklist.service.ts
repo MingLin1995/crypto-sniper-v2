@@ -1,28 +1,38 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ExtendedPrismaService } from '../prisma/extended-prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { PaginationDto } from '../dto/pagination.dto';
+import { calculatePagination, createPaginatedResponse } from '../utils/pagination.helper';
 
 @Injectable()
-export class IpBlacklistService {
+export class IpBlacklistService implements OnModuleInit {
   private readonly logger = new Logger(IpBlacklistService.name);
   private readonly INITIALIZED_KEY = 'security:blacklist:initialized';
   private readonly BLACKLIST_SET_KEY = 'security:blacklist:ips';
+  private isInitializedInMemory = false;
 
   constructor(
     private readonly prisma: ExtendedPrismaService,
     private readonly redisService: RedisService,
   ) {}
 
+  async onModuleInit() {
+    await this.initializeCache();
+  }
+
   /**
    * 從資料庫初始化 Redis 黑名單快取（若尚未初始化）。
    * 自我修復機制：於快取失效或模組啟動時執行。
    */
-  async initializeCache(): Promise<void> {
+  async initializeCache(force = false): Promise<void> {
+    if (this.isInitializedInMemory && !force) {
+      return;
+    }
     try {
       const redis = this.redisService.getClient();
       const isInitialized = await redis.get(this.INITIALIZED_KEY);
 
-      if (!isInitialized) {
+      if (!isInitialized || force) {
         this.logger.log('正在從資料庫初始化 IP 黑名單快取...');
         
         // 自 Postgres 取得所有被封鎖的 IP
@@ -42,6 +52,7 @@ export class IpBlacklistService {
         await redis.set(this.INITIALIZED_KEY, '1');
         this.logger.log(`IP 黑名單快取初始化完成，共載入 ${ips.length} 筆 IP。`);
       }
+      this.isInitializedInMemory = true;
     } catch (error) {
       this.logger.error('初始化 IP 黑名單快取失敗：', error);
       // 不阻斷請求流程；若 Redis 失敗則改由 DB 查詢。
@@ -55,7 +66,9 @@ export class IpBlacklistService {
     if (!ip) return false;
 
     // 確保快取已完成初始化
-    await this.initializeCache();
+    if (!this.isInitializedInMemory) {
+      await this.initializeCache();
+    }
 
     try {
       const redis = this.redisService.getClient();
@@ -91,6 +104,7 @@ export class IpBlacklistService {
       const redis = this.redisService.getClient();
       await redis.sadd(this.BLACKLIST_SET_KEY, ip);
       await redis.set(this.INITIALIZED_KEY, '1'); // 確保標記為已初始化
+      this.isInitializedInMemory = true;
     } catch (error) {
       this.logger.error(`封鎖 IP ${ip} 後更新 Redis 快取失敗：`, error);
     }
@@ -128,26 +142,20 @@ export class IpBlacklistService {
   /**
    * 分頁查詢所有黑名單 IP。
    */
-  async getBlacklistedIps(page: number = 1, limit: number = 10) {
-    const skip = (page - 1) * limit;
+  async getBlacklistedIps(paginationDto: PaginationDto) {
+    const { skip, take } = calculatePagination(paginationDto);
+    const page = paginationDto.page ?? 1;
+    const limit = paginationDto.limit ?? 10;
 
     const [data, total] = await Promise.all([
       this.prisma.client.blacklistedIp.findMany({
         skip,
-        take: limit,
+        take,
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.client.blacklistedIp.count(),
     ]);
 
-    return {
-      data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    return createPaginatedResponse(data, page, limit, total);
   }
 }

@@ -5,6 +5,8 @@ import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { JwtPayload } from './interfaces/auth.interface';
 
+import { JWT_CONFIG } from '../common/config/jwt.config';
+
 @Injectable()
 export class RefreshTokenStrategy extends PassportStrategy(
     Strategy,
@@ -18,7 +20,7 @@ export class RefreshTokenStrategy extends PassportStrategy(
                 },
                 ExtractJwt.fromAuthHeaderAsBearerToken(),
             ]),
-            secretOrKey: configService.get<string>('JWT_REFRESH_SECRET') || 'your-refresh-secret-key',
+            secretOrKey: configService.get<string>('JWT_REFRESH_SECRET') || JWT_CONFIG.REFRESH_SECRET_FALLBACK,
             passReqToCallback: true,
         });
     }

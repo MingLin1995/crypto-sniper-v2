@@ -13,6 +13,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam } from '@nestjs/swagger'
 import { IpBlacklistService } from './ip-blacklist.service';
 import { BlacklistIpDto } from './dto/blacklist-ip.dto';
 import { Roles, Role } from '../decorators/roles.decorator';
+import { PaginationDto } from '../dto/pagination.dto';
 
 @ApiTags('Admin Security')
 @ApiBearerAuth()
@@ -46,9 +47,7 @@ export class BlacklistIpController {
     summary: '查詢黑名單列表（ADMIN）',
     description: '分頁查詢目前系統封鎖的所有 IP 列表。',
   })
-  async getBlacklistedIps(@Query('page') page?: string, @Query('limit') limit?: string) {
-    const pageNum = page ? parseInt(page, 10) : 1;
-    const limitNum = limit ? parseInt(limit, 10) : 10;
-    return this.ipBlacklistService.getBlacklistedIps(pageNum, limitNum);
+  async getBlacklistedIps(@Query() query: PaginationDto) {
+    return this.ipBlacklistService.getBlacklistedIps(query);
   }
 }

@@ -77,36 +77,4 @@ describe('UsersService (使用者服務)', () => {
       await expect(service.create(registerDto)).rejects.toThrow(ConflictException);
     });
   });
-
-  describe('createSocialUser (建立第三方快速登入使用者)', () => {
-    const socialUserData = {
-      nickname: 'google_user',
-      email: 'google@example.com',
-      googleId: 'google-12345',
-    };
-
-    it('應該要能成功建立不帶密碼的第三方使用者', async () => {
-      mockPrismaClient.user.findUnique.mockResolvedValueOnce(null); // 檢查 Email
-
-      mockPrismaClient.user.create.mockResolvedValue({
-        id: 'social-user-id',
-        nickname: 'google_user',
-        email: 'google@example.com',
-        googleId: 'google-12345',
-        role: Role.USER,
-      });
-
-      const result = await service.createSocialUser(socialUserData);
-
-      expect(mockPrismaClient.user.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            nickname: 'google_user',
-            googleId: 'google-12345',
-          }),
-        }),
-      );
-      expect(result).toHaveProperty('id', 'social-user-id');
-    });
-  });
 });

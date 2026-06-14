@@ -18,7 +18,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
 import { RedisModule } from './common/redis/redis.module';
 import { IpBlacklistModule } from './common/security/ip-blacklist.module';
 import { IpBlacklistMiddleware } from './common/security/ip-blacklist.middleware';
-// import { NotificationsModule } from './notifications/notifications.module';
+import { EmailModule } from './common/email/email.module';
 // 需要的套件：
 //   - Email: npm install @nestjs-modules/mailer@^2.0.1 nodemailer@^7.0.10
 //   - LINE:  npm install @line/bot-sdk@^9.5.0
@@ -33,6 +33,7 @@ import { IpBlacklistMiddleware } from './common/security/ip-blacklist.middleware
     PrismaModule,
     RedisModule,
     IpBlacklistModule,
+    EmailModule,
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // 60 ses
@@ -44,7 +45,6 @@ import { IpBlacklistMiddleware } from './common/security/ip-blacklist.middleware
     AuthModule,
     UsersModule,
     LogsModule,
-    // NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

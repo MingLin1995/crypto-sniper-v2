@@ -5,7 +5,7 @@
     "": {
       "name": "nestjs-project-template",
       "devDependencies": {
-        "prettier": "^3.8.0",
+        "prettier": "^3.8.4",
         "turbo": "^2.0.0",
       },
     },
@@ -63,7 +63,7 @@
         "inquirer": "^13.2.0",
         "jest": "^29.5.0",
         "jest-junit": "^17.0.0",
-        "prettier": "^3.8.0",
+        "prettier": "^3.8.4",
         "prisma": "^7.2.0",
         "source-map-support": "^0.5.21",
         "supertest": "^7.2.2",
@@ -1868,7 +1868,7 @@
 
     "prelude-ls": ["prelude-ls@1.2.1", "", {}, "sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g=="],
 
-    "prettier": ["prettier@3.8.0", "", { "bin": { "prettier": "bin/prettier.cjs" } }, "sha512-yEPsovQfpxYfgWNhCfECjG5AQaO+K3dp6XERmOepyPDVqcJm+bjyCVO3pmU+nAPe0N5dDvekfGezt/EIiRe1TA=="],
+    "prettier": ["prettier@3.8.4", "", { "bin": { "prettier": "bin/prettier.cjs" } }, "sha512-N2MylSdi48+5N/6S5j+maeHbUSIzzZ5uOcX5Hm4QpV8Dkb1HFjfAKTKX6yNPJQD9AhcT3ifHNB66tWTTJDi11Q=="],
 
     "prettier-linter-helpers": ["prettier-linter-helpers@1.0.1", "", { "dependencies": { "fast-diff": "^1.1.2" } }, "sha512-SxToR7P8Y2lWmv/kTzVLC1t/GDI2WGjMwNhLLE9qtH8Q13C+aEmuRlzDst4Up4s0Wc8sF2M+J57iB3cMLqftfg=="],
 

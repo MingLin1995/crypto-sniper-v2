@@ -19,6 +19,7 @@ import { RedisModule } from './common/redis/redis.module';
 import { IpBlacklistModule } from './common/security/ip-blacklist.module';
 import { IpBlacklistMiddleware } from './common/security/ip-blacklist.middleware';
 import { EmailModule } from './common/email/email.module';
+import { MarketModule } from './market/market.module';
 // 需要的套件：
 //   - Email: npm install @nestjs-modules/mailer@^2.0.1 nodemailer@^7.0.10
 //   - LINE:  npm install @line/bot-sdk@^9.5.0
@@ -45,6 +46,7 @@ import { EmailModule } from './common/email/email.module';
     AuthModule,
     UsersModule,
     LogsModule,
+    MarketModule,
   ],
   controllers: [AppController],
   providers: [
@@ -77,8 +79,6 @@ import { EmailModule } from './common/email/email.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(IpBlacklistMiddleware)
-      .forRoutes('*');
+    consumer.apply(IpBlacklistMiddleware).forRoutes('*');
   }
 }

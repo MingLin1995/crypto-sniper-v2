@@ -32,6 +32,8 @@ model User {
 
   refreshTokens    RefreshToken[]
   webSubscriptions WebSubscription[]
+  watchlists       WatchlistItem[]
+  savedStrategies  SavedStrategy[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -123,4 +125,30 @@ model BlacklistedIp {
   updatedAt DateTime @updatedAt
 
   @@index([ip])
+}
+
+// 追蹤清單 / 我的最愛
+model WatchlistItem {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, symbol])
+  @@index([userId])
+}
+
+// 儲存策略
+model SavedStrategy {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  config    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
 }

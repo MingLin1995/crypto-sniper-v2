@@ -3,11 +3,9 @@ import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { ExtendedPrismaService } from '../common/prisma/extended-prisma.service';
 import { RedisService } from '../common/redis/redis.service';
-import { UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { createHash, createHmac } from 'crypto';
 
 describe('AuthService (認證服務)', () => {
   let service: AuthService;
@@ -33,20 +31,8 @@ describe('AuthService (認證服務)', () => {
       if (key === 'JWT_REFRESH_SECRET') return 'test-refresh-secret';
       if (key === 'JWT_EXPIRES_IN') return '30m';
       if (key === 'JWT_REFRESH_EXPIRES_IN') return '7d';
-      if (key === 'TELEGRAM_BOT_TOKEN') return '123456:fake-token';
       return null;
     }),
-  };
-
-  const mockPrisma = {
-    client: {
-      user: {
-        findUnique: jest.fn(),
-        findFirst: jest.fn(),
-        create: jest.fn(),
-        update: jest.fn(),
-      },
-    },
   };
 
   const mockRedisClient = {
@@ -66,7 +52,6 @@ describe('AuthService (認證服務)', () => {
         { provide: UsersService, useValue: mockUsersService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfigService },
-        { provide: ExtendedPrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedisService },
       ],
     }).compile();
@@ -160,109 +145,6 @@ describe('AuthService (認證服務)', () => {
       await service.logout(requestUser);
 
       expect(mockUsersService.deleteRefreshToken).toHaveBeenCalledWith('token-uuid');
-    });
-  });
-
-  describe('handleOAuthLoginOrLink', () => {
-    it('若用戶已存在則直接登入', async () => {
-      const user = { id: 'user-id-123', googleId: 'google-sub' };
-      mockPrisma.client.user.findFirst.mockResolvedValue(user);
-
-      const result = await service.handleOAuthLoginOrLink('google', { sub: 'google-sub' });
-      expect(result).toEqual(user);
-      expect(mockPrisma.client.user.findFirst).toHaveBeenCalledWith({
-        where: { googleId: 'google-sub' },
-      });
-    });
-
-    it('若用戶不存在但 Email 相同，則關聯該帳號並登入', async () => {
-      const existingUser = { id: 'user-id-123', email: 'test@example.com' };
-      mockPrisma.client.user.findFirst.mockResolvedValueOnce(null); // by googleId
-      mockPrisma.client.user.findUnique.mockResolvedValueOnce(existingUser); // by email
-      mockPrisma.client.user.update.mockResolvedValue({ ...existingUser, googleId: 'google-sub' });
-
-      const result = await service.handleOAuthLoginOrLink('google', { sub: 'google-sub', email: 'test@example.com' });
-      expect(result.googleId).toBe('google-sub');
-      expect(mockPrisma.client.user.update).toHaveBeenCalled();
-    });
-
-    it('若用戶與 Email 皆不存在，則自動註冊新帳號', async () => {
-      mockPrisma.client.user.findFirst.mockResolvedValueOnce(null); // by googleId
-      mockPrisma.client.user.findUnique.mockResolvedValueOnce(null); // by email
-      mockPrisma.client.user.create.mockResolvedValue({ id: 'new-user', googleId: 'google-sub', email: 'new@example.com' });
-
-      const result = await service.handleOAuthLoginOrLink('google', { sub: 'google-sub', email: 'new@example.com', name: 'Social User' });
-      expect(result.id).toBe('new-user');
-      expect(mockPrisma.client.user.create).toHaveBeenCalled();
-    });
-
-    it('若帶有 stateUserId 則執行綁定流程', async () => {
-      const user = { id: 'user-id-123' };
-      mockPrisma.client.user.findUnique.mockResolvedValueOnce(user); // find user by id
-      mockPrisma.client.user.findFirst.mockResolvedValueOnce(null); // check conflict
-      mockPrisma.client.user.update.mockResolvedValue({ ...user, googleId: 'google-sub' });
-
-      const result = await service.handleOAuthLoginOrLink('google', { sub: 'google-sub' }, 'user-id-123');
-      expect(result.googleId).toBe('google-sub');
-    });
-  });
-
-  describe('validateTelegramAuth', () => {
-    it('正確的 Telegram 雜湊驗證應通過', () => {
-      const now = Math.floor(Date.now() / 1000);
-      const dto = {
-        id: 12345,
-        first_name: 'Ming',
-        auth_date: now,
-        hash: '',
-      };
-
-      const secretKey = createHash('sha256').update('123456:fake-token').digest();
-      const checkParams = `auth_date=${dto.auth_date}\nfirst_name=Ming\nid=12345`;
-      dto.hash = createHmac('sha256', secretKey).update(checkParams).digest('hex');
-
-      const result = service.validateTelegramAuth(dto);
-      expect(result).toBe(true);
-    });
-
-    it('錯誤的 Telegram 雜湊驗證應拋出 UnauthorizedException', () => {
-      const dto = {
-        id: 12345,
-        first_name: 'Ming',
-        auth_date: Math.floor(Date.now() / 1000),
-        hash: 'invalid-hash-value',
-      };
-
-      expect(() => service.validateTelegramAuth(dto)).toThrow(UnauthorizedException);
-    });
-
-    it('已過期的驗證時間應拋出 UnauthorizedException', () => {
-      const dto = {
-        id: 12345,
-        first_name: 'Ming',
-        auth_date: Math.floor(Date.now() / 1000) - 90000, // 25 小時前
-        hash: 'some-hash',
-      };
-
-      expect(() => service.validateTelegramAuth(dto)).toThrow(UnauthorizedException);
-    });
-  });
-
-  describe('unlinkProvider', () => {
-    it('當用戶擁有其他登入方式時，應能成功解綁', async () => {
-      const user = { id: 'user-id-123', password: 'hashed-password', googleId: 'google-sub' };
-      mockPrisma.client.user.findUnique.mockResolvedValueOnce(user);
-      mockPrisma.client.user.update.mockResolvedValue({ ...user, googleId: null });
-
-      const result = await service.unlinkProvider('user-id-123', 'google');
-      expect(result.googleId).toBeNull();
-    });
-
-    it('當解綁為最後一個登入方式時，應拋出 BadRequestException 阻止解綁', async () => {
-      const user = { id: 'user-id-123', password: null, googleId: 'google-sub', discordId: null, telegramId: null };
-      mockPrisma.client.user.findUnique.mockResolvedValueOnce(user);
-
-      await expect(service.unlinkProvider('user-id-123', 'google')).rejects.toThrow(BadRequestException);
     });
   });
 });

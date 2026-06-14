@@ -19,7 +19,6 @@ export interface NotificationPayload {
   recipientType: RecipientType;
   recipient: {
     email?: string;
-    phone?: string;
     telegramChatId?: string;
     discordWebhook?: string;
   };
@@ -28,10 +27,9 @@ export interface NotificationPayload {
 }
 
 export interface NotificationData {
-  account: string;
+  nickname: string;
   role: string;
   email?: string;
-  phone?: string;
   telegramChatId?: string;
   discordWebhook?: string;
 }

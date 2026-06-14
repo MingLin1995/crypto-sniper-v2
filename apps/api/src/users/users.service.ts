@@ -11,23 +11,16 @@ import { calculatePagination, createPaginatedResponse } from '../common/utils/pa
 @Injectable()
 export class UsersService {
   constructor(private prisma: ExtendedPrismaService) { }
-  async findByAccount(account: string) {
+
+  async findByEmail(email: string) {
     return this.prisma.client.user.findFirst({
       where: {
-        account,
+        email,
       },
     });
   }
 
-  async create(registerDto: RegisterDto) {
-    const existingUser = await this.prisma.client.user.findUnique({
-      where: { account: registerDto.account },
-    });
-
-    if (existingUser) {
-      throw new ConflictException('帳號已存在');
-    }
-
+  async create(registerDto: Omit<RegisterDto, 'code'>) {
     const existingEmail = await this.prisma.client.user.findUnique({
       where: { email: registerDto.email },
     });
@@ -38,7 +31,8 @@ export class UsersService {
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
     const userData = {
-      ...registerDto,
+      email: registerDto.email,
+      nickname: registerDto.nickname,
       password: hashedPassword,
       role: Role.USER,
     };
@@ -50,7 +44,7 @@ export class UsersService {
   }
 
   async createSocialUser(data: {
-    account: string;
+    nickname: string;
     email?: string;
     googleId?: string;
     telegramId?: string;
@@ -65,17 +59,10 @@ export class UsersService {
       }
     }
 
-    const existingUser = await this.prisma.client.user.findUnique({
-      where: { account: data.account },
-    });
-    if (existingUser) {
-      throw new ConflictException('帳號已存在');
-    }
-
     return this.prisma.client.user.create({
       data: {
-        account: data.account,
-        email: data.email,
+        nickname: data.nickname,
+        email: data.email || null,
         googleId: data.googleId,
         telegramId: data.telegramId,
         discordId: data.discordId,
@@ -104,24 +91,18 @@ export class UsersService {
     const limit = queryDto.limit ?? 10;
 
     const where: Prisma.UserWhereInput = {
-      // 帳號搜尋（模糊搜尋，不區分大小寫）
-      ...(queryDto.account && {
-        account: {
-          contains: queryDto.account,
+      // 暱稱搜尋
+      ...(queryDto.nickname && {
+        nickname: {
+          contains: queryDto.nickname,
           mode: 'insensitive',
         },
       }),
-      // Email 搜尋（模糊搜尋，不區分大小寫）
+      // Email 搜尋
       ...(queryDto.email && {
         email: {
           contains: queryDto.email,
           mode: 'insensitive',
-        },
-      }),
-      // 電話搜尋（模糊搜尋）
-      ...(queryDto.phone && {
-        phone: {
-          contains: queryDto.phone,
         },
       }),
       // 角色篩選
@@ -174,11 +155,12 @@ export class UsersService {
       throw new NotFoundException(`用戶不存在`);
     }
 
+    // 軟刪除：更新 deletedAt，並修改 email 以避免佔用唯一鍵
     await this.prisma.client.user.update({
       where: { id },
       data: {
         deletedAt: new Date(),
-        account: `${user.account}_deleted_${Date.now()}`,
+        email: user.email ? `${user.email}_deleted_${Date.now()}` : null,
       },
     });
 

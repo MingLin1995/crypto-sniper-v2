@@ -5,12 +5,12 @@ import { Role } from '../../common/decorators/roles.decorator';
 
 export class UserQueryDto extends PaginationDto {
   @ApiPropertyOptional({
-    description: '搜尋帳號（模糊搜尋，不區分大小寫）',
-    example: 'user001',
+    description: '搜尋暱稱（模糊搜尋，不區分大小寫）',
+    example: '小明',
   })
   @IsOptional()
   @IsString()
-  account?: string;
+  nickname?: string;
 
   @ApiPropertyOptional({
     description: '搜尋 Email（模糊搜尋，不區分大小寫）',
@@ -19,14 +19,6 @@ export class UserQueryDto extends PaginationDto {
   @IsOptional()
   @IsString()
   email?: string;
-
-  @ApiPropertyOptional({
-    description: '搜尋電話（模糊搜尋）',
-    example: '0912345678',
-  })
-  @IsOptional()
-  @IsString()
-  phone?: string;
 
   @ApiPropertyOptional({
     description: '角色篩選',

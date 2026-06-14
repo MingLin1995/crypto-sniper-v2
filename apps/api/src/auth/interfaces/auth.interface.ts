@@ -1,9 +1,8 @@
 export interface AuthenticatedUser {
   id: string;
-  account: string;
+  nickname: string;
   role: string;
   email?: string | null;
-  phone?: string | null;
   googleId?: string | null;
   telegramId?: string | null;
   discordId?: string | null;
@@ -18,21 +17,22 @@ export interface LoginResponse {
   refreshToken: string;
   user: {
     id: string;
-    account: string;
+    email: string | null;
+    nickname: string;
     role: string;
   };
 }
 
 export interface JwtPayload {
   sub: string;
-  account: string;
+  email: string | null;
   role: string;
   tokenId?: string; // RefreshToken ID
 }
 
 export interface RequestUser {
   sub: string;
-  account: string;
+  email: string | null;
   role: string;
   tokenId?: string;
 }

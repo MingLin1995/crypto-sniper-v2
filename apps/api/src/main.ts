@@ -29,6 +29,10 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  app.setGlobalPrefix('api', {
+    exclude: ['/', 'apidoc'],
+  });
+
   app.set('trust proxy', true);
 
   // 全域中介軟體 (Cookie 解析)

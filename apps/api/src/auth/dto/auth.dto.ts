@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsString, MinLength, IsNotEmpty, Matches } from 'class-validator';
+import { PASSWORD_REGEX, PASSWORD_VALIDATION_MESSAGE } from '../../common/constants/regex.constants';
 
 export class RegisterDto {
   @ApiProperty({
@@ -19,8 +20,8 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty()
   @MinLength(8)
-  @Matches(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/, {
-    message: '密碼必須至少包含一個英文字母和一個數字，且長度至少 8 碼',
+  @Matches(PASSWORD_REGEX, {
+    message: PASSWORD_VALIDATION_MESSAGE,
   })
   password!: string;
 

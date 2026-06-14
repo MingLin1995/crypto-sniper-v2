@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEmail, MinLength } from 'class-validator';
+import { IsString, IsOptional, IsEmail, MinLength, Matches } from 'class-validator';
 import { PaginationMetaDto } from '../../common/dto/paginated-response.dto';
+import { PASSWORD_REGEX, PASSWORD_VALIDATION_MESSAGE } from '../../common/constants/regex.constants';
 
 export class UpdateUserDto {
   @ApiProperty({
@@ -30,6 +31,9 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   @MinLength(8)
+  @Matches(PASSWORD_REGEX, {
+    message: PASSWORD_VALIDATION_MESSAGE,
+  })
   password?: string;
 }
 

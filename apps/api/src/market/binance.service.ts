@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
+import * as https from 'https';
 
 export interface TickerPrice {
   symbol: string;
@@ -15,20 +16,60 @@ export interface VolumeRanking {
 export class BinanceService {
   private readonly logger = new Logger(BinanceService.name);
   private readonly baseUrl = 'https://fapi.binance.com';
+  private readonly axiosInstance: AxiosInstance;
+  private lastUsedWeight = 0;
+
+  constructor() {
+    this.axiosInstance = axios.create({
+      baseURL: this.baseUrl,
+      timeout: 5000, // 5秒超時保護，避免請求掛起阻塞排程
+      httpsAgent: new https.Agent({
+        keepAlive: true, // 啟用 Keep-Alive 複用 Socket 連線，大幅降低 TLS/TCP 握手延遲
+        maxSockets: 50, // 最大連線池大小
+      }),
+    });
+
+    this.axiosInstance.interceptors.response.use(
+      (response) => {
+        const weightHeader =
+          response.headers['x-mbx-used-weight-1m'] || response.headers['X-MBX-USED-WEIGHT-1M'];
+        if (weightHeader) {
+          this.lastUsedWeight = parseInt(weightHeader as string, 10);
+        }
+        return response;
+      },
+      (error) => {
+        if (error.response) {
+          const weightHeader =
+            error.response.headers['x-mbx-used-weight-1m'] ||
+            error.response.headers['X-MBX-USED-WEIGHT-1M'];
+          if (weightHeader) {
+            this.lastUsedWeight = parseInt(weightHeader as string, 10);
+          }
+        }
+        return Promise.reject(error);
+      },
+    );
+  }
+
+  /**
+   * 獲取最近一次請求回傳的 API 權重 (1分鐘累計值)
+   */
+  getUsedWeight(): number {
+    return this.lastUsedWeight;
+  }
 
   /**
    * 拉取所有可用 USDT 合約交易對清單 (永續合約)
    */
   async getUSDTFuturesSymbols(): Promise<string[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/fapi/v1/exchangeInfo`);
+      const response = await this.axiosInstance.get('/fapi/v1/exchangeInfo');
       const symbols = response.data.symbols || [];
       return symbols
         .filter(
           (s: any) =>
-            s.quoteAsset === 'USDT' &&
-            s.status === 'TRADING' &&
-            s.contractType === 'PERPETUAL',
+            s.quoteAsset === 'USDT' && s.status === 'TRADING' && s.contractType === 'PERPETUAL',
         )
         .map((s: any) => s.symbol);
     } catch (error: any) {
@@ -42,7 +83,7 @@ export class BinanceService {
    */
   async getKlines(symbol: string, interval: string, limit = 240): Promise<number[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/fapi/v1/klines`, {
+      const response = await this.axiosInstance.get('/fapi/v1/klines', {
         params: {
           symbol,
           interval,
@@ -65,7 +106,7 @@ export class BinanceService {
    */
   async getTickerPrices(): Promise<TickerPrice[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/fapi/v1/ticker/price`);
+      const response = await this.axiosInstance.get('/fapi/v1/ticker/price');
       const tickers = response.data || [];
       return tickers
         .filter((t: any) => t.symbol.endsWith('USDT'))
@@ -84,9 +125,9 @@ export class BinanceService {
    */
   async get24hVolumeRanking(): Promise<VolumeRanking[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/fapi/v1/ticker/24hr`);
+      const response = await this.axiosInstance.get('/fapi/v1/ticker/24hr');
       const tickers = response.data || [];
-      
+
       return (tickers as any[])
         .filter((t) => t.symbol.endsWith('USDT'))
         .map((t) => ({

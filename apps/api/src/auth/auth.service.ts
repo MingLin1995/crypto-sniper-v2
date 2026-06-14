@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
-import * as ms from 'ms';
+import ms = require('ms');
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { AuthenticatedUser, LoginResponse, RequestUser } from './interfaces/auth.interface';
 

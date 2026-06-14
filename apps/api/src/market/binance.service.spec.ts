@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BinanceService } from './binance.service';
-import axios from 'axios';
 
 describe('BinanceService (幣安行情服務)', () => {
   let service: BinanceService;
@@ -32,15 +31,18 @@ describe('BinanceService (幣安行情服務)', () => {
           { symbol: 'SOLUSDT', quoteAsset: 'USDT', status: 'TRADING', contractType: 'DELIVERY' },
         ],
       };
-      const getSpy = jest.spyOn(axios, 'get').mockResolvedValueOnce({ data: mockExchangeInfo });
+      const getSpy = jest.spyOn(service['axiosInstance'], 'get').mockResolvedValueOnce({
+        data: mockExchangeInfo,
+        headers: {},
+      });
 
       const result = await service.getUSDTFuturesSymbols();
-      expect(getSpy).toHaveBeenCalledWith('https://fapi.binance.com/fapi/v1/exchangeInfo');
+      expect(getSpy).toHaveBeenCalledWith('/fapi/v1/exchangeInfo');
       expect(result).toEqual(['BTCUSDT', 'ETHUSDT']);
     });
 
     it('當請求失敗時，應拋出錯誤', async () => {
-      jest.spyOn(axios, 'get').mockRejectedValueOnce(new Error('Network error'));
+      jest.spyOn(service['axiosInstance'], 'get').mockRejectedValueOnce(new Error('Network error'));
       await expect(service.getUSDTFuturesSymbols()).rejects.toThrow('Network error');
     });
   });
@@ -51,10 +53,13 @@ describe('BinanceService (幣安行情服務)', () => {
         [1625097600000, '34000.00', '35000.00', '33000.00', '34500.50', '1000.00', 1625101199999, '34500000.00', 500, '500.00', '17250000.00', '0'],
         [1625101200000, '34500.50', '36000.00', '34000.00', '35200.75', '1200.00', 1625104799999, '42240900.00', 600, '600.00', '21120450.00', '0'],
       ];
-      const getSpy = jest.spyOn(axios, 'get').mockResolvedValueOnce({ data: mockKlines });
+      const getSpy = jest.spyOn(service['axiosInstance'], 'get').mockResolvedValueOnce({
+        data: mockKlines,
+        headers: {},
+      });
 
       const result = await service.getKlines('BTCUSDT', '1h', 2);
-      expect(getSpy).toHaveBeenCalledWith('https://fapi.binance.com/fapi/v1/klines', {
+      expect(getSpy).toHaveBeenCalledWith('/fapi/v1/klines', {
         params: {
           symbol: 'BTCUSDT',
           interval: '1h',
@@ -65,7 +70,7 @@ describe('BinanceService (幣安行情服務)', () => {
     });
 
     it('當請求失敗時，應拋出錯誤', async () => {
-      jest.spyOn(axios, 'get').mockRejectedValueOnce(new Error('API rate limit'));
+      jest.spyOn(service['axiosInstance'], 'get').mockRejectedValueOnce(new Error('API rate limit'));
       await expect(service.getKlines('BTCUSDT', '1h')).rejects.toThrow('API rate limit');
     });
   });
@@ -77,10 +82,13 @@ describe('BinanceService (幣安行情服務)', () => {
         { symbol: 'ETHUSDT', price: '3000.25' },
         { symbol: 'XRPBUSD', price: '0.50' },
       ];
-      const getSpy = jest.spyOn(axios, 'get').mockResolvedValueOnce({ data: mockTickers });
+      const getSpy = jest.spyOn(service['axiosInstance'], 'get').mockResolvedValueOnce({
+        data: mockTickers,
+        headers: {},
+      });
 
       const result = await service.getTickerPrices();
-      expect(getSpy).toHaveBeenCalledWith('https://fapi.binance.com/fapi/v1/ticker/price');
+      expect(getSpy).toHaveBeenCalledWith('/fapi/v1/ticker/price');
       expect(result).toEqual([
         { symbol: 'BTCUSDT', price: 60000.5 },
         { symbol: 'ETHUSDT', price: 3000.25 },
@@ -88,7 +96,7 @@ describe('BinanceService (幣安行情服務)', () => {
     });
 
     it('當請求失敗時，應拋出錯誤', async () => {
-      jest.spyOn(axios, 'get').mockRejectedValueOnce(new Error('Fetch error'));
+      jest.spyOn(service['axiosInstance'], 'get').mockRejectedValueOnce(new Error('Fetch error'));
       await expect(service.getTickerPrices()).rejects.toThrow('Fetch error');
     });
   });
@@ -99,12 +107,15 @@ describe('BinanceService (幣安行情服務)', () => {
         { symbol: 'BTCUSDT', quoteVolume: '100000.00' },
         { symbol: 'ETHUSDT', quoteVolume: '500000.00' },
         { symbol: 'SOLUSDT', quoteVolume: '300000.00' },
-        { symbol: 'XRPBUSD', quoteVolume: '800000.00' }, // 應被過濾，因為不是以 USDT 結尾
+        { symbol: 'XRPBUSD', quoteVolume: '800000.00' },
       ];
-      const getSpy = jest.spyOn(axios, 'get').mockResolvedValueOnce({ data: mock24hTickers });
+      const getSpy = jest.spyOn(service['axiosInstance'], 'get').mockResolvedValueOnce({
+        data: mock24hTickers,
+        headers: {},
+      });
 
       const result = await service.get24hVolumeRanking();
-      expect(getSpy).toHaveBeenCalledWith('https://fapi.binance.com/fapi/v1/ticker/24hr');
+      expect(getSpy).toHaveBeenCalledWith('/fapi/v1/ticker/24hr');
       expect(result).toEqual([
         { symbol: 'ETHUSDT', quoteVolume: 500000 },
         { symbol: 'SOLUSDT', quoteVolume: 300000 },
@@ -113,8 +124,40 @@ describe('BinanceService (幣安行情服務)', () => {
     });
 
     it('當請求失敗時，應拋出錯誤', async () => {
-      jest.spyOn(axios, 'get').mockRejectedValueOnce(new Error('API error'));
+      jest.spyOn(service['axiosInstance'], 'get').mockRejectedValueOnce(new Error('API error'));
       await expect(service.get24hVolumeRanking()).rejects.toThrow('API error');
+    });
+  });
+
+  describe('Used Weight 監控 (透過攔截器)', () => {
+    it('成功回應時應正確解析並儲存使用的權重', () => {
+      // 取得註冊的 Response Interceptor
+      const handlers = (service['axiosInstance'].interceptors.response as any).handlers;
+      expect(handlers.length).toBeGreaterThan(0);
+      const interceptor = handlers[0];
+
+      const mockResponse = {
+        data: {},
+        headers: { 'x-mbx-used-weight-1m': '125' },
+      };
+
+      const result = interceptor.fulfilled(mockResponse);
+      expect(result).toBe(mockResponse);
+      expect(service.getUsedWeight()).toBe(125);
+    });
+
+    it('失敗回應時也應從錯誤回應標頭解析權重', async () => {
+      const handlers = (service['axiosInstance'].interceptors.response as any).handlers;
+      const interceptor = handlers[0];
+
+      const mockError = {
+        response: {
+          headers: { 'X-MBX-USED-WEIGHT-1M': '250' },
+        },
+      };
+
+      await expect(interceptor.rejected(mockError)).rejects.toEqual(mockError);
+      expect(service.getUsedWeight()).toBe(250);
     });
   });
 });

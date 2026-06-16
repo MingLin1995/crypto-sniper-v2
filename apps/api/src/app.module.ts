@@ -20,10 +20,7 @@ import { IpBlacklistModule } from './common/security/ip-blacklist.module';
 import { IpBlacklistMiddleware } from './common/security/ip-blacklist.middleware';
 import { EmailModule } from './common/email/email.module';
 import { MarketModule } from './market/market.module';
-// 需要的套件：
-//   - Email: npm install @nestjs-modules/mailer@^2.0.1 nodemailer@^7.0.10
-//   - LINE:  npm install @line/bot-sdk@^9.5.0
-//   - SMS:   無需額外套件（使用內建 HttpModule）
+import { StrategiesModule } from './strategies/strategies.module';
 
 @Module({
   imports: [
@@ -47,6 +44,7 @@ import { MarketModule } from './market/market.module';
     UsersModule,
     LogsModule,
     MarketModule,
+    StrategiesModule,
   ],
   controllers: [AppController],
   providers: [

@@ -50,3 +50,9 @@ docker-compose.*.yml
 # Git 相關
 .git
 .gitignore
+
+# Cache and build folders
+.turbo
+.next
+**/.turbo
+**/.next

@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 // Clean any trailing /v1 prefix from the environment variable
 const API_URL = (process.env.API_URL || "http://app:3000/api").replace(/\/v1$/, "");
 
+// Global promise to deduplicate concurrent refresh token requests
+let activeRefreshPromise: Promise<{ setCookies: string[] } | null> | null = null;
+
 async function handleProxy(
   req: NextRequest,
   context: { params: Promise<{ path: string[] }> }
@@ -31,6 +34,9 @@ async function handleProxy(
       if (refererUrl.host !== host) {
         return NextResponse.json({ message: "CSRF check failed: Invalid referer" }, { status: 403 });
       }
+    } else {
+      // Reject if both origin and referer are missing for state-mutating requests
+      return NextResponse.json({ message: "CSRF check failed: Missing origin and referer" }, { status: 403 });
     }
   }
 
@@ -67,20 +73,39 @@ async function handleProxy(
     if (response.status === 401 && hasRefreshToken) {
       console.log(`[BFF Proxy] Access token expired for ${path}. Attempting to refresh tokens...`);
       
-      const refreshHeaders = new Headers();
-      refreshHeaders.set("cookie", cookieHeader);
+      // Use shared promise to deduplicate parallel refresh requests
+      if (!activeRefreshPromise) {
+        activeRefreshPromise = (async () => {
+          try {
+            console.log(`[BFF Proxy] Shared token refresh triggered by request to ${path}`);
+            const refreshHeaders = new Headers();
+            refreshHeaders.set("cookie", cookieHeader);
+            const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
+              method: "POST",
+              headers: refreshHeaders,
+            });
+            if (refreshRes.ok) {
+              const setCookies = refreshRes.headers.getSetCookie();
+              return { setCookies };
+            }
+          } catch (e) {
+            console.error("[BFF Proxy] Shared token refresh error:", e);
+          }
+          return null;
+        })();
+        
+        activeRefreshPromise.finally(() => {
+          activeRefreshPromise = null;
+        });
+      }
 
-      // Call NestJS refresh endpoint
-      const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
-        method: "POST",
-        headers: refreshHeaders,
-      });
+      const refreshResult = await activeRefreshPromise;
 
-      if (refreshRes.ok) {
+      if (refreshResult) {
         console.log("[BFF Proxy] Refresh token succeeded. Retrying original request...");
         
         // Extract new cookies from the NestJS refresh response
-        const newSetCookies = refreshRes.headers.getSetCookie();
+        const newSetCookies = refreshResult.setCookies;
         
         // Rebuild headers for the retried original request
         const retryHeaders = new Headers();
@@ -97,14 +122,11 @@ async function handleProxy(
           let combinedCookie = cookieHeader;
           parsedCookies.forEach(cookie => {
             const name = cookie.split("=")[0].trim();
-            const value = cookie.split("=")[1].trim();
-            // Replace old cookie value if it exists, or append
-            const regex = new RegExp(`${name}=[^;]*`);
-            if (combinedCookie.match(regex)) {
-              combinedCookie = combinedCookie.replace(regex, `${name}=${value}`);
-            } else {
-              combinedCookie += combinedCookie ? `; ${cookie}` : cookie;
-            }
+            // Rebuild cookie string by removing existing occurrences of the cookie key to prevent ReDoS
+            const cookieParts = combinedCookie.split("; ").filter(Boolean);
+            const filteredParts = cookieParts.filter(part => !part.startsWith(`${name}=`));
+            filteredParts.push(cookie);
+            combinedCookie = filteredParts.join("; ");
           });
           retryHeaders.set("cookie", combinedCookie);
         }

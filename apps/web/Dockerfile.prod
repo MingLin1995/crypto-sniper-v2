@@ -4,9 +4,14 @@ FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 
 COPY package.json bun.lock* ./
-RUN bun install --frozen-lockfile
+COPY packages/shared ./packages/shared
+COPY apps/web/package.json ./apps/web/package.json
+
+RUN bun install
 
 COPY . .
+
+WORKDIR /app/apps/web
 RUN bun run build
 
 # Production stage
@@ -14,21 +19,23 @@ FROM oven/bun:1-alpine
 
 WORKDIR /app
 
-# 建立非 root 使用者
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-# Install netcat (optional but useful for consistency)
 RUN apk add --no-cache netcat-openbsd
 
-COPY --chown=nextjs:nodejs package.json bun.lock* ./
-RUN bun install --frozen-lockfile --production
+COPY --chown=nextjs:nodejs package.json ./
+COPY --chown=nextjs:nodejs packages/shared ./packages/shared
+COPY --chown=nextjs:nodejs apps/web/package.json ./apps/web/package.json
 
-COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+RUN bun install --production
+
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next ./apps/web/.next
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
 USER nextjs
+
+WORKDIR /app/apps/web
 
 EXPOSE 3001
 ENV PORT=3001

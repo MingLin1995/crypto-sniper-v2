@@ -92,8 +92,8 @@ services:
 
   web:
     build:
-      context: ./apps/web
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: apps/web/Dockerfile.dev
     container_name: ${PROJECT_NAME:-app}-web-dev
     ports:
       - '3001:3001'
@@ -112,7 +112,7 @@ services:
       timeout: 5s
       retries: 3
     volumes:
-      - ./apps/web:/app
+      - .:/app
       - node_modules_web_dev:/app/node_modules
     networks:
       - app-network-dev

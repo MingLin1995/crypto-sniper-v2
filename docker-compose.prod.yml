@@ -93,8 +93,8 @@ services:
 
   web:
     build:
-      context: ./apps/web
-      dockerfile: Dockerfile.prod
+      context: .
+      dockerfile: apps/web/Dockerfile.prod
     container_name: ${PROJECT_NAME:-app}-web-prod
     ports:
       - '3001:3001'

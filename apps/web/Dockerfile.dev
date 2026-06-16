@@ -3,11 +3,18 @@ FROM oven/bun:1-alpine
 WORKDIR /app
 
 COPY package.json bun.lock* ./
+COPY packages/shared ./packages/shared
+COPY apps/web/package.json ./apps/web/package.json
 
 RUN bun install
 
-COPY . .
+WORKDIR /app/apps/web
 
 EXPOSE 3001
+
+COPY apps/web/docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 CMD ["bun", "run", "dev"]

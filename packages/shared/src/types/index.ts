@@ -16,3 +16,32 @@ export interface CreatePriceAlertDto {
   condition: AlertCondition;
   notificationMethod: string[];
 }
+
+export interface MACondition {
+  ma1Type: 'SMA' | 'EMA';
+  ma1Period: number;
+  operator: 'gt' | 'lt';
+  ma2Type: 'SMA' | 'EMA';
+  ma2Period: number;
+}
+
+export interface ScreenerTimeframeBlock {
+  interval: string;
+  conditions: MACondition[];
+}
+
+export interface ScreenerRequestDto {
+  timeframes: ScreenerTimeframeBlock[];
+  category?: string;
+  sortOrder?: number;
+  categories?: string[];
+}
+
+export interface SavedStrategyDto {
+  id: string;
+  name: string;
+  config: ScreenerRequestDto;
+  createdAt: string;
+  updatedAt: string;
+}
+

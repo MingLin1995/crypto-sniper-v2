@@ -19,10 +19,10 @@ export interface CreatePriceAlertDto {
 
 export interface MACondition {
   ma1Type: 'SMA' | 'EMA';
-  ma1Period: number;
+  ma1Period: number | '';
   operator: 'gt' | 'lt';
   ma2Type: 'SMA' | 'EMA';
-  ma2Period: number;
+  ma2Period: number | '';
 }
 
 export interface ScreenerTimeframeBlock {
@@ -32,6 +32,9 @@ export interface ScreenerTimeframeBlock {
 
 export interface ScreenerRequestDto {
   timeframes: ScreenerTimeframeBlock[];
+}
+
+export interface StrategyConfigDto extends ScreenerRequestDto {
   category?: string;
   sortOrder?: number;
   categories?: string[];
@@ -40,8 +43,9 @@ export interface ScreenerRequestDto {
 export interface SavedStrategyDto {
   id: string;
   name: string;
-  config: ScreenerRequestDto;
+  config: StrategyConfigDto;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 }
+
 

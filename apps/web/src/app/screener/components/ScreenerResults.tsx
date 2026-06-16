@@ -1,0 +1,151 @@
+import * as React from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TrendingUp, RefreshCw, Search, LineChart, ChevronRight } from "lucide-react";
+
+interface ScreenerResultItem {
+  symbol: string;
+  price: number;
+  volume: number;
+}
+
+interface ScreenerResultsProps {
+  locale: string;
+  loading: boolean;
+  isWarmingUp: boolean;
+  results: ScreenerResultItem[];
+  selectedSymbol: string;
+  setSelectedSymbol: (symbol: string) => void;
+  handleScreen: () => void;
+}
+
+export function ScreenerResults({
+  locale,
+  loading,
+  isWarmingUp,
+  results,
+  selectedSymbol,
+  setSelectedSymbol,
+  handleScreen,
+}: ScreenerResultsProps) {
+  return (
+    <Card className="border-indigo-500/15 glass-indigo lg:absolute lg:inset-0 flex flex-col">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-indigo-400" />
+            {locale === "zh-TW" ? "篩選匹配結果" : "Matches"}
+          </div>
+          <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 text-xs font-bold border border-indigo-500/20">
+            {results.length} {locale === "zh-TW" ? "符合" : "Matches"}
+          </span>
+        </CardTitle>
+        <CardDescription>
+          {locale === "zh-TW" ? "以 24h 成交量大小降冪排序" : "Sorted by 24h volume descending"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex-1 flex flex-col p-4 pt-0 gap-4 min-h-[400px]">
+        {/* 預熱中狀態提示 */}
+        {isWarmingUp ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 border border-yellow-500/20 bg-yellow-500/5 rounded-xl text-center space-y-4">
+            <div className="h-10 w-10 rounded-full bg-yellow-500/10 flex items-center justify-center border border-yellow-500/20">
+              <RefreshCw className="h-5 w-5 text-yellow-500 animate-spin" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-yellow-400">
+                {locale === "zh-TW" ? "行情資料預熱中" : "Market Data Warming Up"}
+              </h4>
+              <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+                {locale === "zh-TW"
+                  ? "系統剛啟動或正在重啟連線，K 線行情資料正在同步中，暫時無法完成篩選。請稍候再試，或嘗試切換至其他時框週期。"
+                  : "System is warming up or fetching initial klines. Please wait or try other timeframes."}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleScreen}
+              className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 cursor-pointer"
+            >
+              {locale === "zh-TW" ? "重試篩選" : "Retry Now"}
+            </Button>
+          </div>
+        ) : loading ? (
+          /* 載入狀態 */
+          <div className="flex-1 flex flex-col items-center justify-center py-12 text-zinc-500 space-y-3">
+            <RefreshCw className="h-8 w-8 text-indigo-500 animate-spin" />
+            <span className="text-xs">
+              {locale === "zh-TW" ? "指標運算與篩選中..." : "Analyzing market..."}
+            </span>
+          </div>
+        ) : results.length === 0 ? (
+          /* 無結果 */
+          <div className="flex-1 flex flex-col items-center justify-center py-12 border border-dashed border-zinc-800 rounded-xl text-zinc-500 text-center p-6 space-y-2">
+            <Search className="h-8 w-8 text-zinc-600" />
+            <span className="text-sm font-semibold">
+              {locale === "zh-TW" ? "無符合條件的交易對" : "No matches found"}
+            </span>
+            <span className="text-xs text-zinc-500 leading-normal max-w-[280px]">
+              {locale === "zh-TW"
+                ? "當前市場上沒有任何合約標的滿足您的複合均線條件。可以嘗試減少時框區塊或放寬 MA 條件。"
+                : "Try loosening your moving average conditions or reducing timeframe blocks."}
+            </span>
+          </div>
+        ) : (
+          /* 結果清單 */
+          <div className="flex-1 min-h-0 overflow-y-auto max-h-[400px] lg:max-h-none space-y-1.5 pr-1 border border-zinc-800/40 light:border-zinc-200/80 rounded-lg p-2 bg-zinc-950/20 light:bg-slate-100/40">
+            {results.map((item) => (
+              <div
+                key={item.symbol}
+                onClick={() => setSelectedSymbol(item.symbol)}
+                className={`flex items-center justify-between p-3 rounded-lg border text-sm transition-all cursor-pointer ${
+                  selectedSymbol === item.symbol
+                    ? "bg-indigo-500/15 light:bg-indigo-500/10 border-indigo-500/60 light:border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.15)] light:shadow-[0_0_12px_rgba(99,102,241,0.08)]"
+                    : "bg-zinc-900/30 light:bg-white border-zinc-800/40 light:border-zinc-200/80 hover:bg-zinc-900/70 light:hover:bg-zinc-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <LineChart
+                    className={`h-4.5 w-4.5 shrink-0 ${
+                      selectedSymbol === item.symbol ? "text-indigo-400" : "text-zinc-500"
+                    }`}
+                  />
+                  <span className="font-bold text-zinc-100">{item.symbol}</span>
+                </div>
+                <div className="flex items-center gap-6">
+                  <div className="text-right">
+                    <div className="font-semibold text-zinc-100">
+                      $
+                      {item.price.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 4,
+                      })}
+                    </div>
+                    <div className="text-[10px] text-zinc-500 uppercase tracking-wider">
+                      {locale === "zh-TW" ? "最新價" : "Price"}
+                    </div>
+                  </div>
+                  <div className="text-right min-w-[70px]">
+                    <div className="font-semibold text-zinc-300">
+                      ${Math.round(item.volume / 1000).toLocaleString()}K
+                    </div>
+                    <div className="text-[10px] text-zinc-500 uppercase tracking-wider">
+                      {locale === "zh-TW" ? "24h量" : "Volume"}
+                    </div>
+                  </div>
+                  <ChevronRight
+                    className={`h-4 w-4 shrink-0 transition-transform ${
+                      selectedSymbol === item.symbol
+                        ? "text-indigo-400 translate-x-0.5"
+                        : "text-zinc-600"
+                    }`}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

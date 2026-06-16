@@ -5,7 +5,11 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
-  const isProtectedPage = pathname.startsWith("/profile");
+  const isProtectedPage =
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/screener") ||
+    pathname.startsWith("/watchlist") ||
+    pathname.startsWith("/alerts");
 
   const refreshToken = request.cookies.get("refresh_token")?.value;
 
@@ -16,15 +20,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 2. If logged in and accessing login/register, redirect to profile page
+  // 2. If logged in and accessing login/register, redirect to screener page
   if (isAuthPage && refreshToken) {
-    return NextResponse.redirect(new URL("/profile", request.url));
+    return NextResponse.redirect(new URL("/screener", request.url));
   }
 
-  // 3. For root page /, redirect to profile if logged in, otherwise redirect to login
+  // 3. For root page /, redirect to screener if logged in, otherwise redirect to login
   if (pathname === "/") {
     if (refreshToken) {
-      return NextResponse.redirect(new URL("/profile", request.url));
+      return NextResponse.redirect(new URL("/screener", request.url));
     } else {
       return NextResponse.redirect(new URL("/login", request.url));
     }

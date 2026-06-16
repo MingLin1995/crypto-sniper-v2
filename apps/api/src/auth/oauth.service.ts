@@ -15,7 +15,8 @@ import { JwtService } from '@nestjs/jwt';
 import { JWT_CONFIG } from '../common/config/jwt.config';
 import { OAuthUserProfile, GoogleUserProfile, DiscordUserProfile, TelegramUserProfile } from './interfaces/oauth.interface';
 import { TelegramWidgetLoginDto } from './dto/oauth.dto';
-import { Response } from 'express';
+import { Request, Response } from 'express';
+import { AuthenticatedUser, RequestUser } from './interfaces/auth.interface';
 import * as crypto from 'crypto';
 import axios from 'axios';
 
@@ -29,7 +30,7 @@ export class OAuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  getUserIdFromRequest(req: any): string | null {
+  getUserIdFromRequest(req: Request & { user?: RequestUser; cookies?: Record<string, string> }): string | null {
     if (req.user?.sub) {
       return req.user.sub;
     }
@@ -51,7 +52,7 @@ export class OAuthService {
     provider: 'google' | 'discord' | 'telegram',
     profile: OAuthUserProfile,
     stateUserId?: string,
-  ): Promise<any> {
+  ): Promise<AuthenticatedUser> {
     const providerIdField =
       provider === 'google' ? 'googleId' : provider === 'discord' ? 'discordId' : 'telegramId';
     
@@ -241,7 +242,7 @@ export class OAuthService {
     await redis.del(`oauth_state:${state}`);
 
     try {
-      let profile: any;
+      let profile: GoogleUserProfile | DiscordUserProfile;
       if (provider === 'google') {
         const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
           client_id: this.configService.get<string>('GOOGLE_CLIENT_ID'),
@@ -255,7 +256,7 @@ export class OAuthService {
         const userinfoResponse = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
-        profile = userinfoResponse.data;
+        profile = userinfoResponse.data as GoogleUserProfile;
       } else {
         const params = new URLSearchParams();
         params.append('client_id', this.configService.get<string>('DISCORD_CLIENT_ID') || '');
@@ -272,7 +273,7 @@ export class OAuthService {
         const userResponse = await axios.get('https://discord.com/api/users/@me', {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
-        profile = userResponse.data;
+        profile = userResponse.data as DiscordUserProfile;
       }
 
       const user = await this.handleOAuthLoginOrLink(provider, profile, stateData.userId);

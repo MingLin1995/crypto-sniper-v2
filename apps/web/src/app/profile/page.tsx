@@ -79,6 +79,27 @@ function ProfileContent() {
     }
   }, [searchParams, router, t]);
 
+  // Handle Telegram link callback
+  const handleTelegramLink = React.useCallback(async (telegramUser: any) => {
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch("/api/auth/telegram/link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(telegramUser),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Telegram 綁定失敗");
+      }
+      setSuccess(t.linkedMsg.replace("{provider}", "Telegram"));
+      fetchProfile(true);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }, [fetchProfile, t.linkedMsg]);
+
   // 3. Dynamic loading of Telegram Widget for link action
   useEffect(() => {
     if (user && !user.telegramId) {
@@ -133,26 +154,7 @@ function ProfileContent() {
     return () => clearInterval(interval);
   }, [isPolling]);
 
-  // Handle Telegram link callback
-  const handleTelegramLink = React.useCallback(async (telegramUser: any) => {
-    setError(null);
-    setSuccess(null);
-    try {
-      const res = await fetch("/api/auth/telegram/link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(telegramUser),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Telegram 綁定失敗");
-      }
-      setSuccess(t.linkedMsg.replace("{provider}", "Telegram"));
-      fetchProfile(true);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  }, [fetchProfile, t.linkedMsg]);
+
 
   // Get Telegram Bot Link Token
   const getTelegramBotToken = async () => {

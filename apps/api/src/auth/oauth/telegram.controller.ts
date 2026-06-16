@@ -4,6 +4,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { SkipTransform } from '../../common/decorators/skip-transform.decorator';
 import { OAuthService } from '../oauth.service';
 import { TelegramBotService } from '../telegram-bot.service';
+import { AuthService } from '../auth.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { ConfigService } from '@nestjs/config';
 import { TelegramWidgetLoginDto } from '../dto/oauth.dto';
@@ -19,6 +20,7 @@ export class TelegramController {
     private readonly telegramBotService: TelegramBotService,
     private readonly redisService: RedisService,
     private readonly configService: ConfigService,
+    private readonly authService: AuthService,
   ) {}
 
   @Get('telegram/link-token')
@@ -51,7 +53,7 @@ export class TelegramController {
       first_name: dto.first_name,
     });
 
-    const result = await this.oauthService['authService'].login(user);
+    const result = await this.authService.login(user);
     const isProd = this.configService.get<string>('NODE_ENV') === 'production';
     res.cookie('access_token', result.accessToken, ACCESS_TOKEN_COOKIE_OPTIONS(isProd));
     res.cookie('refresh_token', result.refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS(isProd));

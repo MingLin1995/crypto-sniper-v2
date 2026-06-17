@@ -10,6 +10,13 @@ export interface WatchlistItemDto {
   symbol: string;
 }
 
+export interface WatchlistItemPriceDto {
+  id: string;
+  symbol: string;
+  price: number | null;
+  createdAt: string;
+}
+
 export interface CreatePriceAlertDto {
   symbol: string;
   targetPrice: number;

@@ -133,6 +133,8 @@ model WatchlistItem {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   symbol    String
+  category  String?
+  sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 
   @@unique([userId, symbol])

@@ -22,6 +22,7 @@ describe('ScreenerService', () => {
       setKlines: jest.fn(),
       getVolumeRanking: jest.fn(),
       getPrice: jest.fn(),
+      getPrices: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -78,7 +79,7 @@ describe('ScreenerService', () => {
     it('當快取存在時，應直接讀取快取並返回標的與對應價格/成交量', async () => {
       // 1. 模擬命中快取結果
       mockMarketCacheService.getScreenerResult.mockResolvedValue(['BTCUSDT']);
-      mockMarketCacheService.getPrice.mockResolvedValue(65000);
+      mockMarketCacheService.getPrices.mockResolvedValue({ BTCUSDT: 65000 });
       mockMarketCacheService.getVolumeRanking.mockResolvedValue([
         { symbol: 'BTCUSDT', quoteVolume: 1500000 },
       ]);
@@ -113,10 +114,9 @@ describe('ScreenerService', () => {
           return null;
         });
 
-      mockMarketCacheService.getPrice.mockImplementation(async (symbol: string) => {
-        if (symbol === 'BTCUSDT') return 20;
-        if (symbol === 'ETHUSDT') return 10;
-        return null;
+      mockMarketCacheService.getPrices.mockResolvedValue({
+        BTCUSDT: 20,
+        ETHUSDT: 10,
       });
 
       mockMarketCacheService.getVolumeRanking.mockResolvedValue([
@@ -134,6 +134,30 @@ describe('ScreenerService', () => {
 
       // 檢查結果是否有被寫入 Redis 快取
       expect(mockMarketCacheService.setScreenerResult).toHaveBeenCalled();
+    });
+
+    it('當時間週期條件為空時，應直接返回所有交易對並按成交量降冪排序', async () => {
+      mockBinanceService.getUSDTFuturesSymbols.mockResolvedValue(['BTCUSDT', 'ETHUSDT', 'SOLUSDT']);
+      mockMarketCacheService.getPrices.mockResolvedValue({
+        BTCUSDT: 65000,
+        ETHUSDT: 3500,
+        SOLUSDT: 150,
+      });
+      mockMarketCacheService.getVolumeRanking.mockResolvedValue([
+        { symbol: 'SOLUSDT', quoteVolume: 3000000 },
+        { symbol: 'BTCUSDT', quoteVolume: 10000000 },
+        { symbol: 'ETHUSDT', quoteVolume: 5000000 },
+      ]);
+
+      const result = await service.screen({ timeframes: [] });
+
+      expect(mockBinanceService.getUSDTFuturesSymbols).toHaveBeenCalled();
+      expect(mockMarketCacheService.getPrices).toHaveBeenCalledWith(['BTCUSDT', 'ETHUSDT', 'SOLUSDT']);
+      expect(result).toEqual([
+        { symbol: 'BTCUSDT', price: 65000, volume: 10000000 },
+        { symbol: 'ETHUSDT', price: 3500, volume: 5000000 },
+        { symbol: 'SOLUSDT', price: 150, volume: 3000000 },
+      ]);
     });
   });
 });

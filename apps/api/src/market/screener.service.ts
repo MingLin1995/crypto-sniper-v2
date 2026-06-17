@@ -18,47 +18,51 @@ export class ScreenerService {
    * 執行多時框均線條件篩選
    */
   async screen(dto: ScreenerRequestDto): Promise<any[]> {
-    if (!dto.timeframes || dto.timeframes.length === 0) {
-      return [];
-    }
-
-    // 1. 生成配置的 Hash 作為 Redis 快取 Key
-    const hash = this.hashConfig(dto);
-    const cachedSymbols = await this.marketCacheService.getScreenerResult(hash);
-
     let matchingSymbols: string[];
 
-    if (cachedSymbols) {
-      matchingSymbols = cachedSymbols;
+    if (!dto.timeframes || dto.timeframes.length === 0) {
+      // 預設沒有篩選條件時，撈取所有交易對
+      matchingSymbols = await this.binanceService.getUSDTFuturesSymbols();
+      if (!matchingSymbols || matchingSymbols.length === 0) {
+        return [];
+      }
     } else {
-      // 2. 獲取所有永續合約交易對
-      const symbols = await this.binanceService.getUSDTFuturesSymbols();
-      if (symbols.length === 0) {
-        throw new ServiceUnavailableException('目前無法取得交易對資料');
-      }
+      // 1. 生成配置的 Hash 作為 Redis 快取 Key
+      const hash = this.hashConfig(dto);
+      const cachedSymbols = await this.marketCacheService.getScreenerResult(hash);
 
-      // 3. 行情預熱偵測：檢索第一個時間週期之 K 線快取。
-      // 若快取覆蓋率小於 10% 且至少有 5 個交易對時，判定系統處於行情預熱/重設狀態，提醒使用者稍後再試。
-      const firstTf = dto.timeframes[0];
-      if (firstTf) {
-        const sampleCheckCount = Math.min(20, symbols.length);
-        const sampleSymbols = symbols.slice(0, sampleCheckCount);
-        const caches = await Promise.all(
-          sampleSymbols.map((s) => this.marketCacheService.getKlines(s, firstTf.interval)),
-        );
-        const cachedCount = caches.filter((c) => c && c.length > 0).length;
-        
-        // 若取樣中快取命中率小於 10%，拋出預熱異常
-        if (cachedCount === 0 || cachedCount / sampleCheckCount < 0.1) {
-          throw new ServiceUnavailableException('行情資料預熱中，請稍後再試');
+      if (cachedSymbols) {
+        matchingSymbols = cachedSymbols;
+      } else {
+        // 2. 獲取所有永續合約交易對
+        const symbols = await this.binanceService.getUSDTFuturesSymbols();
+        if (symbols.length === 0) {
+          throw new ServiceUnavailableException('目前無法取得交易對資料');
         }
+
+        // 3. 行情預熱偵測：檢索第一個時間週期之 K 線快取。
+        // 若快取覆蓋率小於 10% 且至少有 5 個交易對時，判定系統處於行情預熱/重設狀態，提醒使用者稍後再試。
+        const firstTf = dto.timeframes[0];
+        if (firstTf) {
+          const sampleCheckCount = Math.min(20, symbols.length);
+          const sampleSymbols = symbols.slice(0, sampleCheckCount);
+          const caches = await Promise.all(
+            sampleSymbols.map((s) => this.marketCacheService.getKlines(s, firstTf.interval)),
+          );
+          const cachedCount = caches.filter((c) => c && c.length > 0).length;
+          
+          // 若取樣中快取命中率小於 10%，拋出預熱異常
+          if (cachedCount === 0 || cachedCount / sampleCheckCount < 0.1) {
+            throw new ServiceUnavailableException('行情資料預熱中，請稍後再試');
+          }
+        }
+
+        // 4. 篩選各交易對
+        matchingSymbols = await this.runScreening(symbols, dto.timeframes);
+
+        // 5. 寫入快取 (TTL: 60s)
+        await this.marketCacheService.setScreenerResult(hash, matchingSymbols);
       }
-
-      // 4. 篩選各交易對
-      matchingSymbols = await this.runScreening(symbols, dto.timeframes);
-
-      // 5. 寫入快取 (TTL: 60s)
-      await this.marketCacheService.setScreenerResult(hash, matchingSymbols);
     }
 
     // 6. 補齊最新價格與 24h 成交量資訊
@@ -66,15 +70,13 @@ export class ScreenerService {
     const volumeMap = new Map<string, number>();
     ranking.forEach((r) => volumeMap.set(r.symbol, r.quoteVolume));
 
-    const results = [];
-    for (const symbol of matchingSymbols) {
-      const price = await this.marketCacheService.getPrice(symbol);
-      results.push({
-        symbol,
-        price: price || 0,
-        volume: volumeMap.get(symbol) || 0,
-      });
-    }
+    const priceMap = await this.marketCacheService.getPrices(matchingSymbols);
+
+    const results = matchingSymbols.map((symbol) => ({
+      symbol,
+      price: priceMap[symbol] || 0,
+      volume: volumeMap.get(symbol) || 0,
+    }));
 
     // 依成交量降冪排序
     return results.sort((a, b) => b.volume - a.volume);

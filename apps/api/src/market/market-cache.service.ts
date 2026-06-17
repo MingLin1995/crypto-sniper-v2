@@ -113,4 +113,19 @@ export class MarketCacheService {
     const value = await this.client.get(key);
     return value ? JSON.parse(value) : null;
   }
+
+  /**
+   * 批次取得多個交易對最新成交價 (使用 Redis MGET)
+   */
+  async getPrices(symbols: string[]): Promise<Record<string, number | null>> {
+    if (symbols.length === 0) return {};
+    const keys = symbols.map((s) => `market:price:${s}`);
+    const values = await this.client.mget(...keys);
+    const result: Record<string, number | null> = {};
+    symbols.forEach((symbol, index) => {
+      const val = values[index];
+      result[symbol] = val ? parseFloat(val) : null;
+    });
+    return result;
+  }
 }

@@ -56,6 +56,17 @@ function ScreenerContent() {
   const [error, setError] = useState<string | null>(null);
   const [isWarmingUp, setIsWarmingUp] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState<string>("BTCUSDT");
+  const [watchlistItems, setWatchlistItems] = useState<any[]>([]);
+
+  const handleSelectSymbol = (symbol: string) => {
+    setSelectedSymbol(symbol);
+    const element = document.getElementById("tradingview-chart-section");
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const watchlistSymbols = React.useMemo(() => watchlistItems.map((item) => item.symbol), [watchlistItems]);
 
   // 依分類分組並排序儲存策略
   const groupedStrategies = React.useMemo(() => {
@@ -125,6 +136,57 @@ function ScreenerContent() {
     }
   };
 
+  const fetchWatchlist = async () => {
+    try {
+      const res = await fetch("/api/watchlist");
+      if (res.ok) {
+        const data = await res.json();
+        const list = data.data || [];
+        setWatchlistItems(list);
+      }
+    } catch (err) {
+      console.error("Failed to fetch watchlist", err);
+    }
+  };
+
+  const handleToggleWatchlist = async (symbol: string) => {
+    const isWatchlisted = watchlistSymbols.includes(symbol);
+    try {
+      if (isWatchlisted) {
+        const res = await fetch(`/api/watchlist/${symbol}`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          setWatchlistItems((prev) => prev.filter((item) => item.symbol !== symbol));
+        } else {
+          const data = await res.json();
+          throw new Error(data.message || "取消追蹤失敗");
+        }
+      } else {
+        const res = await fetch("/api/watchlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ symbol }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const newItem = {
+            id: data.data?.id || Math.random().toString(),
+            symbol,
+            price: null,
+            createdAt: new Date().toISOString(),
+          };
+          setWatchlistItems((prev) => [newItem, ...prev]);
+        } else {
+          const data = await res.json();
+          throw new Error(data.message || "加入追蹤失敗");
+        }
+      }
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   const saveCategoriesToDb = async (updatedCategories: string[]) => {
     // 尋找資料庫中是否已存在 __categories__ 設定
     const systemStrat = strategies.find((s) => s.name === "__categories__");
@@ -163,6 +225,7 @@ function ScreenerContent() {
 
   useEffect(() => {
     fetchStrategies();
+    fetchWatchlist();
     // 首次載入自動執行預設條件篩選
     handleScreen();
   }, []);
@@ -187,10 +250,6 @@ function ScreenerContent() {
   // 2. 執行篩選
   const handleScreen = async (overrideTimeframes?: ScreenerTimeframeBlock[]) => {
     const targetTimeframes = overrideTimeframes !== undefined ? overrideTimeframes : timeframes;
-    if (targetTimeframes.length === 0) {
-      setResults([]);
-      return;
-    }
     setLoading(true);
     setError(null);
     setIsWarmingUp(false);
@@ -685,19 +744,23 @@ function ScreenerContent() {
             isWarmingUp={isWarmingUp}
             results={results}
             selectedSymbol={selectedSymbol}
-            setSelectedSymbol={setSelectedSymbol}
+            setSelectedSymbol={handleSelectSymbol}
             handleScreen={handleScreen}
+            watchlistItems={watchlistItems}
+            onToggleWatchlist={handleToggleWatchlist}
           />
         </div>
       </div>
 
       {/* 下方：TradingView 高級圖表整合 */}
-      <TradingViewChart
-        locale={locale}
-        theme={theme}
-        selectedSymbol={selectedSymbol}
-        timeframes={timeframes}
-      />
+      <div id="tradingview-chart-section" className="scroll-mt-6">
+        <TradingViewChart
+          locale={locale}
+          theme={theme}
+          selectedSymbol={selectedSymbol}
+          timeframes={timeframes}
+        />
+      </div>
     </div>
   );
 }

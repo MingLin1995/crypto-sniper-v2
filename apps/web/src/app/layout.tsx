@@ -24,7 +24,7 @@ export default function RootLayout({
       className={`${outfit.variable} dark h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col font-sans bg-zinc-950 text-zinc-50">
+      <body className="min-h-full flex flex-col font-sans bg-zinc-950 text-zinc-50" suppressHydrationWarning>
         <div className="glow-bg" />
         <AppProviders>
           {children}

@@ -21,6 +21,7 @@ import { IpBlacklistMiddleware } from './common/security/ip-blacklist.middleware
 import { EmailModule } from './common/email/email.module';
 import { MarketModule } from './market/market.module';
 import { StrategiesModule } from './strategies/strategies.module';
+import { WatchlistModule } from './watchlist/watchlist.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { StrategiesModule } from './strategies/strategies.module';
     LogsModule,
     MarketModule,
     StrategiesModule,
+    WatchlistModule,
   ],
   controllers: [AppController],
   providers: [

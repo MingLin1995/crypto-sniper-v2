@@ -53,6 +53,15 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   currentPassword?: string;
+
+  @ApiProperty({
+    description: 'Discord Webhook 網址 (用於發送到價通知)',
+    example: 'https://discord.com/api/webhooks/...',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  discordWebhook?: string;
 }
 
 export class UserResponseDto {

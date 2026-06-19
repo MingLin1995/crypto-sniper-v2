@@ -106,7 +106,7 @@ export class TelegramBotService implements OnModuleInit {
     }
   }
 
-  async sendMessage(chatId: string | number, text: string) {
+  async sendMessage(chatId: string | number, text: string, parseMode?: string) {
     const botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
     if (!botToken) {
       this.logger.error('無法發送 Telegram 訊息：TELEGRAM_BOT_TOKEN 未設定');
@@ -117,6 +117,7 @@ export class TelegramBotService implements OnModuleInit {
       await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         chat_id: chatId,
         text,
+        ...(parseMode ? { parse_mode: parseMode } : {}),
       });
     } catch (error: any) {
       this.logger.error(`發送 Telegram 訊息至 ${chatId} 失敗: ${error.message}`);

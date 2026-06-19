@@ -24,6 +24,7 @@ import { StrategiesModule } from './strategies/strategies.module';
 import { WatchlistModule } from './watchlist/watchlist.module';
 import { BullModule } from '@nestjs/bullmq';
 import { AlertsModule } from './alerts/alerts.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { AlertsModule } from './alerts/alerts.module';
     StrategiesModule,
     WatchlistModule,
     AlertsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

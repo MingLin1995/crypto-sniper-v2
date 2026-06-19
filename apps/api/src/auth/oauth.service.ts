@@ -88,14 +88,29 @@ export class OAuthService {
         },
       });
       if (existingBound) {
-        throw new ConflictException('此社交帳號已被其他用戶綁定');
+        const rebindToken = crypto.randomUUID();
+        const redisKey = `oauth_rebind:${rebindToken}`;
+        await this.redisService.getClient().set(
+          redisKey,
+          JSON.stringify({
+            userId: stateUserId,
+            provider,
+            providerId,
+            existingUserId: existingBound.id,
+          }),
+          'EX',
+          300,
+        );
+        throw new ConflictException({
+          message: '此社交帳號已被其他用戶綁定',
+          rebindToken,
+        });
       }
 
       return this.prisma.client.user.update({
         where: { id: stateUserId },
         data: {
           [providerIdField]: providerId,
-          ...(provider === 'telegram' && { telegramChatId: providerId }),
         },
       });
     } else {
@@ -126,7 +141,6 @@ export class OAuthService {
             where: { id: user.id },
             data: {
               [providerIdField]: providerId,
-              ...(provider === 'telegram' && { telegramChatId: providerId }),
             },
           });
         }
@@ -145,7 +159,6 @@ export class OAuthService {
           email: profile.email || null,
           [providerIdField]: providerId,
           role: 'USER',
-          ...(provider === 'telegram' && { telegramChatId: providerId }),
         },
       });
     }
@@ -298,14 +311,182 @@ export class OAuthService {
       res.redirect(`${frontendUrl}${redirectPath}`);
     } catch (error: any) {
       let errMsg = '內部伺服器錯誤';
+      let rebindToken: string | undefined = undefined;
+
       if (error instanceof HttpException) {
-        errMsg = error.message;
+        const response = error.getResponse();
+        if (typeof response === 'object' && response !== null) {
+          errMsg = (response as any).message || error.message;
+          rebindToken = (response as any).rebindToken;
+        } else {
+          errMsg = error.message;
+        }
       } else {
         this.logger.error(`OAuth callback failed for ${provider}:`, error.stack || error.message || error);
       }
+
       const isLinkAction = stateData?.action === 'link';
+      if (isLinkAction && rebindToken) {
+        return res.redirect(
+          `${frontendUrl}/profile?status=confirm_rebind&provider=${provider}&rebindToken=${rebindToken}`,
+        );
+      }
+
       const redirectPath = isLinkAction ? '/profile' : '/login';
       res.redirect(`${frontendUrl}${redirectPath}?status=error&message=${encodeURIComponent(errMsg)}`);
     }
+  }
+
+  async rebindProvider(userId: string, rebindToken: string) {
+    const redis = this.redisService.getClient();
+    const redisKey = `oauth_rebind:${rebindToken}`;
+    const dataStr = await redis.get(redisKey);
+
+    if (!dataStr) {
+      throw new BadRequestException('無效或已過期的驗證憑證，請重新嘗試綁定');
+    }
+
+    const data = JSON.parse(dataStr);
+    if (data.userId !== userId) {
+      throw new BadRequestException('不合法的綁定請求');
+    }
+
+    const { provider, providerId, existingUserId } = data;
+    const providerIdField =
+      provider === 'google' ? 'googleId' : provider === 'discord' ? 'discordId' : 'telegramId';
+
+    // 取得被合併的臨時帳戶與目前活躍帳戶資料
+    const existingUser = await this.prisma.client.user.findUnique({
+      where: { id: existingUserId },
+    });
+    if (!existingUser) {
+      throw new BadRequestException('找不到被合併的用戶帳號');
+    }
+
+    const currentUser = await this.prisma.client.user.findUnique({
+      where: { id: userId },
+    });
+
+    // 1. 轉移/合併關聯資料 (Watchlist, SavedStrategy)
+    // 轉移 Watchlist
+    const existingWatchlists = await this.prisma.client.watchlistItem.findMany({
+      where: { userId: existingUserId },
+    });
+    for (const item of existingWatchlists) {
+      const alreadyHas = await this.prisma.client.watchlistItem.findFirst({
+        where: { userId, symbol: item.symbol },
+      });
+      if (!alreadyHas) {
+        await this.prisma.client.watchlistItem.update({
+          where: { id: item.id },
+          data: { userId },
+        });
+      } else {
+        await this.prisma.client.watchlistItem.delete({
+          where: { id: item.id },
+        });
+      }
+    }
+
+    // 轉移 SavedStrategy
+    const existingStrategies = await this.prisma.client.savedStrategy.findMany({
+      where: { userId: existingUserId },
+    });
+    for (const strategy of existingStrategies) {
+      if (strategy.name === '__categories__') {
+        const mainCategoriesStrat = await this.prisma.client.savedStrategy.findFirst({
+          where: { userId, name: '__categories__' },
+        });
+        const targetCats = (strategy.config as any)?.categories || [];
+        if (mainCategoriesStrat) {
+          const mainCats = (mainCategoriesStrat.config as any)?.categories || [];
+          const mergedCats = Array.from(new Set([...mainCats, ...targetCats]));
+          await this.prisma.client.savedStrategy.update({
+            where: { id: mainCategoriesStrat.id },
+            data: {
+              config: {
+                ...(mainCategoriesStrat.config as any),
+                categories: mergedCats,
+              },
+            },
+          });
+          // 刪除臨時用戶的分類設定
+          await this.prisma.client.savedStrategy.delete({
+            where: { id: strategy.id },
+          });
+        } else {
+          // 主要帳戶沒有自訂分類，直接將其轉移
+          await this.prisma.client.savedStrategy.update({
+            where: { id: strategy.id },
+            data: { userId },
+          });
+        }
+        continue;
+      }
+
+      const alreadyHas = await this.prisma.client.savedStrategy.findFirst({
+        where: { userId, name: strategy.name },
+      });
+      if (!alreadyHas) {
+        await this.prisma.client.savedStrategy.update({
+          where: { id: strategy.id },
+          data: { userId },
+        });
+      } else {
+        // 尋找下一個可用的序號 (e.g., 策略名稱(1), 策略名稱(2))
+        let suffixNum = 1;
+        let mergedName = `${strategy.name}(${suffixNum})`;
+        let nameConflict = await this.prisma.client.savedStrategy.findFirst({
+          where: { userId, name: mergedName },
+        });
+        
+        while (nameConflict) {
+          suffixNum++;
+          mergedName = `${strategy.name}(${suffixNum})`;
+          nameConflict = await this.prisma.client.savedStrategy.findFirst({
+            where: { userId, name: mergedName },
+          });
+        }
+
+        await this.prisma.client.savedStrategy.update({
+          where: { id: strategy.id },
+          data: { userId, name: mergedName },
+        });
+      }
+    }
+
+    // 2. 撤銷被合併用戶的所有 Refresh Token
+    await this.prisma.client.refreshToken.deleteMany({
+      where: { userId: existingUserId },
+    });
+
+    // 3. 軟刪除被合併用戶，並將其社交 ID 欄位清空為 null 以利重複使用
+    await this.prisma.client.user.update({
+      where: { id: existingUserId },
+      data: {
+        deletedAt: new Date(),
+        email: null,
+        googleId: null,
+        discordId: null,
+        telegramId: null,
+        telegramChatId: null,
+      },
+    });
+
+    // 4. 綁定新社交 ID 到當前主要帳號
+    await this.prisma.client.user.update({
+      where: { id: userId },
+      data: {
+        [providerIdField]: providerId,
+        ...(provider === 'telegram' && {
+          telegramChatId: currentUser?.telegramChatId || existingUser?.telegramChatId || null,
+        }),
+      },
+    });
+
+    // 5. 刪除 Redis Token
+    await redis.del(redisKey);
+
+    return { message: '社交帳號綁定與合併成功' };
   }
 }

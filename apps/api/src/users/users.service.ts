@@ -169,12 +169,16 @@ export class UsersService {
       throw new NotFoundException(`用戶不存在`);
     }
 
-    // 軟刪除：更新 deletedAt，並修改 email 以避免佔用唯一鍵
+    // 軟刪除：更新 deletedAt，並修改 email 以避免佔用唯一鍵，同時清除第三方綁定以利重複使用
     await this.prisma.client.user.update({
       where: { id },
       data: {
         deletedAt: new Date(),
         email: user.email ? `${user.email}_deleted_${Date.now()}` : null,
+        googleId: null,
+        discordId: null,
+        telegramId: null,
+        telegramChatId: null,
       },
     });
 

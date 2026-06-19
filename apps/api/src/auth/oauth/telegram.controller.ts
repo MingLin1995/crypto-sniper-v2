@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Res, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Res, Request, Param, UnauthorizedException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 import { SkipTransform } from '../../common/decorators/skip-transform.decorator';
@@ -75,10 +75,14 @@ export class TelegramController {
   }
 
   @Public()
-  @Post('telegram/webhook')
+  @Post('telegram/webhook/:token')
   @SkipTransform()
   @ApiOperation({ summary: '接收 Telegram Webhook 更新訊息' })
-  async telegramWebhook(@Body() update: any) {
+  async telegramWebhook(@Param('token') token: string, @Body() update: any) {
+    const botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
+    if (!botToken || token !== botToken) {
+      throw new UnauthorizedException('無效的 Webhook 憑證');
+    }
     await this.telegramBotService.handleWebhookUpdate(update);
     return { status: 'ok' };
   }

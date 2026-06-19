@@ -26,7 +26,7 @@ model User {
   telegramId String?  @unique
   discordId  String?  @unique
 
-  // 告警通知管道綁定
+  // 到價通知管道綁定
   telegramChatId String?
   discordWebhook String?
 

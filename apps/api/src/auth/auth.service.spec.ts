@@ -4,8 +4,10 @@ import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../common/redis/redis.service';
-import { UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException, NotFoundException, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { EmailService } from '../common/email/email.service';
+import { VerificationCodeService } from './verification-code.service';
 
 describe('AuthService (認證服務)', () => {
   let service: AuthService;
@@ -14,6 +16,7 @@ describe('AuthService (認證服務)', () => {
     findByEmail: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
     createRefreshToken: jest.fn(),
     findRefreshTokenById: jest.fn(),
     deleteRefreshToken: jest.fn(),
@@ -45,6 +48,15 @@ describe('AuthService (認證服務)', () => {
     getClient: jest.fn().mockReturnValue(mockRedisClient),
   };
 
+  const mockEmailService = {
+    send: jest.fn(),
+  };
+
+  const mockVerificationCodeService = {
+    generateCode: jest.fn(),
+    verifyCode: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -53,6 +65,8 @@ describe('AuthService (認證服務)', () => {
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: RedisService, useValue: mockRedisService },
+        { provide: EmailService, useValue: mockEmailService },
+        { provide: VerificationCodeService, useValue: mockVerificationCodeService },
       ],
     }).compile();
 
@@ -145,6 +159,58 @@ describe('AuthService (認證服務)', () => {
       await service.logout(requestUser);
 
       expect(mockUsersService.deleteRefreshToken).toHaveBeenCalledWith('token-uuid');
+    });
+  });
+
+  describe('sendPasswordResetEmail (發送密碼重設郵件)', () => {
+    it('若信箱存在，應產生驗證碼並發送郵件', async () => {
+      mockUsersService.findByEmail.mockResolvedValueOnce({ id: '1', email: 'test@example.com' });
+      mockVerificationCodeService.generateCode.mockResolvedValueOnce('123456');
+      mockEmailService.send.mockResolvedValueOnce(undefined);
+
+      const result = await service.sendPasswordResetEmail('test@example.com');
+      expect(result).toHaveProperty('message', '重設驗證碼已成功寄出');
+      expect(mockVerificationCodeService.generateCode).toHaveBeenCalledWith('password_reset', 'test@example.com');
+      expect(mockEmailService.send).toHaveBeenCalled();
+    });
+
+    it('資安優化：若信箱不存在，仍應回傳成功訊息，但不發信與產生驗證碼', async () => {
+      mockUsersService.findByEmail.mockResolvedValueOnce(null);
+
+      const result = await service.sendPasswordResetEmail('notfound@example.com');
+      expect(result).toHaveProperty('message', '重設驗證碼已成功寄出');
+      expect(mockVerificationCodeService.generateCode).not.toHaveBeenCalled();
+      expect(mockEmailService.send).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resetPassword (驗證並重設密碼)', () => {
+    it('若驗證碼正確且用戶存在，應更新密碼', async () => {
+      mockUsersService.findByEmail.mockResolvedValueOnce({ id: '1', email: 'test@example.com' });
+      mockVerificationCodeService.verifyCode.mockResolvedValueOnce(undefined);
+      mockUsersService.update.mockResolvedValueOnce({ id: '1' });
+
+      const result = await service.resetPassword('test@example.com', '123456', 'NewPassword123');
+      expect(result).toHaveProperty('message', '密碼已成功重設');
+      expect(mockVerificationCodeService.verifyCode).toHaveBeenCalledWith('password_reset', 'test@example.com', '123456');
+      expect(mockUsersService.update).toHaveBeenCalledWith('1', { password: 'NewPassword123' });
+    });
+
+    it('若驗證碼錯誤或過期，應拋出 BadRequestException 錯誤', async () => {
+      mockUsersService.findByEmail.mockResolvedValueOnce({ id: '1', email: 'test@example.com' });
+      mockVerificationCodeService.verifyCode.mockRejectedValueOnce(new BadRequestException('驗證碼無效或已過期'));
+
+      await expect(
+        service.resetPassword('test@example.com', 'invalid-code', 'NewPassword123'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('若用戶不存在，應拋出 NotFoundException 錯誤', async () => {
+      mockUsersService.findByEmail.mockResolvedValueOnce(null);
+
+      await expect(
+        service.resetPassword('notfound@example.com', '123456', 'NewPassword123'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

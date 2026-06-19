@@ -87,7 +87,7 @@ describe('TelegramBotService (Telegram 機器人服務)', () => {
         'https://api.telegram.org/bot123456:fake-token/sendMessage',
         {
           chat_id: 999,
-          text: '帳號綁定成功！您現在可以接收系統告警通知。',
+          text: '到價通知啟用成功！您現在可以接收系統的即時策略到價通知。',
         },
       );
     });

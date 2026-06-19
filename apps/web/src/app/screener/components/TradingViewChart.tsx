@@ -170,7 +170,7 @@ export function TradingViewChart({
         <div>
           <CardTitle className="text-lg flex items-center gap-2">
             <LineChart className="h-5 w-5 text-indigo-400" />
-            {locale === "zh-TW" ? `TradingView 高級圖表 - ${selectedSymbol}` : `TradingView Chart - ${selectedSymbol}`}
+            {locale === "zh-TW" ? `TradingView - ${selectedSymbol}` : `TradingView - ${selectedSymbol}`}
           </CardTitle>
           <CardDescription>
             {locale === "zh-TW"
@@ -192,11 +192,10 @@ export function TradingViewChart({
                   <button
                     key={item.value}
                     onClick={() => setChartInterval(item.value)}
-                    className={`text-xs font-semibold px-3 py-1 rounded-md transition-all cursor-pointer ${
-                      chartInterval === item.value
-                        ? "bg-indigo-500 text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]"
-                        : "text-zinc-400 light:text-zinc-600 hover:text-indigo-400 light:hover:text-indigo-600 hover:bg-zinc-800/50 light:hover:bg-zinc-200/50"
-                    }`}
+                    className={`text-xs font-semibold px-3 py-1 rounded-md transition-all cursor-pointer ${chartInterval === item.value
+                      ? "bg-indigo-500 text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]"
+                      : "text-zinc-400 light:text-zinc-600 hover:text-indigo-400 light:hover:text-indigo-600 hover:bg-zinc-800/50 light:hover:bg-zinc-200/50"
+                      }`}
                   >
                     {item.label}
                   </button>

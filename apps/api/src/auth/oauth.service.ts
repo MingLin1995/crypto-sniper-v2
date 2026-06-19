@@ -5,6 +5,8 @@ import {
   BadRequestException,
   NotFoundException,
   InternalServerErrorException,
+  Logger,
+  HttpException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ExtendedPrismaService } from '../common/prisma/extended-prisma.service';
@@ -22,6 +24,8 @@ import axios from 'axios';
 
 @Injectable()
 export class OAuthService {
+  private readonly logger = new Logger(OAuthService.name);
+
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: ExtendedPrismaService,
@@ -108,9 +112,16 @@ export class OAuthService {
       if (profile.email) {
         user = await this.prisma.client.user.findUnique({
           where: { email: profile.email },
+          omit: { password: false },
         });
 
         if (user) {
+          if (user.password) {
+            throw new ConflictException(
+              '該電子信箱已註冊。請先以信箱密碼登入，並至「帳號設定中心」進行第三方綁定。',
+            );
+          }
+
           return this.prisma.client.user.update({
             where: { id: user.id },
             data: {
@@ -286,8 +297,15 @@ export class OAuthService {
       const redirectPath = stateData.action === 'link' ? `/profile?status=success&provider=${provider}` : '/';
       res.redirect(`${frontendUrl}${redirectPath}`);
     } catch (error: any) {
-      const errMsg = error.response?.data?.message || error.message || '內部伺服器錯誤';
-      res.redirect(`${frontendUrl}/profile?status=error&message=${encodeURIComponent(errMsg)}`);
+      let errMsg = '內部伺服器錯誤';
+      if (error instanceof HttpException) {
+        errMsg = error.message;
+      } else {
+        this.logger.error(`OAuth callback failed for ${provider}:`, error.stack || error.message || error);
+      }
+      const isLinkAction = stateData?.action === 'link';
+      const redirectPath = isLinkAction ? '/profile' : '/login';
+      res.redirect(`${frontendUrl}${redirectPath}?status=error&message=${encodeURIComponent(errMsg)}`);
     }
   }
 }

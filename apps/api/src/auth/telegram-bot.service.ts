@@ -19,8 +19,8 @@ export class TelegramBotService implements OnModuleInit {
     const botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
 
     if (webhookUrl && botToken) {
-      // 確保 webhook 網址符合全域 prefix 設定 /api/auth/telegram/webhook
-      const targetUrl = `${webhookUrl}/api/auth/telegram/webhook`;
+      // 使用 BOT_TOKEN 作為安全路徑後綴，避免被外部惡意存取
+      const targetUrl = `${webhookUrl}/api/auth/telegram/webhook/${botToken}`;
       this.logger.log(`正在向 Telegram 註冊 Webhook: ${targetUrl}`);
       try {
         const response = await axios.post(`https://api.telegram.org/bot${botToken}/setWebhook`, {
@@ -58,29 +58,41 @@ export class TelegramBotService implements OnModuleInit {
       if (userId) {
         try {
           const telegramIdStr = String(fromId);
-          // 確保此 Telegram 帳號沒有被其他帳號綁定過
-          const existingUser = await this.prisma.client.user.findFirst({
-            where: {
-              telegramId: telegramIdStr,
-              id: { not: userId },
-            },
+          // 確保用戶已在網站綁定 telegramId，且與發送者一致
+          const user = await this.prisma.client.user.findUnique({
+            where: { id: userId },
           });
 
-          if (existingUser) {
-            await this.sendMessage(chatId, '綁定失敗：此 Telegram 帳號已綁定至其他平台帳號。');
+          if (!user) {
+            await this.sendMessage(chatId, '啟用失敗：用戶不存在。');
             return;
           }
 
-          // 更新用戶的 Telegram 資訊
+          if (!user.telegramId) {
+            await this.sendMessage(
+              chatId,
+              '啟用失敗：請先在網站的「個人設定」連結您的 Telegram 帳號（登入帳戶），然後再來此處啟用通知。',
+            );
+            return;
+          }
+
+          if (user.telegramId !== telegramIdStr) {
+            await this.sendMessage(
+              chatId,
+              '啟用失敗：您的 Telegram 帳戶與網站上綁定的登入帳戶不符，請確認您使用的是同一個 Telegram 帳戶。',
+            );
+            return;
+          }
+
+          // 僅更新 telegramChatId 用於發送通知
           await this.prisma.client.user.update({
             where: { id: userId },
             data: {
-              telegramId: telegramIdStr,
               telegramChatId: String(chatId),
             },
           });
 
-          await this.sendMessage(chatId, '帳號綁定成功！您現在可以接收系統告警通知。');
+          await this.sendMessage(chatId, '到價通知啟用成功！您現在可以接收系統的即時策略到價通知。');
           await redis.del(redisKey);
         } catch (error: any) {
           this.logger.error(`綁定 Telegram 用戶時發生錯誤: ${error.message}`);
@@ -90,7 +102,7 @@ export class TelegramBotService implements OnModuleInit {
         await this.sendMessage(chatId, '無效或已過期的連結 Token，請重新在網站上點擊綁定。');
       }
     } else if (text === '/start') {
-      await this.sendMessage(chatId, '歡迎使用 CryptoSniper V2 告警機器人！請從系統設定頁面點擊「綁定 Telegram」並點擊連結開啟。');
+      await this.sendMessage(chatId, '歡迎使用 CryptoSniper V2 到價通知機器人！請從系統設定頁面點擊「綁定 Telegram」並點擊連結開啟。');
     }
   }
 

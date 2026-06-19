@@ -1,4 +1,4 @@
-import { Controller, Post, Request } from '@nestjs/common';
+import { Controller, Post, Request, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { OAuthService } from './oauth.service';
 
@@ -29,5 +29,12 @@ export class AccountLinkController {
   async unlinkTelegram(@Request() req: any) {
     await this.oauthService.unlinkProvider(req.user.sub, 'telegram');
     return { message: 'Telegram 帳號解綁成功' };
+  }
+
+  @Post('rebind')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '強制覆蓋綁定社交帳號並合併臨時帳戶' })
+  async rebind(@Request() req: any, @Body() body: { rebindToken: string }) {
+    return this.oauthService.rebindProvider(req.user.sub, body.rebindToken);
   }
 }

@@ -18,6 +18,7 @@ interface UserProfile {
   role: string;
   googleId: string | null;
   telegramId: string | null;
+  telegramChatId: string | null;
   discordId: string | null;
   createdAt: string;
   hasPassword: boolean;
@@ -53,6 +54,10 @@ function ProfileContent() {
   const [passwordInput, setPasswordInput] = useState("");
   const [confirmPasswordInput, setConfirmPasswordInput] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
+
+  // Re-bind Confirmation Modal State
+  const [confirmRebindData, setConfirmRebindData] = useState<{ provider: string; rebindToken: string } | null>(null);
+  const [submittingRebind, setSubmittingRebind] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -229,12 +234,16 @@ function ProfileContent() {
     const status = searchParams.get("status");
     const provider = searchParams.get("provider");
     const msg = searchParams.get("message");
+    const rebindToken = searchParams.get("rebindToken");
 
     if (status === "success") {
       setSuccess(t.linkedMsg.replace("{provider}", provider === "google" ? "Google" : "Discord"));
       router.replace("/profile");
     } else if (status === "error" && msg) {
       setError(decodeURIComponent(msg));
+      router.replace("/profile");
+    } else if (status === "confirm_rebind" && provider && rebindToken) {
+      setConfirmRebindData({ provider, rebindToken });
       router.replace("/profile");
     }
   }, [searchParams, router, t]);
@@ -251,6 +260,10 @@ function ProfileContent() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 409 && data.rebindToken) {
+          setConfirmRebindData({ provider: "telegram", rebindToken: data.rebindToken });
+          return;
+        }
         throw new Error(data.message || "Telegram 綁定失敗");
       }
       setSuccess(t.linkedMsg.replace("{provider}", "Telegram"));
@@ -259,6 +272,32 @@ function ProfileContent() {
       setError(err.message);
     }
   }, [fetchProfile, t.linkedMsg]);
+
+  // Handle confirming forced social rebind
+  const handleConfirmRebind = async () => {
+    if (!confirmRebindData) return;
+    setError(null);
+    setSuccess(null);
+    setSubmittingRebind(true);
+    try {
+      const res = await fetch("/api/auth/rebind", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rebindToken: confirmRebindData.rebindToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "帳號合併綁定失敗");
+      }
+      setSuccess(locale === "zh-TW" ? "社交帳號已成功轉移並綁定至此帳戶！" : "Social account successfully transferred and linked!");
+      setConfirmRebindData(null);
+      fetchProfile(true);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSubmittingRebind(false);
+    }
+  };
 
   // 3. Dynamic loading of Telegram Widget for link action
   useEffect(() => {
@@ -299,7 +338,7 @@ function ProfileContent() {
           if (res.ok) {
             const resJson = await res.json();
             const data: UserProfile = resJson.data;
-            if (data.telegramId) {
+            if (data.telegramChatId) {
               setUser(data);
               setIsPolling(false);
               setBotLink(null);
@@ -650,7 +689,7 @@ function ProfileContent() {
                   <p className="text-xs text-zinc-400 overflow-hidden break-all min-h-8">
                     {user.googleId
                       ? t.googleBoundDesc.replace("{id}", user.googleId)
-                      : (locale === "zh-TW" ? "使用 Google 帳戶登入" : "Log in with Google")}
+                      : (locale === "zh-TW" ? "連結 Google 帳戶快速登入" : "Link Google Account for fast login")}
                   </p>
                 </div>
               </div>
@@ -695,7 +734,7 @@ function ProfileContent() {
                   <p className="text-xs text-zinc-400 overflow-hidden break-all min-h-8">
                     {user.discordId
                       ? t.discordBoundDesc.replace("{id}", user.discordId)
-                      : (locale === "zh-TW" ? "連結 Discord 接收警報" : "Receive Discord Alerts")}
+                      : (locale === "zh-TW" ? "連結 Discord 帳戶快速登入以及接收到價通知" : "Link Discord Account for fast login and price notifications")}
                   </p>
                 </div>
               </div>
@@ -723,11 +762,22 @@ function ProfileContent() {
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.25-5.54 3.69-.52.36-1 .53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.35-.49.97-.74 3.79-1.65 6.32-2.73 7.59-3.25 3.61-1.48 4.36-1.74 4.85-1.75.11 0 .35.03.51.16.13.1.17.25.19.35.02.1.02.24.01.37z" />
                     </svg>
                   </div>
-                  <div>
+                  <div className="flex items-center gap-1.5">
                     {user.telegramId ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        {locale === "zh-TW" ? "已連結" : "Linked"}
-                      </span>
+                      <>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          {locale === "zh-TW" ? "已連結" : "Linked"}
+                        </span>
+                        {user.telegramChatId ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            {locale === "zh-TW" ? "到價通知已啟用" : "Price Alerts Enabled"}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            {locale === "zh-TW" ? "到價通知未啟用" : "Price Alerts Disabled"}
+                          </span>
+                        )}
+                      </>
                     ) : (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
                         {locale === "zh-TW" ? "未連結" : "Not Linked"}
@@ -740,77 +790,67 @@ function ProfileContent() {
                   <p className="text-xs text-zinc-400 overflow-hidden break-all min-h-8">
                     {user.telegramId
                       ? t.tgBoundDesc.replace("{id}", user.telegramId)
-                      : (locale === "zh-TW" ? "接收 Telegram 策略通知" : "Receive Telegram Alerts")}
+                      : (locale === "zh-TW" ? "連結 Telegram 帳戶快速登入以及接收到價通知" : "Link Telegram Account for fast login and price notifications")}
                   </p>
                 </div>
               </div>
+              
               <div className="mt-4">
                 {user.telegramId ? (
-                  <Button variant="outline" size="sm" onClick={() => handleUnlink("telegram")} className="w-full border-red-500/25 text-red-400 hover:bg-red-500/10 cursor-pointer">
-                    {t.unlinkBtn}
-                  </Button>
-                ) : (
-                  <div className="space-y-2">
-                    {/* Method A: Telegram Widget */}
-                    <div className="group relative overflow-hidden h-10 w-full rounded-md">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full h-full flex items-center justify-center cursor-pointer group-hover:bg-secondary group-hover:text-secondary-foreground group-hover:border-indigo-500/30 text-xs"
-                      >
-                        <svg className="mr-1.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.25-5.54 3.69-.52.36-1 .53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.35-.49.97-.74 3.79-1.65 6.32-2.73 7.59-3.25 3.61-1.48 4.36-1.74 4.85-1.75.11 0 .35.03.51.16.13.1.17.25.19.35.02.1.02.24.01.37z" />
-                        </svg>
-                        {t.tgMethodA}
-                      </Button>
-                      <div
-                        id="telegram-link-container"
-                        className="absolute inset-0 opacity-0 z-10 cursor-pointer"
-                      />
-                      <style>{`
-                        #telegram-link-container iframe {
-                          width: 100% !important;
-                          height: 100% !important;
-                          min-width: 100% !important;
-                          opacity: 0 !important;
-                          position: absolute !important;
-                          top: 0 !important;
-                          left: 0 !important;
-                          transform: scale(3) !important;
-                          transform-origin: center center !important;
-                          cursor: pointer !important;
-                          z-index: 10 !important;
-                        }
-                      `}</style>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t border-zinc-800/60" />
-                      </div>
-                      <div className="relative flex justify-center text-[10px] uppercase">
-                        <span className="px-2 text-zinc-500 bg-zinc-900/40 rounded">
-                          {locale === "zh-TW" ? "或" : "or"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Method B: Bot Link */}
-                    {!botLink ? (
-                      <Button size="sm" variant="secondary" onClick={getTelegramBotToken} loading={botLoading} className="cursor-pointer w-full text-xs">
-                        {t.getBotLink}
-                      </Button>
-                    ) : (
+                  <div className="space-y-3">
+                    {/* 機器人啟用通知按鈕 */}
+                    {!user.telegramChatId && (
                       <div className="space-y-1.5">
-                        <Button size="sm" onClick={() => window.open(botLink.botUrl, "_blank")} className="cursor-pointer w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs">
-                          {t.openBot}
-                        </Button>
-                        <p className="text-[10px] text-indigo-400 leading-tight text-center">
-                          {t.botGuidance}
-                        </p>
+                        {!botLink ? (
+                          <Button size="sm" onClick={getTelegramBotToken} loading={botLoading} className="cursor-pointer w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold">
+                            {locale === "zh-TW" ? "啟用到價通知" : "Enable Price Notifications"}
+                          </Button>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <Button size="sm" onClick={() => window.open(botLink.botUrl, "_blank")} className="cursor-pointer w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs">
+                              {t.openBot}
+                            </Button>
+                            <p className="text-[10px] text-indigo-400 leading-tight text-center">
+                              {t.botGuidance}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
+                    
+                    {/* 解除綁定按鈕 */}
+                    <Button variant="outline" size="sm" onClick={() => handleUnlink("telegram")} className="w-full border-red-500/25 text-red-400 hover:bg-red-500/10 cursor-pointer text-xs">
+                      {t.unlinkBtn}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="group relative overflow-hidden h-[34px] w-full rounded-md">
+                    <Button
+                      size="sm"
+                      className="w-full h-full flex items-center justify-center cursor-pointer bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
+                    >
+                      {t.linkBtn}
+                    </Button>
+                    <div
+                      id="telegram-link-container"
+                      className="absolute inset-0 z-10 cursor-pointer"
+                      style={{ filter: "opacity(0)" }}
+                    />
+                    <style>{`
+                      #telegram-link-container iframe {
+                        width: 100% !important;
+                        height: 100% !important;
+                        min-width: 100% !important;
+                        filter: opacity(0) !important;
+                        position: absolute !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        transform: scale(3) !important;
+                        transform-origin: center center !important;
+                        cursor: pointer !important;
+                        z-index: 10 !important;
+                      }
+                    `}</style>
                   </div>
                 )}
               </div>
@@ -819,6 +859,58 @@ function ProfileContent() {
           </div>
         </CardContent>
       </Card>
+
+      {confirmRebindData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <Card className="w-full max-w-md border-indigo-500/20 glass-indigo shadow-2xl animate-in zoom-in-95 duration-200">
+            <CardHeader>
+              <div className="flex items-center gap-2 text-amber-400">
+                <svg className="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+                <CardTitle className="text-lg">
+                  {locale === "zh-TW" ? "社交帳號已被其他用戶綁定" : "Social Account Already Bound"}
+                </CardTitle>
+              </div>
+              <CardDescription className="text-xs text-zinc-400 mt-1">
+                {locale === "zh-TW"
+                  ? `您正試圖綁定的 ${confirmRebindData.provider.toUpperCase()} 帳戶已被另一個帳戶連結。`
+                  : `The ${confirmRebindData.provider.toUpperCase()} account you are trying to link is already connected to another profile.`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-zinc-300 leading-relaxed">
+                {locale === "zh-TW"
+                  ? "是否要強制將該社交帳號「轉移並綁定」到此帳戶？"
+                  : "Do you want to force transfer and link this social account to your current profile?"}
+              </p>
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-xs text-red-400 leading-tight">
+                <strong>{locale === "zh-TW" ? "⚠️ 注意：" : "⚠️ Warning:"}</strong>{" "}
+                {locale === "zh-TW"
+                  ? "轉移後，另一個臨時帳戶中的設定（如策略、最愛清單）將會被合併到此帳戶，且該臨時帳戶將會被軟刪除並登出。"
+                  : "Once transferred, any settings (like strategies and watchlists) on the other account will be merged into this one, and the other temporary account will be soft-deleted."}
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmRebindData(null)}
+                disabled={submittingRebind}
+                className="cursor-pointer border-zinc-800 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+              >
+                {locale === "zh-TW" ? "取消" : "Cancel"}
+              </Button>
+              <Button
+                onClick={handleConfirmRebind}
+                loading={submittingRebind}
+                className="cursor-pointer bg-amber-600 hover:bg-amber-500 text-white font-bold"
+              >
+                {locale === "zh-TW" ? "確認轉移並合併" : "Confirm Transfer & Merge"}
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

@@ -248,7 +248,8 @@ function LoginContent() {
             {/* The transparent official Telegram login widget */}
             <div
               id="telegram-login-container"
-              className="absolute inset-0 opacity-0 z-10 cursor-pointer"
+              className="absolute inset-0 z-10 cursor-pointer"
+              style={{ filter: "opacity(0)" }}
             />
             {/* Override styles for the telegram widget iframe */}
             <style>{`
@@ -256,7 +257,7 @@ function LoginContent() {
                 width: 100% !important;
                 height: 100% !important;
                 min-width: 100% !important;
-                opacity: 0 !important;
+                filter: opacity(0) !important;
                 position: absolute !important;
                 top: 0 !important;
                 left: 0 !important;

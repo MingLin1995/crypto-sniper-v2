@@ -18,8 +18,9 @@ async function handleProxy(
   const method = req.method;
   const headers = new Headers();
 
-  // 1. CSRF Protection for state-mutating requests
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+  // 1. CSRF Protection for state-mutating requests (except webhooks)
+  const isWebhook = path.endsWith("webhook") || path.includes("/webhook");
+  if (!isWebhook && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
     const origin = req.headers.get("origin");
     const referer = req.headers.get("referer");
     const host = req.headers.get("host"); // e.g. localhost:3001

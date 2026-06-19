@@ -66,13 +66,21 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const clientMessage = exception instanceof HttpException ? message : '內部伺服器錯誤';
 
-    const errorResponse = {
+    const errorResponse: any = {
       statusCode: status,
       message: Array.isArray(clientMessage) ? clientMessage : [clientMessage],
       error: exception instanceof HttpException ? exception.name : 'Internal Server Error',
       timestamp: taipeiTime,
       path: url,
     };
+
+    if (exception instanceof HttpException) {
+      const exceptionResponse = exception.getResponse();
+      if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+        const { message: _, error: __, statusCode: ___, ...extra } = exceptionResponse as any;
+        Object.assign(errorResponse, extra);
+      }
+    }
 
     response.status(status).json(errorResponse);
   }

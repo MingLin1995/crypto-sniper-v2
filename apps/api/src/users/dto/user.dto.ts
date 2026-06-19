@@ -35,6 +35,24 @@ export class UpdateUserDto {
     message: PASSWORD_VALIDATION_MESSAGE,
   })
   password?: string;
+
+  @ApiProperty({
+    description: 'Email 驗證碼 (當變更或綁定信箱時必填)',
+    example: '123456',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  code?: string;
+
+  @ApiProperty({
+    description: '當前舊密碼 (若已設定密碼則變更密碼時必填)',
+    example: 'oldPassword123',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  currentPassword?: string;
 }
 
 export class UserResponseDto {
@@ -64,6 +82,9 @@ export class UserResponseDto {
 
   @ApiProperty({ example: 'discord-webhook-url', required: false, nullable: true })
   discordWebhook?: string | null;
+
+  @ApiProperty({ example: true, description: '是否已設定密碼' })
+  hasPassword!: boolean;
 
   @ApiProperty()
   createdAt!: Date;

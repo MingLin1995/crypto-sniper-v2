@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ExtendedPrismaService } from '../common/prisma/extended-prisma.service';
 import { Prisma } from '@prisma/client';
 import { RegisterDto } from '../auth/dto/auth.dto';
@@ -7,10 +7,14 @@ import { Role } from '../common/decorators/roles.decorator';
 import * as bcrypt from 'bcrypt';
 import { UserQueryDto } from './dto/user-query.dto';
 import { calculatePagination, createPaginatedResponse } from '../common/utils/pagination.helper';
+import { VerificationCodeService } from '../auth/verification-code.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: ExtendedPrismaService) { }
+  constructor(
+    private readonly prisma: ExtendedPrismaService,
+    private readonly verificationCodeService: VerificationCodeService,
+  ) { }
 
   async findByEmail(email: string) {
     return this.prisma.client.user.findFirst({
@@ -47,14 +51,19 @@ export class UsersService {
 
   async findOne(id: string) {
     const user = await this.prisma.client.user.findFirst({
-      where: { id, },
+      where: { id },
+      omit: { password: false },
     });
 
     if (!user) {
       throw new NotFoundException(`用戶不存在`);
     }
 
-    return user;
+    const { password, ...userWithoutPassword } = user;
+    return {
+      ...userWithoutPassword,
+      hasPassword: !!password,
+    };
   }
 
   async findAll(queryDto: UserQueryDto) {
@@ -97,13 +106,48 @@ export class UsersService {
   async update(id: string, updateUserDto: UpdateUserDto) {
     const user = await this.prisma.client.user.findFirst({
       where: { id },
+      omit: { password: false },
     });
 
     if (!user) {
       throw new NotFoundException(`用戶不存在`);
     }
 
-    const dataToUpdate = { ...updateUserDto };
+    if (updateUserDto.email && updateUserDto.email !== user.email) {
+      const emailExists = await this.prisma.client.user.findFirst({
+        where: {
+          email: updateUserDto.email,
+          id: { not: id },
+        },
+      });
+      if (emailExists) {
+        throw new ConflictException('此電子信箱已被其他帳戶使用');
+      }
+
+      // 檢查驗證碼
+      if (!updateUserDto.code) {
+        throw new BadRequestException('更新電子信箱時需要提供驗證碼');
+      }
+
+      await this.verificationCodeService.verifyCode('email_verify', updateUserDto.email, updateUserDto.code);
+    }
+
+    if (updateUserDto.password) {
+      if (user.password) {
+        if (!updateUserDto.currentPassword) {
+          throw new BadRequestException('請提供當前舊密碼以驗證身分');
+        }
+        const isCurrentPasswordValid = await bcrypt.compare(
+          updateUserDto.currentPassword,
+          user.password,
+        );
+        if (!isCurrentPasswordValid) {
+          throw new BadRequestException('當前舊密碼輸入錯誤');
+        }
+      }
+    }
+
+    const { code: _, currentPassword: __, ...dataToUpdate } = updateUserDto;
     if (dataToUpdate.password) {
       dataToUpdate.password = await bcrypt.hash(dataToUpdate.password, 10);
       // 密碼變更時，撤銷該用戶所有裝置的 Refresh Token

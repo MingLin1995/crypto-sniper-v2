@@ -15,6 +15,7 @@ import { RefreshTokenStrategy } from './refresh-token.strategy';
 import { TelegramBotService } from './telegram-bot.service';
 import { UsersModule } from '../users/users.module';
 import { JWT_CONFIG } from '../common/config/jwt.config';
+import { VerificationCodeModule } from './verification-code.module';
 import type { StringValue } from 'ms';
 
 @Module({
@@ -30,6 +31,7 @@ import type { StringValue } from 'ms';
       }),
     }),
     UsersModule,
+    VerificationCodeModule,
   ],
   controllers: [
     AuthController,

@@ -1,14 +1,14 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
-import { RedisService } from '../common/redis/redis.service';
 import { EmailService } from '../common/email/email.service';
+import { VerificationCodeService } from './verification-code.service';
 
 @Injectable()
 export class EmailVerificationService {
   constructor(
     private readonly usersService: UsersService,
-    private readonly redisService: RedisService,
     private readonly emailService: EmailService,
+    private readonly verificationCodeService: VerificationCodeService,
   ) {}
 
   async sendVerificationEmail(email: string): Promise<{ message: string }> {
@@ -18,12 +18,8 @@ export class EmailVerificationService {
       throw new ConflictException('Email 已被使用');
     }
 
-    // 產生 6 位數驗證碼
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // 存入 Redis，效期 10 分鐘 (600秒)
-    const redis = this.redisService.getClient();
-    await redis.set(`email_verify:${email}`, code, 'EX', 600);
+    // 產生並儲存安全隨機驗證碼到 Redis
+    const code = await this.verificationCodeService.generateCode('email_verify', email);
 
     const subject = 'CryptoSniper - 註冊電子信箱驗證碼 / Verification Code';
     const text = `您的驗證碼是：${code}，有效時間為 10 分鐘。請於註冊畫面輸入此驗證碼完成信箱驗證。\nYour verification code is: ${code}. It is valid for 10 minutes. Please enter this code on the registration page to verify your email.`;

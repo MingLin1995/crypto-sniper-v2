@@ -2,18 +2,20 @@ import {
   Injectable,
   UnauthorizedException,
   ForbiddenException,
-  BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
-import { RedisService } from '../common/redis/redis.service';
+
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import ms = require('ms');
 import { JWT_CONFIG } from '../common/config/jwt.config';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { AuthenticatedUser, LoginResponse, RequestUser } from './interfaces/auth.interface';
+import { EmailService } from '../common/email/email.service';
+import { VerificationCodeService } from './verification-code.service';
 
 @Injectable()
 export class AuthService {
@@ -21,7 +23,8 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly redisService: RedisService,
+    private readonly emailService: EmailService,
+    private readonly verificationCodeService: VerificationCodeService,
   ) {}
 
   async validateUser(loginDto: LoginDto): Promise<AuthenticatedUser> {
@@ -56,15 +59,11 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto): Promise<LoginResponse> {
-    const redis = this.redisService.getClient();
-    const cachedCode = await redis.get(`email_verify:${registerDto.email}`);
-
-    if (!cachedCode || cachedCode !== registerDto.code) {
-      throw new BadRequestException('驗證碼無效或已過期');
-    }
-
-    // 驗證成功，清除快取
-    await redis.del(`email_verify:${registerDto.email}`);
+    await this.verificationCodeService.verifyCode(
+      'email_verify',
+      registerDto.email,
+      registerDto.code,
+    );
 
     const user = await this.usersService.create({
       email: registerDto.email,
@@ -86,7 +85,9 @@ export class AuthService {
   async refreshTokens(userId: string, rt: string): Promise<LoginResponse> {
     try {
       const decoded = (await this.jwtService.verifyAsync(rt, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || JWT_CONFIG.REFRESH_SECRET_FALLBACK,
+        secret:
+          this.configService.get<string>('JWT_REFRESH_SECRET') ||
+          JWT_CONFIG.REFRESH_SECRET_FALLBACK,
       })) as any;
       const tokenId = decoded?.tokenId;
 
@@ -137,7 +138,9 @@ export class AuthService {
         expiresIn: (this.configService.get<string>('JWT_EXPIRES_IN') || '30m') as any,
       }),
       this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || JWT_CONFIG.REFRESH_SECRET_FALLBACK,
+        secret:
+          this.configService.get<string>('JWT_REFRESH_SECRET') ||
+          JWT_CONFIG.REFRESH_SECRET_FALLBACK,
         expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d') as any,
       }),
     ]);
@@ -154,5 +157,49 @@ export class AuthService {
       accessToken: at,
       refreshToken: rt,
     };
+  }
+
+  async sendPasswordResetEmail(email: string): Promise<{ message: string }> {
+    const user = await this.usersService.findByEmail(email);
+
+    if (!user) {
+      return { message: '重設驗證碼已成功寄出' };
+    }
+
+    const code = await this.verificationCodeService.generateCode('password_reset', email);
+
+    const subject = 'CryptoSniper - 重設密碼驗證碼 / Password Reset Code';
+    const text = `您的密碼重設驗證碼是：${code}，有效時間為 10 分鐘。請於密碼重設畫面輸入此驗證碼變更密碼。\nYour password reset code is: ${code}. It is valid for 10 minutes. Please enter this code on the password reset page to change your password.`;
+    const html = `<div style="font-family: sans-serif; padding: 20px; color: #1e1b4b; background-color: #fafafa; border-radius: 8px; max-width: 600px; margin: 0 auto; border: 1px solid #e4e4e7;">
+      <h2 style="color: #6366f1; margin-bottom: 20px;">CryptoSniper 重設密碼 / Password Reset</h2>
+      <p style="margin-bottom: 5px; font-weight: 500;">您好，您申請了重設 CryptoSniper 帳戶的密碼。請在密碼重設頁面中填入以下 6 位數驗證碼：</p>
+      <p style="color: #64748b; font-size: 14px; margin-top: 0; margin-bottom: 20px;">*Hello! You requested to reset your password. Please enter the following 6-digit verification code on the password reset page to complete your request:*</p>
+      <div style="font-size: 32px; font-weight: bold; background-color: #f3f4f6; color: #4f46e5; padding: 15px; border-radius: 6px; text-align: center; letter-spacing: 5px; margin: 25px 0;">
+        ${code}
+      </div>
+      <p style="color: #71717a; font-size: 13px; margin-bottom: 5px;">該驗證碼有效期限為 10 分鐘。如果您並未申請重設密碼，請忽略本郵件，您的密碼將保持不變。</p>
+      <p style="color: #9ca3af; font-size: 12px; margin-top: 0;">*This verification code is valid for 10 minutes. If you did not request a password reset, please ignore this email; your password will remain unchanged.*</p>
+    </div>`;
+
+    await this.emailService.send(email, subject, text, html);
+
+    return { message: '重設驗證碼已成功寄出' };
+  }
+
+  async resetPassword(
+    email: string,
+    code: string,
+    passwordInput: string,
+  ): Promise<{ message: string }> {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new NotFoundException('使用者不存在');
+    }
+
+    await this.verificationCodeService.verifyCode('password_reset', email, code);
+
+    await this.usersService.update(user.id, { password: passwordInput });
+
+    return { message: '密碼已成功重設' };
   }
 }

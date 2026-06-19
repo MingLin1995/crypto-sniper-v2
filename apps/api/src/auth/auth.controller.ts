@@ -12,7 +12,7 @@ import { AuthService } from './auth.service';
 import { EmailVerificationService } from './email-verification.service';
 import { Public } from '../common/decorators/public.decorator';
 import { RefreshTokenGuard } from './refresh-token.guard';
-import { LoginDto, RegisterDto, AuthResponseDto, LogoutResponseDto } from './dto/auth.dto';
+import { LoginDto, RegisterDto, AuthResponseDto, LogoutResponseDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
 import { SendVerificationEmailDto } from './dto/email-verification.dto';
 import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
@@ -74,7 +74,25 @@ export class AuthController {
     this.setAuthCookies(res, result.accessToken, result.refreshToken);
     return result;
   }
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Post('forgot-password')
+  @ApiOperation({ summary: '忘記密碼：發送密碼重設驗證碼' })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.sendPasswordResetEmail(forgotPasswordDto.email);
+  }
 
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Post('reset-password')
+  @ApiOperation({ summary: '重設密碼' })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(
+      resetPasswordDto.email,
+      resetPasswordDto.code,
+      resetPasswordDto.password,
+    );
+  }
   @Post('logout')
   @ApiBearerAuth()
   @ApiOperation({ summary: '登出' })

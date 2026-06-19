@@ -58,6 +58,31 @@ export const translations = {
     loginSuccess: "登入成功！正在跳轉...",
     registerSuccess: "註冊成功！正在為您導向登入頁面...",
     
+    // Credentials Form
+    credentialsTitle: "設定登入帳密",
+    credentialsDesc: "設定您的 Email 與登入密碼，以便未來可直接使用帳密登入。",
+    confirmPassword: "確認新密碼",
+    saveBtn: "儲存設定",
+    passwordsDoNotMatch: "兩次輸入的密碼不一致",
+    credentialsSuccess: "登入帳密更新成功！",
+    changeEmailTitle: "電子信箱設定",
+    changeEmailDesc: "綁定或修改您的信箱，可用於登入與接收系統告警通知。",
+    changePasswordTitle: "變更登入密碼",
+    changePasswordDesc: "請輸入您的當前舊密碼與新密碼以進行變更。",
+    currentPassword: "當前舊密碼",
+    newPassword: "設定新密碼",
+    changePasswordSuccess: "密碼變更成功！",
+    changeEmailSuccess: "電子信箱更新成功！",
+
+    // Forgot Password
+    forgotPasswordLink: "忘記密碼？",
+    forgotPasswordTitle: "重設您的密碼",
+    forgotPasswordDesc: "請輸入您註冊的 Email，系統將發送密碼重設驗證碼。",
+    sendResetCodeBtn: "發送重設驗證碼",
+    resetPasswordBtn: "重設密碼",
+    resetPasswordSuccess: "密碼重設成功！請使用新密碼登入。",
+    backToLogin: "返回登入",
+
     // Validation
     enterAllFields: "請填寫所有欄位",
     enterEmailFirst: "請先輸入電子信箱",
@@ -125,6 +150,31 @@ export const translations = {
     loginSuccess: "Login successful! Redirecting...",
     registerSuccess: "Register successful! Redirecting to login...",
     
+    // Credentials Form
+    credentialsTitle: "Login Credentials",
+    credentialsDesc: "Set up your email and password to log in directly with credentials.",
+    confirmPassword: "Confirm Password",
+    saveBtn: "Save Settings",
+    passwordsDoNotMatch: "Passwords do not match",
+    credentialsSuccess: "Login credentials updated successfully!",
+    changeEmailTitle: "Email Settings",
+    changeEmailDesc: "Bind or modify your email for logging in and receiving system alerts.",
+    changePasswordTitle: "Change Password",
+    changePasswordDesc: "Please enter your current password and new password to make the change.",
+    currentPassword: "Current Password",
+    newPassword: "New Password",
+    changePasswordSuccess: "Password changed successfully!",
+    changeEmailSuccess: "Email updated successfully!",
+
+    // Forgot Password
+    forgotPasswordLink: "Forgot password?",
+    forgotPasswordTitle: "Reset Your Password",
+    forgotPasswordDesc: "Please enter your registered email to receive a password reset code.",
+    sendResetCodeBtn: "Send Reset Code",
+    resetPasswordBtn: "Reset Password",
+    resetPasswordSuccess: "Password reset successful! Please log in with your new password.",
+    backToLogin: "Back to Login",
+
     // Validation
     enterAllFields: "Please fill out all fields",
     enterEmailFirst: "Please enter email first",

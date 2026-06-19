@@ -4,6 +4,7 @@ import * as React from "react";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useApp } from "@/components/AppProviders";
@@ -19,6 +20,7 @@ interface UserProfile {
   telegramId: string | null;
   discordId: string | null;
   createdAt: string;
+  hasPassword: boolean;
 }
 
 function ProfileContent() {
@@ -38,6 +40,164 @@ function ProfileContent() {
   const [isPolling, setIsPolling] = useState(false);
 
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "CryptoSniper_MLvip_Bot";
+
+  // Email Form State
+  const [emailInput, setEmailInput] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
+  // Password Form State
+  const [currentPasswordInput, setCurrentPasswordInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setEmailInput(user.email || "");
+    }
+  }, [user]);
+
+  // Countdown timer for resending verification code
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  const handleSendVerificationCode = async () => {
+    if (!emailInput) {
+      setError(t.enterEmailFirst);
+      return;
+    }
+    setError(null);
+    setSuccess(null);
+    setSendingCode(true);
+
+    try {
+      const res = await fetch("/api/auth/send-verification-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailInput }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "發送驗證碼失敗");
+      }
+
+      setSuccess(t.codeSent);
+      setCountdown(60); // 60s cooldown
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  const handleUpdateEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    if (!emailInput) {
+      setError(t.enterAllFields);
+      return;
+    }
+
+    const isEmailChanged = emailInput !== (user?.email || "");
+    if (!isEmailChanged) {
+      return;
+    }
+
+    if (!verificationCode) {
+      setError(t.enterCode);
+      return;
+    }
+
+    setSavingEmail(true);
+    try {
+      const payload = {
+        email: emailInput,
+        code: verificationCode,
+      };
+
+      const res = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || (locale === "zh-TW" ? "更新信箱失敗" : "Failed to update email"));
+      }
+
+      setSuccess(t.changeEmailSuccess);
+      setVerificationCode("");
+      fetchProfile(true);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    if (!passwordInput || !confirmPasswordInput) {
+      setError(t.enterAllFields);
+      return;
+    }
+
+    if (user?.hasPassword && !currentPasswordInput) {
+      setError(t.enterAllFields);
+      return;
+    }
+
+    if (passwordInput !== confirmPasswordInput) {
+      setError(t.passwordsDoNotMatch);
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      const payload: any = {
+        password: passwordInput,
+      };
+      if (user?.hasPassword) {
+        payload.currentPassword = currentPasswordInput;
+      }
+
+      const res = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || (locale === "zh-TW" ? "更新密碼失敗" : "Failed to update password"));
+      }
+
+      setSuccess(t.changePasswordSuccess);
+      setCurrentPasswordInput("");
+      setPasswordInput("");
+      setConfirmPasswordInput("");
+      fetchProfile(true);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSavingPassword(false);
+    }
+  };
 
   // 1. Fetch user profile
   const fetchProfile = React.useCallback(async (silent = false) => {
@@ -111,7 +271,7 @@ function ProfileContent() {
       script.src = "https://telegram.org/js/telegram-widget.js?22";
       script.async = true;
       script.setAttribute("data-telegram-login", botUsername);
-      script.setAttribute("data-size", "large");
+      script.setAttribute("data-size", "medium");
       script.setAttribute("data-onauth", "onTelegramAuth(user)");
       script.setAttribute("data-request-access", "write");
 
@@ -227,17 +387,24 @@ function ProfileContent() {
 
   if (!user) return null;
 
+  const avatarLetter = (user.nickname || user.email || "?").charAt(0).toUpperCase();
+
   return (
-    <div className="w-full max-w-4xl space-y-6">
-      {/* Upper Navigation Bar */}
-      <div className="flex items-center justify-between pb-4 border-b border-indigo-500/10">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-            {t.profileTitle}
-          </h1>
-          <p className="text-sm text-zinc-400 mt-1">{t.profileDesc}</p>
+    <div className="w-full max-w-5xl space-y-6">
+      {/* Page Header with Avatar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-indigo-500/10">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl font-extrabold shadow-lg shadow-indigo-500/30 border border-indigo-400/20 shrink-0">
+            {avatarLetter}
+          </div>
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              {t.profileTitle}
+            </h1>
+            <p className="text-sm text-zinc-400 mt-0.5">{t.profileDesc}</p>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-3">
           <Button variant="outline" onClick={() => router.push("/screener")} className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10">
             {locale === "zh-TW" ? "返回篩選器" : "Back to Screener"}
           </Button>
@@ -259,160 +426,339 @@ function ProfileContent() {
         </div>
       )}
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-        {/* Left Column: Profile Card */}
-        <Card className="md:col-span-1 border-indigo-500/15 glass-indigo">
-          <CardHeader>
-            <CardTitle>{t.basicTitle}</CardTitle>
-            <CardDescription>{t.basicDesc}</CardDescription>
+      {/* Row 1: Profile Info + Account Security (2-column) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Profile Info Card */}
+        <Card className="border-indigo-500/15 glass-indigo">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-400">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                </svg>
+              </div>
+              <div>
+                <CardTitle className="text-base">{t.basicTitle}</CardTitle>
+                <CardDescription className="text-xs">{t.basicDesc}</CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-1">
-              <span className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">{t.emailLabel}</span>
-              <span className="text-sm font-medium text-zinc-200">{user.email || (locale === "zh-TW" ? "未設定" : "Not set")}</span>
-            </div>
-            <div className="grid gap-1">
-              <span className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">{t.nicknameLabel}</span>
-              <span className="text-sm font-medium text-zinc-200">{user.nickname}</span>
-            </div>
-            <div className="grid gap-1">
-              <span className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">{t.roleLabel}</span>
-              <span className="text-sm font-medium text-zinc-200">
-                <span className="px-2 py-0.5 rounded text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold">
+          <CardContent className="space-y-0">
+            <div className="divide-y divide-zinc-800/40">
+              <div className="flex justify-between items-center py-3">
+                <span className="text-xs text-zinc-400 font-semibold">{t.nicknameLabel}</span>
+                <span className="text-sm text-zinc-200 font-medium">{user.nickname}</span>
+              </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-xs text-zinc-400 font-semibold">{t.emailLabel}</span>
+                <span className="text-sm text-zinc-200 select-all max-w-[200px] truncate" title={user.email || ""}>
+                  {user.email || (locale === "zh-TW" ? "未設定" : "Not set")}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-xs text-zinc-400 font-semibold">
+                  {locale === "zh-TW" ? "角色" : "Role"}
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold uppercase">
                   {user.role}
                 </span>
-              </span>
-            </div>
-            <div className="grid gap-1">
-              <span className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">{t.createdAtLabel}</span>
-              <span className="text-sm font-medium text-zinc-200">
-                {new Date(user.createdAt).toLocaleDateString(locale, {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </span>
+              </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-xs text-zinc-400 font-semibold">{t.createdAtLabel}</span>
+                <span className="text-sm text-zinc-200">
+                  {new Date(user.createdAt).toLocaleDateString(locale, {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Right Column: Linked Services */}
-        <Card className="md:col-span-2 border-indigo-500/15 glass-indigo">
-          <CardHeader>
-            <CardTitle>{t.oauthTitle}</CardTitle>
-            <CardDescription>
-              {t.oauthDesc}
-            </CardDescription>
+        {/* Change Email Card */}
+        <Card className="border-indigo-500/15 glass-indigo flex flex-col">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-400">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+                </svg>
+              </div>
+              <div>
+                <CardTitle className="text-base">{t.changeEmailTitle}</CardTitle>
+                <CardDescription className="text-xs">{t.changeEmailDesc}</CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-6">
-
-            {/* Google Bind Row */}
-            <div className="flex items-center justify-between p-4 rounded-lg bg-zinc-900/50 light:bg-slate-100/50 border border-zinc-800 light:border-zinc-200 gap-4">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="p-2 rounded bg-zinc-800/80 light:bg-zinc-200 text-zinc-100 light:text-zinc-800 shrink-0">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.113-5.136 4.113-3.472 0-6.285-2.813-6.285-6.285A6.29 6.29 0 0 1 14 5.943c1.498 0 2.866.525 3.945 1.543l3.12-3.12C19.185 2.597 16.79 1.5 14 1.5c-5.79 0-10.5 4.71-10.5 10.5S8.21 22.5 14 22.5c5.78 0 10.5-4.71 10.5-10.5 0-.64-.075-1.285-.2-1.915h-12.06Z" />
-                  </svg>
+          <CardContent className="flex-1 flex flex-col justify-between">
+            <form onSubmit={handleUpdateEmail} className="space-y-4 flex flex-col h-full justify-between">
+              <div className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="emailInput">{t.email}</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="emailInput"
+                      type="email"
+                      placeholder="name@example.com"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      required
+                      className="flex-1"
+                    />
+                    {emailInput !== (user?.email || "") && (
+                      <Button
+                        type="button"
+                        onClick={handleSendVerificationCode}
+                        loading={sendingCode}
+                        disabled={countdown > 0}
+                        className="cursor-pointer shrink-0 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/25"
+                        variant="outline"
+                      >
+                        {countdown > 0 ? `${countdown}s` : t.sendCode}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-semibold">{t.googleAccount}</h4>
-                  <p className="text-xs text-zinc-400 mt-0.5 break-all select-all">
+                {emailInput !== (user?.email || "") && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="verificationCodeInput">{t.code}</Label>
+                    <Input
+                      id="verificationCodeInput"
+                      type="text"
+                      placeholder="123456"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+              </div>
+              <Button type="submit" loading={savingEmail} disabled={emailInput === (user?.email || "")} className="w-full cursor-pointer mt-4 bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed">
+                {t.saveBtn}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Row 2: Change Password (full width) */}
+      <Card className="border-indigo-500/15 glass-indigo">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-400">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+              </svg>
+            </div>
+            <div>
+              <CardTitle className="text-base">{t.changePasswordTitle}</CardTitle>
+              <CardDescription className="text-xs">{t.changePasswordDesc}</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleUpdatePassword} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {user.hasPassword && (
+                <div className="grid gap-2">
+                  <Label htmlFor="currentPasswordInput">{t.currentPassword}</Label>
+                  <Input
+                    id="currentPasswordInput"
+                    type="password"
+                    placeholder="••••••••"
+                    value={currentPasswordInput}
+                    onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
+              <div className="grid gap-2">
+                <Label htmlFor="passwordInput">{user.hasPassword ? t.newPassword : t.password}</Label>
+                <Input
+                  id="passwordInput"
+                  type="password"
+                  placeholder="••••••••"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="confirmPasswordInput">{t.confirmPassword}</Label>
+                <Input
+                  id="confirmPasswordInput"
+                  type="password"
+                  placeholder="••••••••"
+                  value={confirmPasswordInput}
+                  onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" loading={savingPassword} className="cursor-pointer px-8 bg-indigo-600 hover:bg-indigo-500 text-white">
+                {t.saveBtn}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Row 3: Linked Services */}
+      <Card className="border-indigo-500/15 glass-indigo">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-400">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+              </svg>
+            </div>
+            <div>
+              <CardTitle className="text-base">{t.oauthTitle}</CardTitle>
+              <CardDescription className="text-xs">{t.oauthDesc}</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+            {/* Google Connection Tile */}
+            <div className="flex flex-col justify-between p-5 rounded-xl bg-zinc-900/40 light:bg-slate-100/40 border border-zinc-800/80 light:border-zinc-200/80 hover:border-indigo-500/30 transition-all duration-300">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="p-2.5 rounded-lg bg-zinc-800/80 light:bg-zinc-200 text-zinc-100 light:text-zinc-800 shrink-0">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.113-5.136 4.113-3.472 0-6.285-2.813-6.285-6.285A6.29 6.29 0 0 1 14 5.943c1.498 0 2.866.525 3.945 1.543l3.12-3.12C19.185 2.597 16.79 1.5 14 1.5c-5.79 0-10.5 4.71-10.5 10.5S8.21 22.5 14 22.5c5.78 0 10.5-4.71 10.5-10.5 0-.64-.075-1.285-.2-1.915h-12.06Z" />
+                    </svg>
+                  </div>
+                  <div>
+                    {user.googleId ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        {locale === "zh-TW" ? "已連結" : "Linked"}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
+                        {locale === "zh-TW" ? "未連結" : "Not Linked"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-zinc-200">{t.googleAccount}</h4>
+                  <p className="text-xs text-zinc-400 overflow-hidden break-all min-h-8">
                     {user.googleId
                       ? t.googleBoundDesc.replace("{id}", user.googleId)
-                      : (locale === "zh-TW" ? "尚未連結 Google 帳戶" : "Not linked to Google")}
+                      : (locale === "zh-TW" ? "使用 Google 帳戶登入" : "Log in with Google")}
                   </p>
                 </div>
               </div>
-              <div>
+              <div className="mt-4">
                 {user.googleId ? (
-                  <Button variant="outline" size="sm" onClick={() => handleUnlink("google")} className="border-red-500/25 text-red-400 hover:bg-red-500/10 cursor-pointer">
+                  <Button variant="outline" size="sm" onClick={() => handleUnlink("google")} className="w-full border-red-500/25 text-red-400 hover:bg-red-500/10 cursor-pointer">
                     {t.unlinkBtn}
                   </Button>
                 ) : (
                   <Button size="sm" onClick={() => {
                     window.location.href = "/api/auth/google?action=link";
-                  }} className="cursor-pointer">
+                  }} className="w-full cursor-pointer bg-indigo-600 hover:bg-indigo-500 text-white">
                     {t.linkBtn}
                   </Button>
                 )}
               </div>
             </div>
 
-            {/* Discord Bind Row */}
-            <div className="flex items-center justify-between p-4 rounded-lg bg-zinc-900/50 light:bg-slate-100/50 border border-zinc-800 light:border-zinc-200 gap-4">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="p-2 rounded bg-zinc-800/80 light:bg-zinc-200 text-zinc-100 light:text-zinc-800 shrink-0">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.873-.894.077.077 0 0 1-.008-.128c.126-.093.252-.19.372-.287a.075.075 0 0 1 .077-.011c3.92 1.793 8.18 1.793 12.061 0a.073.073 0 0 1 .078.009c.12.099.246.195.373.289a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.156-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.156 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.156-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.156 2.418z" />
-                  </svg>
+            {/* Discord Connection Tile */}
+            <div className="flex flex-col justify-between p-5 rounded-xl bg-zinc-900/40 light:bg-slate-100/40 border border-zinc-800/80 light:border-zinc-200/80 hover:border-indigo-500/30 transition-all duration-300">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="p-2.5 rounded-lg bg-zinc-800/80 light:bg-zinc-200 text-zinc-100 light:text-zinc-800 shrink-0">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.873-.894.077.077 0 0 1-.008-.128c.126-.093.252-.19.372-.287a.075.075 0 0 1 .077-.011c3.92 1.793 8.18 1.793 12.061 0a.073.073 0 0 1 .078.009c.12.099.246.195.373.289a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.156-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.156 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.156-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.156 2.418z" />
+                    </svg>
+                  </div>
+                  <div>
+                    {user.discordId ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        {locale === "zh-TW" ? "已連結" : "Linked"}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
+                        {locale === "zh-TW" ? "未連結" : "Not Linked"}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-semibold">{t.discordAccount}</h4>
-                  <p className="text-xs text-zinc-400 mt-0.5 break-all select-all">
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-zinc-200">{t.discordAccount}</h4>
+                  <p className="text-xs text-zinc-400 overflow-hidden break-all min-h-8">
                     {user.discordId
                       ? t.discordBoundDesc.replace("{id}", user.discordId)
-                      : (locale === "zh-TW" ? "尚未連結 Discord 帳戶" : "Not linked to Discord")}
+                      : (locale === "zh-TW" ? "連結 Discord 接收警報" : "Receive Discord Alerts")}
                   </p>
                 </div>
               </div>
-              <div>
+              <div className="mt-4">
                 {user.discordId ? (
-                  <Button variant="outline" size="sm" onClick={() => handleUnlink("discord")} className="border-red-500/25 text-red-400 hover:bg-red-500/10 cursor-pointer">
+                  <Button variant="outline" size="sm" onClick={() => handleUnlink("discord")} className="w-full border-red-500/25 text-red-400 hover:bg-red-500/10 cursor-pointer">
                     {t.unlinkBtn}
                   </Button>
                 ) : (
                   <Button size="sm" onClick={() => {
                     window.location.href = "/api/auth/discord?action=link";
-                  }} className="cursor-pointer">
+                  }} className="w-full cursor-pointer bg-indigo-600 hover:bg-indigo-500 text-white">
                     {t.linkBtn}
                   </Button>
                 )}
               </div>
             </div>
 
-            {/* Telegram Bind Row with two options */}
-            <div className="p-4 rounded-lg bg-zinc-900/50 light:bg-slate-100/50 border border-zinc-800 light:border-zinc-200 space-y-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="p-2 rounded bg-zinc-800/80 light:bg-zinc-200 text-zinc-100 light:text-zinc-800 shrink-0">
+            {/* Telegram Connection Tile */}
+            <div className="flex flex-col justify-between p-5 rounded-xl bg-zinc-900/40 light:bg-slate-100/40 border border-zinc-800/80 light:border-zinc-200/80 hover:border-indigo-500/30 transition-all duration-300">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="p-2.5 rounded-lg bg-zinc-800/80 light:bg-zinc-200 text-zinc-100 light:text-zinc-800 shrink-0">
                     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.25-5.54 3.69-.52.36-1 .53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.35-.49.97-.74 3.79-1.65 6.32-2.73 7.59-3.25 3.61-1.48 4.36-1.74 4.85-1.75.11 0 .35.03.51.16.13.1.17.25.19.35.02.1.02.24.01.37z" />
                     </svg>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-sm font-semibold">{t.telegramAccount}</h4>
-                    <p className="text-xs text-zinc-400 mt-0.5 break-all select-all">
-                      {user.telegramId
-                        ? t.tgBoundDesc.replace("{id}", user.telegramId)
-                        : t.tgUnboundDesc}
-                    </p>
+                  <div>
+                    {user.telegramId ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        {locale === "zh-TW" ? "已連結" : "Linked"}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
+                        {locale === "zh-TW" ? "未連結" : "Not Linked"}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div>
-                  {user.telegramId && (
-                    <Button variant="outline" size="sm" onClick={() => handleUnlink("telegram")} className="border-red-500/25 text-red-400 hover:bg-red-500/10 cursor-pointer">
-                      {t.unlinkBtn}
-                    </Button>
-                  )}
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-zinc-200">{t.telegramAccount}</h4>
+                  <p className="text-xs text-zinc-400 overflow-hidden break-all min-h-8">
+                    {user.telegramId
+                      ? t.tgBoundDesc.replace("{id}", user.telegramId)
+                      : (locale === "zh-TW" ? "接收 Telegram 策略通知" : "Receive Telegram Alerts")}
+                  </p>
                 </div>
               </div>
-
-              {/* Linking interfaces if not bound */}
-              {!user.telegramId && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-zinc-800/60 light:border-zinc-200">
-                  {/* Option 1: Widget */}
-                  <div className="flex flex-col items-center justify-between p-3 rounded bg-zinc-950/40 light:bg-slate-200/30 border border-zinc-800/50 light:border-zinc-200">
-                    <span className="text-xs font-semibold text-zinc-400 mb-2">{t.tgMethodA}</span>
-
-                    {/* Styled Telegram Button with transparent overlay */}
-                    <div className="group relative overflow-hidden h-10 w-full max-w-[200px] rounded-md">
+              <div className="mt-4">
+                {user.telegramId ? (
+                  <Button variant="outline" size="sm" onClick={() => handleUnlink("telegram")} className="w-full border-red-500/25 text-red-400 hover:bg-red-500/10 cursor-pointer">
+                    {t.unlinkBtn}
+                  </Button>
+                ) : (
+                  <div className="space-y-2">
+                    {/* Method A: Telegram Widget */}
+                    <div className="group relative overflow-hidden h-10 w-full rounded-md">
                       <Button
                         variant="outline"
-                        className="w-full h-full flex items-center justify-center cursor-pointer group-hover:bg-secondary group-hover:text-secondary-foreground group-hover:border-indigo-500/30"
+                        size="sm"
+                        className="w-full h-full flex items-center justify-center cursor-pointer group-hover:bg-secondary group-hover:text-secondary-foreground group-hover:border-indigo-500/30 text-xs"
                       >
-                        <svg className="mr-1.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <svg className="mr-1.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.25-5.54 3.69-.52.36-1 .53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.35-.49.97-.74 3.79-1.65 6.32-2.73 7.59-3.25 3.61-1.48 4.36-1.74 4.85-1.75.11 0 .35.03.51.16.13.1.17.25.19.35.02.1.02.24.01.37z" />
                         </svg>
                         {t.tgMethodA}
@@ -430,41 +776,49 @@ function ProfileContent() {
                           position: absolute !important;
                           top: 0 !important;
                           left: 0 !important;
-                          transform: scale(2.5) !important;
+                          transform: scale(3) !important;
+                          transform-origin: center center !important;
                           cursor: pointer !important;
                           z-index: 10 !important;
                         }
                       `}</style>
                     </div>
-                  </div>
 
-                  {/* Option 2: Bot */}
-                  <div className="flex flex-col items-center justify-between p-3 rounded bg-zinc-950/40 light:bg-slate-200/30 border border-zinc-800/50 light:border-zinc-200">
-                    <span className="text-xs font-semibold text-zinc-400 mb-2">{t.tgMethodB}</span>
+                    {/* Divider */}
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-zinc-800/60" />
+                      </div>
+                      <div className="relative flex justify-center text-[10px] uppercase">
+                        <span className="px-2 text-zinc-500 bg-zinc-900/40 rounded">
+                          {locale === "zh-TW" ? "或" : "or"}
+                        </span>
+                      </div>
+                    </div>
 
+                    {/* Method B: Bot Link */}
                     {!botLink ? (
-                      <Button size="sm" variant="secondary" onClick={getTelegramBotToken} loading={botLoading} className="cursor-pointer">
+                      <Button size="sm" variant="secondary" onClick={getTelegramBotToken} loading={botLoading} className="cursor-pointer w-full text-xs">
                         {t.getBotLink}
                       </Button>
                     ) : (
-                      <div className="flex flex-col items-center gap-2 w-full text-center">
-                        <Button size="sm" onClick={() => window.open(botLink.botUrl, "_blank")} className="cursor-pointer">
+                      <div className="space-y-1.5">
+                        <Button size="sm" onClick={() => window.open(botLink.botUrl, "_blank")} className="cursor-pointer w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs">
                           {t.openBot}
                         </Button>
-                        <p className="text-[11px] text-indigo-400 leading-tight">
+                        <p className="text-[10px] text-indigo-400 leading-tight text-center">
                           {t.botGuidance}
                         </p>
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
-          </CardContent>
-        </Card>
-
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

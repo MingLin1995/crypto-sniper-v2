@@ -6,7 +6,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ExtendedPrismaService } from '../common/prisma/extended-prisma.service';
 import { RedisService } from '../common/redis/redis.service';
-import { UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { UnauthorizedException, BadRequestException, ConflictException } from '@nestjs/common';
 import { createHash, createHmac } from 'crypto';
 
 describe('OAuthService (第三方認證服務)', () => {
@@ -107,6 +107,16 @@ describe('OAuthService (第三方認證服務)', () => {
       const result = await service.handleOAuthLoginOrLink('google', { sub: 'google-sub', email: 'test@example.com', name: 'Social User' });
       expect(result.googleId).toBe('google-sub');
       expect(mockPrisma.client.user.update).toHaveBeenCalled();
+    });
+
+    it('若用戶不存在且 Email 相同，但該帳號已有密碼，應拋出 ConflictException 拒絕自動合併', async () => {
+      const existingUser = { id: 'user-id-123', email: 'test@example.com', password: 'hashed-password' };
+      mockPrisma.client.user.findFirst.mockResolvedValueOnce(null); // by googleId
+      mockPrisma.client.user.findUnique.mockResolvedValueOnce(existingUser); // by email
+
+      await expect(
+        service.handleOAuthLoginOrLink('google', { sub: 'google-sub', email: 'test@example.com', name: 'Social User' }),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('若用戶與 Email 皆不存在，則自動註冊新帳號', async () => {

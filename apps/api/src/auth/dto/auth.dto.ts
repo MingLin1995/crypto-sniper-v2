@@ -102,3 +102,47 @@ export class LogoutResponseDto {
   })
   message!: string;
 }
+
+export class ForgotPasswordDto {
+  @ApiProperty({
+    description: 'Email 電子信箱',
+    example: 'user@example.com',
+    required: true,
+  })
+  @IsEmail()
+  @IsNotEmpty()
+  email!: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({
+    description: 'Email 電子信箱',
+    example: 'user@example.com',
+    required: true,
+  })
+  @IsEmail()
+  @IsNotEmpty()
+  email!: string;
+
+  @ApiProperty({
+    description: '新密碼',
+    example: '000000a1',
+    minLength: 8,
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(8)
+  @Matches(PASSWORD_REGEX, {
+    message: PASSWORD_VALIDATION_MESSAGE,
+  })
+  password!: string;
+
+  @ApiProperty({
+    description: 'Email 驗證碼 (6位數字)',
+    example: '123456',
+    required: true,
+  })
+  @IsString()
+  @IsNotEmpty()
+  code!: string;
+}

@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.1.26",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.26",
@@ -51,6 +52,7 @@
     "@scalar/nestjs-api-reference": "^1.1.5",
     "axios": "1.13.3",
     "bcrypt": "^6.0.0",
+    "bullmq": "^5.79.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",

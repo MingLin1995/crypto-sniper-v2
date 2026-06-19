@@ -34,6 +34,7 @@ model User {
   webSubscriptions WebSubscription[]
   watchlists       WatchlistItem[]
   savedStrategies  SavedStrategy[]
+  priceAlerts      PriceAlert[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -153,4 +154,21 @@ model SavedStrategy {
 
   @@unique([userId, name])
   @@index([userId])
+}
+
+model PriceAlert {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol       String
+  condition    String    // ABOVE, BELOW
+  targetPrice  Decimal   @db.Decimal(20, 8)
+  isActive     Boolean   @default(true)
+  isTriggered  Boolean   @default(false)
+  triggeredAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([symbol, isActive])
 }

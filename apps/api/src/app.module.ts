@@ -22,6 +22,8 @@ import { EmailModule } from './common/email/email.module';
 import { MarketModule } from './market/market.module';
 import { StrategiesModule } from './strategies/strategies.module';
 import { WatchlistModule } from './watchlist/watchlist.module';
+import { BullModule } from '@nestjs/bullmq';
+import { AlertsModule } from './alerts/alerts.module';
 
 @Module({
   imports: [
@@ -40,6 +42,11 @@ import { WatchlistModule } from './watchlist/watchlist.module';
       },
     ]),
     ScheduleModule.forRoot(),
+    BullModule.forRoot({
+      connection: {
+        url: process.env.REDIS_URL || 'redis://localhost:6379',
+      },
+    }),
     LoggerModule,
     AuthModule,
     UsersModule,
@@ -47,6 +54,7 @@ import { WatchlistModule } from './watchlist/watchlist.module';
     MarketModule,
     StrategiesModule,
     WatchlistModule,
+    AlertsModule,
   ],
   controllers: [AppController],
   providers: [

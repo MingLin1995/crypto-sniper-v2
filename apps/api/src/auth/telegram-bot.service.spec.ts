@@ -29,6 +29,7 @@ describe('TelegramBotService (Telegram 機器人服務)', () => {
     client: {
       user: {
         findFirst: jest.fn(),
+        findUnique: jest.fn(),
         update: jest.fn(),
       },
     },
@@ -56,7 +57,7 @@ describe('TelegramBotService (Telegram 機器人服務)', () => {
   });
 
   describe('handleWebhookUpdate', () => {
-    it('應能正確處理 /start <token> 指令並綁定帳號', async () => {
+    it('應能正確處理 /start <token> 指令並啟用通知', async () => {
       const update = {
         message: {
           chat: { id: 999 },
@@ -66,19 +67,20 @@ describe('TelegramBotService (Telegram 機器人服務)', () => {
       };
 
       mockRedisClient.get.mockResolvedValue('user-id-abc');
-      mockPrisma.client.user.findFirst.mockResolvedValue(null); // 沒有衝突
-      mockPrisma.client.user.update.mockResolvedValue({ id: 'user-id-abc', telegramId: '12345' });
+      mockPrisma.client.user.findUnique.mockResolvedValue({ id: 'user-id-abc', telegramId: '12345' });
+      mockPrisma.client.user.update.mockResolvedValue({ id: 'user-id-abc', telegramChatId: '999' });
       
       const spyPost = jest.spyOn(axios, 'post').mockResolvedValue({ data: { ok: true } } as any);
 
       await service.handleWebhookUpdate(update);
 
       expect(mockRedisClient.get).toHaveBeenCalledWith('tg_link:valid-token');
-      expect(mockPrisma.client.user.findFirst).toHaveBeenCalled();
+      expect(mockPrisma.client.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user-id-abc' },
+      });
       expect(mockPrisma.client.user.update).toHaveBeenCalledWith({
         where: { id: 'user-id-abc' },
         data: {
-          telegramId: '12345',
           telegramChatId: '999',
         },
       });
@@ -101,7 +103,7 @@ describe('TelegramBotService (Telegram 機器人服務)', () => {
         },
       };
 
-      mockRedisClient.get.mockResolvedValue(null); // Token 不存在或已過期
+      mockRedisClient.get.mockResolvedValue(null);
       const spyPost = jest.spyOn(axios, 'post').mockResolvedValue({ data: { ok: true } } as any);
 
       await service.handleWebhookUpdate(update);
@@ -117,7 +119,7 @@ describe('TelegramBotService (Telegram 機器人服務)', () => {
       );
     });
 
-    it('若 Telegram ID 已被其他帳號綁定，應通知綁定失敗', async () => {
+    it('若 Telegram ID 與網站上綁定的登入帳戶不符，應通知啟用失敗', async () => {
       const update = {
         message: {
           chat: { id: 999 },
@@ -127,7 +129,7 @@ describe('TelegramBotService (Telegram 機器人服務)', () => {
       };
 
       mockRedisClient.get.mockResolvedValue('user-id-abc');
-      mockPrisma.client.user.findFirst.mockResolvedValue({ id: 'another-user-id' }); // 衝突！
+      mockPrisma.client.user.findUnique.mockResolvedValue({ id: 'user-id-abc', telegramId: 'different-id' });
       const spyPost = jest.spyOn(axios, 'post').mockResolvedValue({ data: { ok: true } } as any);
 
       await service.handleWebhookUpdate(update);
@@ -137,7 +139,32 @@ describe('TelegramBotService (Telegram 機器人服務)', () => {
         'https://api.telegram.org/bot123456:fake-token/sendMessage',
         {
           chat_id: 999,
-          text: '綁定失敗：此 Telegram 帳號已綁定至其他平台帳號。',
+          text: '啟用失敗：您的 Telegram 帳戶與網站上綁定的登入帳戶不符，請確認您使用的是同一個 Telegram 帳戶。',
+        },
+      );
+    });
+
+    it('若用戶尚未連結 Telegram 帳號，應通知啟用失敗', async () => {
+      const update = {
+        message: {
+          chat: { id: 999 },
+          from: { id: 12345 },
+          text: '/start valid-token',
+        },
+      };
+
+      mockRedisClient.get.mockResolvedValue('user-id-abc');
+      mockPrisma.client.user.findUnique.mockResolvedValue({ id: 'user-id-abc', telegramId: null });
+      const spyPost = jest.spyOn(axios, 'post').mockResolvedValue({ data: { ok: true } } as any);
+
+      await service.handleWebhookUpdate(update);
+
+      expect(mockPrisma.client.user.update).not.toHaveBeenCalled();
+      expect(spyPost).toHaveBeenCalledWith(
+        'https://api.telegram.org/bot123456:fake-token/sendMessage',
+        {
+          chat_id: 999,
+          text: '啟用失敗：請先在網站的「個人設定」連結您的 Telegram 帳號（登入帳戶），然後再來此處啟用通知。',
         },
       );
     });

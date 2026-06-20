@@ -21,7 +21,6 @@ export class PriceCheckProcessor extends WorkerHost {
 
   async process(job: Job<{ symbol: string }, any, string>): Promise<void> {
     const { symbol } = job.data;
-    this.logger.debug(`Processing price check for symbol: ${symbol}`);
 
     // 1. 取得 Redis 最新價格快取
     const latestPrice = await this.marketCacheService.getPrice(symbol);
@@ -40,7 +39,6 @@ export class PriceCheckProcessor extends WorkerHost {
     });
 
     if (activeAlerts.length === 0) {
-      this.logger.debug(`No active alerts found for ${symbol}.`);
       return;
     }
 

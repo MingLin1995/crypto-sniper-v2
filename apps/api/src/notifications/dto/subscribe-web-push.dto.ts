@@ -8,7 +8,7 @@ export class SubscribeWebPushDto {
   })
   @IsString()
   @IsNotEmpty()
-  endpoint: string;
+  endpoint!: string;
 
   @ApiProperty({
     description: 'Web Push Client Public Key (p256dh)',
@@ -16,7 +16,7 @@ export class SubscribeWebPushDto {
   })
   @IsString()
   @IsNotEmpty()
-  p256dh: string;
+  p256dh!: string;
 
   @ApiProperty({
     description: 'Web Push Auth Secret',
@@ -24,5 +24,5 @@ export class SubscribeWebPushDto {
   })
   @IsString()
   @IsNotEmpty()
-  auth: string;
+  auth!: string;
 }

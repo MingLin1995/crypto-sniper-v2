@@ -152,7 +152,7 @@ export class BinanceWebsocketService implements OnModuleInit, OnModuleDestroy {
           'check',
           { symbol },
           {
-            jobId: `price-check:${symbol}`,
+            jobId: `price-check-${symbol}`,
             // 由於價格是高頻變動，若佇列積壓，不需要重試太久之前的到價比對
             removeOnComplete: true,
             removeOnFail: true,

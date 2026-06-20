@@ -52,14 +52,15 @@ export class NotificationsService implements OnModuleInit {
 
     const timeStr = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
     const conditionStr = condition === 'ABOVE' ? '高於 (>=)' : '低於 (<=)';
+    const conditionStrTG = condition === 'ABOVE' ? '高於 (>=)' : '低於 (&lt;=)';
 
     // === Telegram 通知 ===
     if (user.telegramChatId) {
       const telegramText =
-        `🚨 <b>CryptoSniper 到價告警觸發</b> 🚨\n\n` +
+        `🚨 <b>CryptoSniper 到價通知觸發</b> 🚨\n\n` +
         `<b>交易對:</b> ${symbol}\n` +
         `<b>觸發價格:</b> ${triggeredPrice}\n` +
-        `<b>條件:</b> ${conditionStr}\n` +
+        `<b>條件:</b> ${conditionStrTG}\n` +
         `<b>目標價格:</b> ${targetPrice}\n` +
         `<b>觸發時間:</b> ${timeStr}`;
 
@@ -77,7 +78,7 @@ export class NotificationsService implements OnModuleInit {
         await axios.post(user.discordWebhook, {
           embeds: [
             {
-              title: '🚨 CryptoSniper 到價告警觸發 🚨',
+              title: '🚨 CryptoSniper 到價通知觸發 🚨',
               color: 16711680, // 紅色
               fields: [
                 { name: '交易對', value: symbol, inline: true },
@@ -98,9 +99,9 @@ export class NotificationsService implements OnModuleInit {
     // === Web Push 通知 ===
     if (user.webSubscriptions && user.webSubscriptions.length > 0) {
       const payload = JSON.stringify({
-        title: '🚨 CryptoSniper 到價告警 🚨',
+        title: '🚨 CryptoSniper 到價通知 🚨',
         body: `${symbol} 已達到目標價格 ${targetPrice}！目前價格為 ${triggeredPrice}。`,
-        icon: '/logo.png',
+        icon: '/favicon.ico',
         data: {
           url: '/alerts',
         },

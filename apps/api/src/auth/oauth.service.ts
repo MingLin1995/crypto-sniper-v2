@@ -355,133 +355,136 @@ export class OAuthService {
     const providerIdField =
       provider === 'google' ? 'googleId' : provider === 'discord' ? 'discordId' : 'telegramId';
 
-    // 取得被合併的臨時帳戶與目前活躍帳戶資料
-    const existingUser = await this.prisma.client.user.findUnique({
-      where: { id: existingUserId },
-    });
-    if (!existingUser) {
-      throw new BadRequestException('找不到被合併的用戶帳號');
-    }
-
-    const currentUser = await this.prisma.client.user.findUnique({
-      where: { id: userId },
-    });
-
-    // 1. 轉移/合併關聯資料 (Watchlist, SavedStrategy)
-    // 轉移 Watchlist
-    const existingWatchlists = await this.prisma.client.watchlistItem.findMany({
-      where: { userId: existingUserId },
-    });
-    for (const item of existingWatchlists) {
-      const alreadyHas = await this.prisma.client.watchlistItem.findFirst({
-        where: { userId, symbol: item.symbol },
+    // 將所有資料庫寫入操作包裝在一個事務 ($transaction) 中確保原子性
+    await this.prisma.client.$transaction(async (tx) => {
+      // 取得被合併的臨時帳戶與目前活躍帳戶資料
+      const existingUser = await tx.user.findUnique({
+        where: { id: existingUserId },
       });
-      if (!alreadyHas) {
-        await this.prisma.client.watchlistItem.update({
-          where: { id: item.id },
-          data: { userId },
-        });
-      } else {
-        await this.prisma.client.watchlistItem.delete({
-          where: { id: item.id },
-        });
+      if (!existingUser) {
+        throw new BadRequestException('找不到被合併的用戶帳號');
       }
-    }
 
-    // 轉移 SavedStrategy
-    const existingStrategies = await this.prisma.client.savedStrategy.findMany({
-      where: { userId: existingUserId },
-    });
-    for (const strategy of existingStrategies) {
-      if (strategy.name === '__categories__') {
-        const mainCategoriesStrat = await this.prisma.client.savedStrategy.findFirst({
-          where: { userId, name: '__categories__' },
+      const currentUser = await tx.user.findUnique({
+        where: { id: userId },
+      });
+
+      // 1. 轉移/合併關聯資料 (Watchlist, SavedStrategy)
+      // 轉移 Watchlist
+      const existingWatchlists = await tx.watchlistItem.findMany({
+        where: { userId: existingUserId },
+      });
+      for (const item of existingWatchlists) {
+        const alreadyHas = await tx.watchlistItem.findFirst({
+          where: { userId, symbol: item.symbol },
         });
-        const targetCats = (strategy.config as any)?.categories || [];
-        if (mainCategoriesStrat) {
-          const mainCats = (mainCategoriesStrat.config as any)?.categories || [];
-          const mergedCats = Array.from(new Set([...mainCats, ...targetCats]));
-          await this.prisma.client.savedStrategy.update({
-            where: { id: mainCategoriesStrat.id },
-            data: {
-              config: {
-                ...(mainCategoriesStrat.config as any),
-                categories: mergedCats,
-              },
-            },
-          });
-          // 刪除臨時用戶的分類設定
-          await this.prisma.client.savedStrategy.delete({
-            where: { id: strategy.id },
+        if (!alreadyHas) {
+          await tx.watchlistItem.update({
+            where: { id: item.id },
+            data: { userId },
           });
         } else {
-          // 主要帳戶沒有自訂分類，直接將其轉移
-          await this.prisma.client.savedStrategy.update({
+          await tx.watchlistItem.delete({
+            where: { id: item.id },
+          });
+        }
+      }
+
+      // 轉移 SavedStrategy
+      const existingStrategies = await tx.savedStrategy.findMany({
+        where: { userId: existingUserId },
+      });
+      for (const strategy of existingStrategies) {
+        if (strategy.name === '__categories__') {
+          const mainCategoriesStrat = await tx.savedStrategy.findFirst({
+            where: { userId, name: '__categories__' },
+          });
+          const targetCats = (strategy.config as any)?.categories || [];
+          if (mainCategoriesStrat) {
+            const mainCats = (mainCategoriesStrat.config as any)?.categories || [];
+            const mergedCats = Array.from(new Set([...mainCats, ...targetCats]));
+            await tx.savedStrategy.update({
+              where: { id: mainCategoriesStrat.id },
+              data: {
+                config: {
+                  ...(mainCategoriesStrat.config as any),
+                  categories: mergedCats,
+                },
+              },
+            });
+            // 刪除臨時用戶的分類設定
+            await tx.savedStrategy.delete({
+              where: { id: strategy.id },
+            });
+          } else {
+            // 主要帳戶沒有自訂分類，直接將其轉移
+            await tx.savedStrategy.update({
+              where: { id: strategy.id },
+              data: { userId },
+            });
+          }
+          continue;
+        }
+
+        const alreadyHas = await tx.savedStrategy.findFirst({
+          where: { userId, name: strategy.name },
+        });
+        if (!alreadyHas) {
+          await tx.savedStrategy.update({
             where: { id: strategy.id },
             data: { userId },
           });
-        }
-        continue;
-      }
-
-      const alreadyHas = await this.prisma.client.savedStrategy.findFirst({
-        where: { userId, name: strategy.name },
-      });
-      if (!alreadyHas) {
-        await this.prisma.client.savedStrategy.update({
-          where: { id: strategy.id },
-          data: { userId },
-        });
-      } else {
-        // 尋找下一個可用的序號 (e.g., 策略名稱(1), 策略名稱(2))
-        let suffixNum = 1;
-        let mergedName = `${strategy.name}(${suffixNum})`;
-        let nameConflict = await this.prisma.client.savedStrategy.findFirst({
-          where: { userId, name: mergedName },
-        });
-        
-        while (nameConflict) {
-          suffixNum++;
-          mergedName = `${strategy.name}(${suffixNum})`;
-          nameConflict = await this.prisma.client.savedStrategy.findFirst({
+        } else {
+          // 尋找下一個可用的序號 (e.g., 策略名稱(1), 策略名稱(2))
+          let suffixNum = 1;
+          let mergedName = `${strategy.name}(${suffixNum})`;
+          let nameConflict = await tx.savedStrategy.findFirst({
             where: { userId, name: mergedName },
           });
+          
+          while (nameConflict) {
+            suffixNum++;
+            mergedName = `${strategy.name}(${suffixNum})`;
+            nameConflict = await tx.savedStrategy.findFirst({
+              where: { userId, name: mergedName },
+            });
+          }
+
+          await tx.savedStrategy.update({
+            where: { id: strategy.id },
+            data: { userId, name: mergedName },
+          });
         }
-
-        await this.prisma.client.savedStrategy.update({
-          where: { id: strategy.id },
-          data: { userId, name: mergedName },
-        });
       }
-    }
 
-    // 2. 撤銷被合併用戶的所有 Refresh Token
-    await this.prisma.client.refreshToken.deleteMany({
-      where: { userId: existingUserId },
-    });
+      // 2. 撤銷被合併用戶的所有 Refresh Token
+      await tx.refreshToken.deleteMany({
+        where: { userId: existingUserId },
+      });
 
-    // 3. 軟刪除被合併用戶，並將其社交 ID 欄位清空為 null 以利重複使用
-    await this.prisma.client.user.update({
-      where: { id: existingUserId },
-      data: {
-        deletedAt: new Date(),
-        email: null,
-        googleId: null,
-        discordId: null,
-        telegramId: null,
-        telegramChatId: null,
-      },
-    });
+      // 3. 軟刪除被合併用戶，並將其社交 ID 欄位清空為 null 以利重複使用
+      await tx.user.update({
+        where: { id: existingUserId },
+        data: {
+          deletedAt: new Date(),
+          email: null,
+          googleId: null,
+          discordId: null,
+          telegramId: null,
+          telegramChatId: null,
+        },
+      });
 
-    // 4. 綁定新社交 ID 到當前主要帳號
-    await this.prisma.client.user.update({
-      where: { id: userId },
-      data: {
-        [providerIdField]: providerId,
-        ...(provider === 'telegram' && {
-          telegramChatId: currentUser?.telegramChatId || existingUser?.telegramChatId || null,
-        }),
-      },
+      // 4. 綁定新社交 ID 到當前主要帳號
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          [providerIdField]: providerId,
+          ...(provider === 'telegram' && {
+            telegramChatId: currentUser?.telegramChatId || existingUser?.telegramChatId || null,
+          }),
+        },
+      });
     });
 
     // 5. 刪除 Redis Token

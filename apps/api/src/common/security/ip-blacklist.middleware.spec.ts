@@ -73,14 +73,12 @@ describe('IpBlacklistMiddleware (IP 黑名單防護中介軟體)', () => {
     expect(mockNext).not.toHaveBeenCalled();
   });
 
-  it('應能正確從 x-forwarded-for 解析出第一個 IP 位址', async () => {
+  it('應能正確將已由 Express 解析好的 req.ip 送入黑名單服務查詢', async () => {
     mockIpBlacklistService.isIpBlacklisted.mockResolvedValue(false);
 
     const mockRequest = {
-      headers: {
-        'x-forwarded-for': '1.2.3.4, 5.6.7.8, 9.10.11.12',
-      },
-      ip: '127.0.0.1',
+      headers: {},
+      ip: '1.2.3.4',
       socket: {},
     } as unknown as Request;
 
@@ -90,25 +88,6 @@ describe('IpBlacklistMiddleware (IP 黑名單防護中介軟體)', () => {
     await middleware.use(mockRequest, mockResponse, mockNext);
 
     expect(service.isIpBlacklisted).toHaveBeenCalledWith('1.2.3.4');
-  });
-
-  it('當缺乏 x-forwarded-for 時，應從 x-real-ip 解析 IP', async () => {
-    mockIpBlacklistService.isIpBlacklisted.mockResolvedValue(false);
-
-    const mockRequest = {
-      headers: {
-        'x-real-ip': '5.6.7.8',
-      },
-      ip: '127.0.0.1',
-      socket: {},
-    } as unknown as Request;
-
-    const mockResponse = {} as Response;
-    const mockNext = jest.fn();
-
-    await middleware.use(mockRequest, mockResponse, mockNext);
-
-    expect(service.isIpBlacklisted).toHaveBeenCalledWith('5.6.7.8');
   });
 
   it('規格化 IP 時，應去除 IPv6 映射格式的 ::ffff: 前綴', async () => {

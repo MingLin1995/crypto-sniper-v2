@@ -23,22 +23,10 @@ export class IpBlacklistMiddleware implements NestMiddleware {
   }
 
   /**
-   * 從請求標頭或 Socket 屬性中解析真實的客戶端 IP 位址。
+   * 從請求屬性中取得 Express 已解析（且受 trust proxy 保護）的真實客戶端 IP。
    */
   private resolveClientIp(req: Request): string {
-    const xForwardedFor = req.headers['x-forwarded-for'];
-    let ip = '';
-
-    if (xForwardedFor) {
-      // x-forwarded-for 可能為以逗號分隔的列表，最左側的 IP 為原始客戶端 IP。
-      const rawIp = typeof xForwardedFor === 'string' ? xForwardedFor : xForwardedFor[0];
-      ip = rawIp.split(',')[0].trim();
-    } else {
-      const xRealIp = req.headers['x-real-ip'];
-      ip = typeof xRealIp === 'string' 
-        ? xRealIp 
-        : (req.ip || req.socket.remoteAddress || '');
-    }
+    let ip = req.ip || req.socket.remoteAddress || '';
 
     // 規格化 IPv6 映射的 IPv4 位址（例如 ::ffff:127.0.0.1 -> 127.0.0.1）
     if (ip.startsWith('::ffff:')) {

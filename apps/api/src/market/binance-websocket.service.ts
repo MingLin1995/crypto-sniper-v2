@@ -69,6 +69,13 @@ export class BinanceWebsocketService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * 檢查 WebSocket 連線是否正常運作且有行情資料流量
+   */
+  isAlive(): boolean {
+    return this.ws !== null && (Date.now() - this.lastMessageTime < 30000);
+  }
+
+  /**
    * 從 Redis 載入當前所有有活躍告警設定的交易對名稱
    */
   private async syncActiveAlertSymbols() {
@@ -180,11 +187,13 @@ export class BinanceWebsocketService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 強制關閉並立即重連
+   * 強制關閉並立即重連 (清空事件處理器以防 onclose 被觸發導致重複 connect)
    */
   private reconnect() {
     if (this.ws) {
       try {
+        this.ws.onclose = null;
+        this.ws.onerror = null;
         this.ws.close();
       } catch (err) {
         // Ignore

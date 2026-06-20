@@ -67,7 +67,7 @@ describe('VerificationCodeService (驗證碼服務)', () => {
       mockRedisClient.get.mockResolvedValueOnce(null); // attempts count (0)
       mockRedisClient.del.mockResolvedValue('OK');
 
-      await expect(service.verifyCode(action, email, '123456')).resolves.not.toThrow();
+      await expect(service.verifyCode(action, email, '123456')).resolves.toBeUndefined();
 
       expect(mockRedisClient.del).toHaveBeenCalledWith(`verify_code:${action}:${email}`);
       expect(mockRedisClient.del).toHaveBeenCalledWith(`verify_attempts:${action}:${email}`);

@@ -41,8 +41,9 @@ export class TelegramBotService implements OnModuleInit {
     if (!message || !message.text) return;
 
     const text = message.text.trim();
-    const chatId = message.chat.id;
-    const fromId = message.from.id;
+    const chatId = message.chat?.id;
+    const fromId = message.from?.id;
+    if (!chatId || !fromId) return;
 
     if (text.startsWith('/start ')) {
       const token = text.split(' ')[1]?.trim();

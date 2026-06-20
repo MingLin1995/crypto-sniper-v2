@@ -39,6 +39,7 @@ describe('AlertsService', () => {
 
     mockMarketCacheService = {
       getPrice: jest.fn(),
+      getPrices: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -153,6 +154,77 @@ describe('AlertsService', () => {
       expect(mockPrismaClient.priceAlert.delete).toHaveBeenCalledWith({ where: { id } });
       expect(mockRedisClient.srem).toHaveBeenCalledWith('alerts:active_symbols', 'BTCUSDT');
       expect(result).toEqual({ message: '告警設定已刪除' });
+    });
+  });
+
+  describe('findAll', () => {
+    const userId = 'user-1';
+
+    it('應成功取得使用者所有告警設定，並自快取取得最新價格附加上去', async () => {
+      const mockAlerts = [
+        { id: '1', userId, symbol: 'BTCUSDT', targetPrice: new Prisma.Decimal(65000) },
+        { id: '2', userId, symbol: 'ETHUSDT', targetPrice: new Prisma.Decimal(3500) },
+      ];
+      mockPrismaClient.priceAlert.findMany.mockResolvedValue(mockAlerts);
+      mockMarketCacheService.getPrices.mockResolvedValue({
+        BTCUSDT: 64200,
+        ETHUSDT: null,
+      });
+
+      const result = await service.findAll(userId);
+
+      expect(mockPrismaClient.priceAlert.findMany).toHaveBeenCalledWith({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(mockMarketCacheService.getPrices).toHaveBeenCalledWith(['BTCUSDT', 'ETHUSDT']);
+      expect(result).toHaveLength(2);
+      expect(result[0]).toHaveProperty('currentPrice', 64200);
+      expect(result[1]).toHaveProperty('currentPrice', null);
+    });
+
+    it('若無任何告警，應直接回傳空陣列且不查詢快取價格', async () => {
+      mockPrismaClient.priceAlert.findMany.mockResolvedValue([]);
+
+      const result = await service.findAll(userId);
+
+      expect(result).toEqual([]);
+      expect(mockMarketCacheService.getPrices).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('update', () => {
+    const userId = 'user-1';
+    const id = 'alert-1';
+    const updateDto = { symbol: 'ETHUSDT', condition: 'BELOW', targetPrice: 3000 };
+
+    it('應成功更新告警設定並維護 Redis 狀態', async () => {
+      const mockAlert = { id, userId, symbol: 'BTCUSDT', isActive: true };
+      mockPrismaClient.priceAlert.findFirst.mockResolvedValue(mockAlert);
+      mockMarketCacheService.getPrice.mockResolvedValue(3100);
+      mockPrismaClient.priceAlert.update.mockResolvedValue({
+        ...mockAlert,
+        symbol: 'ETHUSDT',
+        condition: 'BELOW',
+        targetPrice: new Prisma.Decimal(3000),
+      });
+      mockPrismaClient.priceAlert.count.mockImplementation(async (args: any) => {
+        return args.where.symbol === 'ETHUSDT' ? 1 : 0;
+      });
+
+      const result = await service.update(userId, id, updateDto);
+
+      expect(mockPrismaClient.priceAlert.findFirst).toHaveBeenCalledWith({ where: { id, userId } });
+      expect(mockPrismaClient.priceAlert.update).toHaveBeenCalled();
+      expect(mockRedisClient.srem).toHaveBeenCalledWith('alerts:active_symbols', 'BTCUSDT');
+      expect(mockRedisClient.sadd).toHaveBeenCalledWith('alerts:active_symbols', 'ETHUSDT');
+      expect(result.symbol).toBe('ETHUSDT');
+    });
+
+    it('若告警不存在應拋出 NotFoundException', async () => {
+      mockPrismaClient.priceAlert.findFirst.mockResolvedValue(null);
+
+      await expect(service.update(userId, id, updateDto)).rejects.toThrow(NotFoundException);
     });
   });
 

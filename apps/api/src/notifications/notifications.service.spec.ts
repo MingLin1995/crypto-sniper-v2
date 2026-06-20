@@ -150,7 +150,7 @@ describe('NotificationsService', () => {
       expect(axios.post).toHaveBeenCalledWith('https://discord.com/api/webhooks/test', {
         embeds: [
           expect.objectContaining({
-            title: '🚨 CryptoSniper 到價告警觸發 🚨',
+            title: '🚨 CryptoSniper 到價通知觸發 🚨',
             fields: expect.arrayContaining([
               expect.objectContaining({ name: '交易對', value: 'BTCUSDT' }),
               expect.objectContaining({ name: '觸發價格', value: '61000' }),

@@ -18,6 +18,9 @@ export class BinanceService {
   private readonly baseUrl = 'https://fapi.binance.com';
   private readonly axiosInstance: AxiosInstance;
   private lastUsedWeight = 0;
+  private cachedSymbols: string[] = [];
+  private cacheTimestamp = 0;
+  private readonly CACHE_TTL = 3600 * 1000; // 1 小時記憶體快取
 
   constructor() {
     this.axiosInstance = axios.create({
@@ -60,19 +63,35 @@ export class BinanceService {
   }
 
   /**
-   * 拉取所有可用 USDT 合約交易對清單 (永續合約)
+   * 批次與降級機制：拉取所有可用 USDT 合約交易對清單 (永續合約) - 具備 1 小時記憶體快取
    */
   async getUSDTFuturesSymbols(): Promise<string[]> {
+    const now = Date.now();
+    if (this.cachedSymbols.length > 0 && now - this.cacheTimestamp < this.CACHE_TTL) {
+      return this.cachedSymbols;
+    }
+
     try {
       const response = await this.axiosInstance.get('/fapi/v1/exchangeInfo');
       const symbols = response.data.symbols || [];
-      return symbols
+      const filteredSymbols = symbols
         .filter(
           (s: any) =>
             s.quoteAsset === 'USDT' && s.status === 'TRADING' && s.contractType === 'PERPETUAL',
         )
         .map((s: any) => s.symbol);
+
+      if (filteredSymbols.length > 0) {
+        this.cachedSymbols = filteredSymbols;
+        this.cacheTimestamp = now;
+      }
+      return filteredSymbols;
     } catch (error: any) {
+      // 降級：若 API 呼叫失敗但記憶體已有快取，降級回傳舊快取以防止業務中斷
+      if (this.cachedSymbols.length > 0) {
+        this.logger.warn('Failed to fetch new USDT symbols from Binance, falling back to cached list');
+        return this.cachedSymbols;
+      }
       this.logger.error('Failed to fetch USDT futures symbols from Binance', error?.stack);
       throw error;
     }

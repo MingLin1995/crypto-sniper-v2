@@ -19,9 +19,12 @@ export class TelegramBotService implements OnModuleInit {
     const botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
 
     if (webhookUrl && botToken) {
-      // 使用 BOT_TOKEN 作為安全路徑後綴，避免被外部惡意存取
       const targetUrl = `${webhookUrl}/api/auth/telegram/webhook/${botToken}`;
-      this.logger.log(`正在向 Telegram 註冊 Webhook: ${targetUrl}`);
+      const maskedToken = botToken.length > 10
+        ? `${botToken.substring(0, 6)}...${botToken.substring(botToken.length - 4)}`
+        : '******';
+      const maskedTargetUrl = `${webhookUrl}/api/auth/telegram/webhook/${maskedToken}`;
+      this.logger.log(`正在向 Telegram 註冊 Webhook: ${maskedTargetUrl}`);
       try {
         const response = await axios.post(`https://api.telegram.org/bot${botToken}/setWebhook`, {
           url: targetUrl,

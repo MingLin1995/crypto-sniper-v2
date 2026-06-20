@@ -192,6 +192,7 @@ async function handleProxy(
         );
       }
     }
+  }
 
     // 6. Forward headers and body normally
     const finalHeaders = new Headers();

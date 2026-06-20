@@ -61,7 +61,16 @@ export class UpdateUserDto {
   })
   @IsString()
   @IsOptional()
-  discordWebhook?: string;
+  discordWebhook?: string | null;
+
+  @ApiProperty({
+    description: 'Telegram Chat ID (用於發送到價通知)',
+    example: '12345678',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  telegramChatId?: string | null;
 }
 
 export class UserResponseDto {

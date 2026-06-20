@@ -1,8 +1,10 @@
 import * as React from "react";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LineChart } from "lucide-react";
+import { LineChart, BellRing } from "lucide-react";
 import { ScreenerTimeframeBlock } from "shared";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface TradingViewChartProps {
   locale: string;
@@ -32,6 +34,137 @@ export function TradingViewChart({
   timeframes,
 }: TradingViewChartProps) {
   const [chartInterval, setChartInterval] = useState<string>("D");
+  const [quickCondition, setQuickCondition] = useState<"ABOVE" | "BELOW">("ABOVE");
+  const [quickPrice, setQuickPrice] = useState<string>("");
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [channelsEnabled, setChannelsEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const checkChannels = async () => {
+      try {
+        const meRes = await fetch("/api/users/me");
+        if (!meRes.ok) {
+          if (active) setChannelsEnabled(false);
+          return;
+        }
+        const meData = await meRes.json();
+        const me = meData.data;
+
+        let hasPush = false;
+        if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
+          const registration = await navigator.serviceWorker.getRegistration();
+          if (registration) {
+            const subscription = await registration.pushManager.getSubscription();
+            hasPush = !!subscription;
+          }
+        }
+
+        const hasTelegram = !!me.telegramChatId;
+        const hasDiscord = !!me.discordWebhook;
+
+        if (active) {
+          setChannelsEnabled(hasTelegram || hasDiscord || hasPush);
+        }
+      } catch (err) {
+        console.error("Failed to check notification channels:", err);
+        if (active) setChannelsEnabled(false);
+      }
+    };
+
+    checkChannels();
+
+    return () => {
+      active = false;
+    };
+  }, [locale]);
+
+  useEffect(() => {
+    if (statusMsg) {
+      const timer = setTimeout(() => setStatusMsg(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [statusMsg]);
+
+  const handleCreateQuickAlert = async () => {
+    const symbol = selectedSymbol.toUpperCase();
+    const targetPrice = parseFloat(quickPrice);
+
+    if (!symbol || isNaN(targetPrice) || targetPrice <= 0) {
+      setStatusMsg({
+        type: "error",
+        text: locale === "zh-TW" ? "請輸入有效的目標價格" : "Please enter a valid target price",
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    setStatusMsg(null);
+
+    try {
+      // 1. 取得用戶最新設定以判斷是否啟用管道
+      const meRes = await fetch("/api/users/me");
+      if (!meRes.ok) {
+        throw new Error(locale === "zh-TW" ? "驗證用戶身分失敗" : "Failed to verify user profile");
+      }
+      const meData = await meRes.json();
+      const me = meData.data;
+
+      // 2. 檢查瀏覽器 Web Push 是否訂閱
+      let hasPush = false;
+      if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+          const subscription = await registration.pushManager.getSubscription();
+          hasPush = !!subscription;
+        }
+      }
+
+      const hasTelegram = !!me.telegramChatId;
+      const hasDiscord = !!me.discordWebhook;
+
+      if (!hasTelegram && !hasDiscord && !hasPush) {
+        setStatusMsg({
+          type: "error",
+          text: locale === "zh-TW"
+            ? "請先設定並啟用至少一種通知管道 (瀏覽器推送、Discord Webhook 或 Telegram Bot)"
+            : "Please enable at least one notification channel (Browser Push, Discord Webhook, or Telegram Bot) first.",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      // 3. 送出設定
+      const res = await fetch("/api/alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol,
+          condition: quickCondition,
+          targetPrice,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "設定失敗");
+      }
+
+      setStatusMsg({
+        type: "success",
+        text: locale === "zh-TW" ? "已成功設定到價通知！" : "Price notification set successfully!",
+      });
+      setQuickPrice("");
+    } catch (err: any) {
+      setStatusMsg({
+        type: "error",
+        text: err.message,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const activeIntervals = React.useMemo(() => {
     const labels = timeframes.length > 0
@@ -208,6 +341,105 @@ export function TradingViewChart({
             </div>
 
             <div id="tradingview_chart_container" className="w-full h-[520px] rounded-lg overflow-hidden border border-zinc-800 light:border-zinc-200 bg-zinc-950 light:bg-slate-50" />
+
+            {/* Quick Price Alert setup panel */}
+            <div className="mt-4 p-4 rounded-xl bg-zinc-900/40 light:bg-slate-100/40 border border-zinc-800/80 light:border-zinc-200/80 flex flex-col md:flex-row items-center justify-between gap-4 transition-all">
+              <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
+                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+                  <BellRing className="h-4.5 w-4.5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-zinc-200 light:text-zinc-800">
+                    {locale === "zh-TW" ? "快速設定到價通知" : "Quick Alert Setup"}
+                  </h4>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">
+                    {locale === "zh-TW" ? `監控標的：${selectedSymbol}` : `Monitoring: ${selectedSymbol}`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-1 flex-col sm:flex-row items-center gap-3 w-full justify-end">
+                {/* Status message display */}
+                {statusMsg && (
+                  <span className={`text-xs font-semibold px-2 py-1 rounded border mr-auto sm:mr-0 ${
+                    statusMsg.type === "success"
+                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
+                      : "bg-red-500/15 border-red-500/30 text-red-400"
+                  }`}>
+                    {statusMsg.text}
+                  </span>
+                )}
+
+                {channelsEnabled === false ? (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-red-400">
+                    <span className="text-xs font-semibold">
+                      ⚠️ {locale === "zh-TW"
+                        ? "請先啟用至少一種通知管道 (瀏覽器推送、Discord 或 Telegram) 才能使用快速設定通知。"
+                        : "Please enable at least one notification channel (Browser Push, Discord, or Telegram) to configure quick notifications."}
+                    </span>
+                    <Button
+                      onClick={() => window.location.href = "/alerts?tab=channels"}
+                      className="cursor-pointer bg-red-650 hover:bg-red-600 text-white text-xs font-bold px-3.5 h-8.5 shrink-0 w-full sm:w-auto"
+                    >
+                      {locale === "zh-TW" ? "前往啟用" : "Go to Enable"}
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Condition above/below toggle */}
+                    <div className="flex items-center gap-1 border border-zinc-800 light:border-zinc-250 p-1 rounded-lg bg-zinc-950/80 light:bg-slate-50 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        disabled={channelsEnabled === null}
+                        onClick={() => setQuickCondition("ABOVE")}
+                        className={`flex-1 sm:flex-initial text-[11px] font-bold px-3 py-1 rounded-md transition-all cursor-pointer ${
+                          quickCondition === "ABOVE"
+                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
+                            : "text-zinc-500 hover:text-zinc-300"
+                        }`}
+                      >
+                        ▲ {locale === "zh-TW" ? "高於" : "ABOVE"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={channelsEnabled === null}
+                        onClick={() => setQuickCondition("BELOW")}
+                        className={`flex-1 sm:flex-initial text-[11px] font-bold px-3 py-1 rounded-md transition-all cursor-pointer ${
+                          quickCondition === "BELOW"
+                            ? "bg-red-500/15 text-red-400 border border-red-500/25"
+                            : "text-zinc-500 hover:text-zinc-300"
+                        }`}
+                      >
+                        ▼ {locale === "zh-TW" ? "低於" : "BELOW"}
+                      </button>
+                    </div>
+
+                    {/* Price input field */}
+                    <div className="w-full sm:w-36">
+                      <Input
+                        type="number"
+                        step="any"
+                        disabled={channelsEnabled === null}
+                        placeholder={locale === "zh-TW" ? "目標價格" : "Target Price"}
+                        value={quickPrice}
+                        onChange={(e) => setQuickPrice(e.target.value)}
+                        className="w-full h-8.5 font-mono text-xs border-indigo-500/25 bg-zinc-950/40"
+                      />
+                    </div>
+
+                    {/* Submit button */}
+                    <Button
+                      onClick={handleCreateQuickAlert}
+                      loading={submitting}
+                      disabled={channelsEnabled === null}
+                      className="cursor-pointer bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 h-8.5 w-full sm:w-auto"
+                    >
+                      {locale === "zh-TW" ? "設定通知" : "Set Alert"}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 border border-dashed border-zinc-800 light:border-zinc-200 rounded-lg text-zinc-500">

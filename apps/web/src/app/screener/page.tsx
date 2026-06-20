@@ -676,6 +676,13 @@ function ScreenerContent() {
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
+            onClick={() => router.push("/alerts")}
+            className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10 text-zinc-200"
+          >
+            {locale === "zh-TW" ? "到價通知設定" : "Price Notifications"}
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => router.push("/profile")}
             className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10 text-zinc-200"
           >

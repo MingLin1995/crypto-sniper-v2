@@ -90,7 +90,7 @@ describe('BinanceWebsocketService', () => {
       expect(mockQueue.add).toHaveBeenCalledWith(
         'check',
         { symbol: 'BTCUSDT' },
-        expect.objectContaining({ jobId: 'price-check:BTCUSDT' }),
+        expect.objectContaining({ jobId: 'price-check-BTCUSDT' }),
       );
     });
   });

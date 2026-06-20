@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 // Clean any trailing /v1 prefix from the environment variable
 const API_URL = (process.env.API_URL || "http://app:3000/api").replace(/\/v1$/, "");
 
-// Global promise to deduplicate concurrent refresh token requests
-let activeRefreshPromise: Promise<{ setCookies: string[] } | null> | null = null;
+// Global map to deduplicate concurrent refresh token requests per session (refresh_token)
+const activeRefreshPromises = new Map<string, Promise<{ setCookies: string[] } | null>>();
 
 async function handleProxy(
   req: NextRequest,
@@ -72,35 +72,41 @@ async function handleProxy(
     const hasRefreshToken = cookieHeader.includes("refresh_token=");
 
     if (response.status === 401 && hasRefreshToken) {
-      console.log(`[BFF Proxy] Access token expired for ${path}. Attempting to refresh tokens...`);
-      
-      // Use shared promise to deduplicate parallel refresh requests
-      if (!activeRefreshPromise) {
-        activeRefreshPromise = (async () => {
-          try {
-            console.log(`[BFF Proxy] Shared token refresh triggered by request to ${path}`);
-            const refreshHeaders = new Headers();
-            refreshHeaders.set("cookie", cookieHeader);
-            const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
-              method: "POST",
-              headers: refreshHeaders,
-            });
-            if (refreshRes.ok) {
-              const setCookies = refreshRes.headers.getSetCookie();
-              return { setCookies };
-            }
-          } catch (e) {
-            console.error("[BFF Proxy] Shared token refresh error:", e);
-          }
-          return null;
-        })();
-        
-        activeRefreshPromise.finally(() => {
-          activeRefreshPromise = null;
-        });
-      }
+      const rtMatch = cookieHeader.match(/refresh_token=([^;]+)/);
+      const rtKey = rtMatch ? rtMatch[1].trim() : "";
 
-      const refreshResult = await activeRefreshPromise;
+      if (rtKey) {
+        console.log(`[BFF Proxy] Access token expired for ${path}. Attempting to refresh tokens...`);
+        
+        let promise = activeRefreshPromises.get(rtKey);
+        if (!promise) {
+          promise = (async () => {
+            try {
+              console.log(`[BFF Proxy] Shared token refresh triggered by request to ${path}`);
+              const refreshHeaders = new Headers();
+              refreshHeaders.set("cookie", cookieHeader);
+              const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
+                method: "POST",
+                headers: refreshHeaders,
+              });
+              if (refreshRes.ok) {
+                const setCookies = refreshRes.headers.getSetCookie();
+                return { setCookies };
+              }
+            } catch (e) {
+              console.error("[BFF Proxy] Shared token refresh error:", e);
+            }
+            return null;
+          })();
+          
+          activeRefreshPromises.set(rtKey, promise);
+          
+          promise.finally(() => {
+            activeRefreshPromises.delete(rtKey);
+          });
+        }
+
+        const refreshResult = await promise;
 
       if (refreshResult) {
         console.log("[BFF Proxy] Refresh token succeeded. Retrying original request...");

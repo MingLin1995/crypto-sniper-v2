@@ -3,6 +3,7 @@ import { MarketScheduleService } from './market-schedule.service';
 import { MarketCacheService } from './market-cache.service';
 import { BinanceService } from './binance.service';
 import { RedisService } from '../common/redis/redis.service';
+import { BinanceWebsocketService } from './binance-websocket.service';
 
 describe('MarketScheduleService & MarketCacheService', () => {
   let scheduleService: MarketScheduleService;
@@ -22,6 +23,10 @@ describe('MarketScheduleService & MarketCacheService', () => {
     mockRedisClient = {
       get: jest.fn(),
       setex: jest.fn(),
+      hset: jest.fn(),
+      hget: jest.fn(),
+      hmget: jest.fn(),
+      expire: jest.fn(),
       pipeline: jest.fn().mockReturnValue(mockPipeline),
     };
 
@@ -39,6 +44,11 @@ describe('MarketScheduleService & MarketCacheService', () => {
       getUsedWeight: jest.fn().mockReturnValue(0),
     };
 
+    // 模擬 Binance Websocket Service
+    const mockBinanceWebsocketService = {
+      isAlive: jest.fn().mockReturnValue(false), // 預設為不活躍，以執行 Cron 的備援 REST 請求
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MarketCacheService,
@@ -50,6 +60,10 @@ describe('MarketScheduleService & MarketCacheService', () => {
         {
           provide: BinanceService,
           useValue: mockBinanceService,
+        },
+        {
+          provide: BinanceWebsocketService,
+          useValue: mockBinanceWebsocketService,
         },
       ],
     }).compile();
@@ -73,27 +87,28 @@ describe('MarketScheduleService & MarketCacheService', () => {
   describe('MarketCacheService (快取功能測試)', () => {
     it('setPrice 應能寫入 Redis 且 TTL 為 30 秒', async () => {
       await cacheService.setPrice('BTCUSDT', 65000);
-      expect(mockRedisClient.setex).toHaveBeenCalledWith('market:price:BTCUSDT', 30, '65000');
+      expect(mockRedisClient.hset).toHaveBeenCalledWith('market:prices', 'BTCUSDT', '65000');
+      expect(mockRedisClient.expire).toHaveBeenCalledWith('market:prices', 30);
     });
 
     it('getPrice 應能從 Redis 取得價格並轉為數值', async () => {
-      mockRedisClient.get.mockResolvedValue('65000.5');
+      mockRedisClient.hget.mockResolvedValue('65000.5');
       const price = await cacheService.getPrice('BTCUSDT');
-      expect(mockRedisClient.get).toHaveBeenCalledWith('market:price:BTCUSDT');
+      expect(mockRedisClient.hget).toHaveBeenCalledWith('market:prices', 'BTCUSDT');
       expect(price).toBe(65000.5);
     });
 
-    it('setPricesPipeline 應使用 Redis Pipeline 寫入多筆成交價', async () => {
+    it('setPricesPipeline 應使用 Redis HSET 寫入多筆成交價', async () => {
       const prices = [
         { symbol: 'BTCUSDT', price: 65000 },
         { symbol: 'ETHUSDT', price: 3500 },
       ];
       await cacheService.setPricesPipeline(prices);
-      expect(mockRedisClient.pipeline).toHaveBeenCalled();
-      const pipeline = mockRedisClient.pipeline();
-      expect(pipeline.setex).toHaveBeenCalledWith('market:price:BTCUSDT', 30, '65000');
-      expect(pipeline.setex).toHaveBeenCalledWith('market:price:ETHUSDT', 30, '3500');
-      expect(pipeline.exec).toHaveBeenCalled();
+      expect(mockRedisClient.hset).toHaveBeenCalledWith('market:prices', {
+        BTCUSDT: '65000',
+        ETHUSDT: '3500',
+      });
+      expect(mockRedisClient.expire).toHaveBeenCalledWith('market:prices', 30);
     });
 
     it('setKlines 應依時間週期計算對應 TTL 並存入收盤價 JSON 字串', async () => {
@@ -125,7 +140,11 @@ describe('MarketScheduleService & MarketCacheService', () => {
       await scheduleService.handleTickerPricesUpdate();
 
       expect(mockBinanceService.getTickerPrices).toHaveBeenCalled();
-      expect(mockRedisClient.pipeline).toHaveBeenCalled();
+      expect(mockRedisClient.hset).toHaveBeenCalledWith('market:prices', {
+        BTCUSDT: '60000',
+        ETHUSDT: '3000',
+      });
+      expect(mockRedisClient.expire).toHaveBeenCalledWith('market:prices', 30);
     });
 
     it('分流策略：enqueueKlinesForInterval 應能區分 Hot 與 Cold 標的並進行模除分流', async () => {

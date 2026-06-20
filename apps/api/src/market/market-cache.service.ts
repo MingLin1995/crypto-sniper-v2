@@ -35,31 +35,35 @@ export class MarketCacheService {
   }
 
   /**
-   * 寫入單一交易對最新成交價
+   * 寫入單一交易對最新成交價 (採用 Redis Hash market:prices 儲存以減少 Key 數量與寫入負載)
    */
   async setPrice(symbol: string, price: number): Promise<void> {
-    const key = `market:price:${symbol}`;
-    await this.client.setex(key, this.PRICE_TTL, price.toString());
+    const hashKey = 'market:prices';
+    await this.client.hset(hashKey, symbol, price.toString());
+    await this.client.expire(hashKey, this.PRICE_TTL);
   }
 
   /**
    * 取得單一交易對最新成交價
    */
   async getPrice(symbol: string): Promise<number | null> {
-    const key = `market:price:${symbol}`;
-    const value = await this.client.get(key);
+    const hashKey = 'market:prices';
+    const value = await this.client.hget(hashKey, symbol);
     return value ? parseFloat(value) : null;
   }
 
   /**
-   * 批次寫入多個交易對最新成交價 (使用 Pipeline 優化)
+   * 批次寫入多個交易對最新成交價 (使用單一 HSET 批次寫入，大幅降減 Redis 呼叫頻率與 CPU 負載)
    */
   async setPricesPipeline(prices: { symbol: string; price: number }[]): Promise<void> {
-    const pipeline = this.client.pipeline();
+    if (prices.length === 0) return;
+    const hashKey = 'market:prices';
+    const data: Record<string, string> = {};
     for (const item of prices) {
-      pipeline.setex(`market:price:${item.symbol}`, this.PRICE_TTL, item.price.toString());
+      data[item.symbol] = item.price.toString();
     }
-    await pipeline.exec();
+    await this.client.hset(hashKey, data);
+    await this.client.expire(hashKey, this.PRICE_TTL);
   }
 
   /**
@@ -115,12 +119,12 @@ export class MarketCacheService {
   }
 
   /**
-   * 批次取得多個交易對最新成交價 (使用 Redis MGET)
+   * 批次取得多個交易對最新成交價 (使用 Redis HMGET 從單一 Hash 取得)
    */
   async getPrices(symbols: string[]): Promise<Record<string, number | null>> {
     if (symbols.length === 0) return {};
-    const keys = symbols.map((s) => `market:price:${s}`);
-    const values = await this.client.mget(...keys);
+    const hashKey = 'market:prices';
+    const values = await this.client.hmget(hashKey, ...symbols);
     const result: Record<string, number | null> = {};
     symbols.forEach((symbol, index) => {
       const val = values[index];

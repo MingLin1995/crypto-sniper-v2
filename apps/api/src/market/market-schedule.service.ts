@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { BinanceService, VolumeRanking } from './binance.service';
 import { MarketCacheService } from './market-cache.service';
+import { BinanceWebsocketService } from './binance-websocket.service';
 
 interface Task {
   symbol: string;
@@ -30,6 +31,7 @@ export class MarketScheduleService implements OnModuleInit {
   constructor(
     private readonly binanceService: BinanceService,
     private readonly marketCacheService: MarketCacheService,
+    private readonly binanceWebsocketService: BinanceWebsocketService,
   ) {}
 
   async onModuleInit() {
@@ -76,17 +78,24 @@ export class MarketScheduleService implements OnModuleInit {
   }
 
   /**
-   * 排程：每 10 秒批次拉取全市場最新成交價，以 Pipeline 寫入 Redis 快取 (TTL: 10s)
+   * 排程：每 10 秒批次拉取全市場最新成交價。
+   * 作為 WebSocket 的備援機制 (僅在 WebSocket 斷線或假死時執行以節省 AWS 資源與 API 權重)
    */
   @Cron('*/10 * * * * *')
   async handleTickerPricesUpdate() {
+    // 若 WebSocket 正常連線並有行情流量，跳過此 REST 行情更新以節省資源
+    if (this.binanceWebsocketService && this.binanceWebsocketService.isAlive()) {
+      return;
+    }
+
     try {
+      this.logger.log('WebSocket is inactive/dead. Fetching backup ticker prices via REST API...');
       const tickers = await this.binanceService.getTickerPrices();
       if (tickers.length > 0) {
         await this.marketCacheService.setPricesPipeline(tickers);
       }
     } catch (err: any) {
-      this.logger.error('Failed to update ticker prices in 10s cron job', err?.stack);
+      this.logger.error('Failed to update ticker prices in 10s backup cron job', err?.stack);
     }
   }
 

@@ -95,6 +95,7 @@ describe('PriceCheckProcessor', () => {
 
     it('如果價格達到 ABOVE 告警目標，應觸發告警並推入通知佇列', async () => {
       mockMarketCacheService.getPrice.mockResolvedValue(65100);
+      const mockUpdatedAt = new Date();
       const mockAlerts = [
         {
           id: 'alert-1',
@@ -104,6 +105,7 @@ describe('PriceCheckProcessor', () => {
           targetPrice: new Prisma.Decimal(65000),
           isActive: true,
           isTriggered: false,
+          updatedAt: mockUpdatedAt,
         },
       ];
       mockPrismaClient.priceAlert.findMany.mockResolvedValue(mockAlerts);
@@ -112,7 +114,12 @@ describe('PriceCheckProcessor', () => {
       await processor.process(mockJob);
 
       expect(mockPrismaClient.priceAlert.update).toHaveBeenCalledWith({
-        where: { id: 'alert-1' },
+        where: {
+          id: 'alert-1',
+          isActive: true,
+          isTriggered: false,
+          updatedAt: mockUpdatedAt,
+        },
         data: expect.objectContaining({
           isActive: false,
           isTriggered: true,

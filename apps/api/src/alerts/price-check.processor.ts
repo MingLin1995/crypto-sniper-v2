@@ -60,20 +60,25 @@ export class PriceCheckProcessor extends WorkerHost {
           `ALERT TRIGGERED: ${symbol} price ${latestPrice} met condition ${alert.condition} ${targetPrice} for user ${alert.userId}`,
         );
 
-        // 4. 更新資料庫狀態 (isActive: false, isTriggered: true)
-        await this.prisma.client.priceAlert.update({
-          where: { id: alert.id },
-          data: {
-            isActive: false,
-            isTriggered: true,
-            triggeredAt: new Date(),
-          },
-        });
-
-        hasStateChange = true;
-
-        // 5. 推送通知工作至 notification.queue (解耦異步通知處理)
+        // 4. 更新資料庫狀態 (使用 optimistic locking 防止複寫用戶修改的設定)
         try {
+          await this.prisma.client.priceAlert.update({
+            where: {
+              id: alert.id,
+              isActive: true,
+              isTriggered: false,
+              updatedAt: alert.updatedAt,
+            },
+            data: {
+              isActive: false,
+              isTriggered: true,
+              triggeredAt: new Date(),
+            },
+          });
+
+          hasStateChange = true;
+
+          // 5. 推送通知工作至 notification.queue (解耦異步通知處理)
           await this.notificationQueue.add(
             'send-notification',
             {
@@ -94,7 +99,11 @@ export class PriceCheckProcessor extends WorkerHost {
           );
           this.logger.debug(`Enqueued notification job for alert: ${alert.id}`);
         } catch (err: any) {
-          this.logger.error(`Failed to enqueue notification job for alert ${alert.id}`, err?.stack);
+          if (err.code === 'P2025') {
+            this.logger.warn(`Alert ${alert.id} was concurrently modified or deleted, skipping trigger.`);
+            continue;
+          }
+          this.logger.error(`Failed to trigger alert or enqueue notification for ${alert.id}`, err?.stack);
         }
       }
     }

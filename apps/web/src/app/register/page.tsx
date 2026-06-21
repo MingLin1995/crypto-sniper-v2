@@ -136,7 +136,7 @@ export default function RegisterPage() {
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-6 bg-zinc-950/60 min-h-screen">
       <ThemeLanguageSelector />
-      <Card className="w-full max-w-md border-indigo-500/20 glass-indigo">
+      <Card className="w-full max-w-md border-indigo-500/20 glass-indigo animate-fade-in-up hover-premium">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
             {t.registerTitle}

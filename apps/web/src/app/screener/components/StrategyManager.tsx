@@ -49,7 +49,7 @@ export function StrategyManager({
   handleDropOnStrategy,
 }: StrategyManagerProps) {
   return (
-    <Card className="border-indigo-500/15 glass-indigo">
+    <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up delay-100 hover-premium">
       <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <CardTitle className="text-lg flex items-center gap-2">

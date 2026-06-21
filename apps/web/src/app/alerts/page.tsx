@@ -570,18 +570,18 @@ function AlertsContent() {
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-indigo-500/15 glass-indigo">
+        <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up hover-premium">
           <CardHeader className="pb-2">
             <CardDescription className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">
               {locale === "zh-TW" ? "總通知數量" : "Total Alerts"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-extrabold text-white">{totalCount}</div>
+            <div className="text-3xl font-extrabold text-white light:text-zinc-900">{totalCount}</div>
           </CardContent>
         </Card>
 
-        <Card className="border-indigo-500/15 glass-indigo">
+        <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up delay-100 hover-premium">
           <CardHeader className="pb-2">
             <CardDescription className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">
               {locale === "zh-TW" ? "監控中通知" : "Active Alerts"}
@@ -592,7 +592,7 @@ function AlertsContent() {
           </CardContent>
         </Card>
 
-        <Card className="border-indigo-500/15 glass-indigo">
+        <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up delay-200 hover-premium">
           <CardHeader className="pb-2">
             <CardDescription className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">
               {locale === "zh-TW" ? "已觸發次數" : "Total Triggered"}
@@ -613,7 +613,7 @@ function AlertsContent() {
             className={`w-full text-left px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200 shrink-0 cursor-pointer ${
               activeTab === "active"
                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
-                : "bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 border border-zinc-800/80"
+                : "bg-zinc-900/40 dark:bg-zinc-900/40 light:bg-zinc-100 text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900 hover:bg-zinc-800/40 light:hover:bg-zinc-200/50 border border-zinc-800/80 light:border-zinc-200"
             }`}
           >
             🔔 {t.activeAlertsTab}
@@ -623,7 +623,7 @@ function AlertsContent() {
             className={`w-full text-left px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200 shrink-0 cursor-pointer ${
               activeTab === "history"
                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
-                : "bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 border border-zinc-800/80"
+                : "bg-zinc-900/40 dark:bg-zinc-900/40 light:bg-zinc-100 text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900 hover:bg-zinc-800/40 light:hover:bg-zinc-200/50 border border-zinc-800/80 light:border-zinc-200"
             }`}
           >
             📜 {t.alertHistoryTab}
@@ -633,7 +633,7 @@ function AlertsContent() {
             className={`w-full text-left px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200 shrink-0 cursor-pointer ${
               activeTab === "channels"
                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
-                : "bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 border border-zinc-800/80"
+                : "bg-zinc-900/40 dark:bg-zinc-900/40 light:bg-zinc-100 text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900 hover:bg-zinc-800/40 light:hover:bg-zinc-200/50 border border-zinc-800/80 light:border-zinc-200"
             }`}
           >
             ⚙️ {t.notificationSettingsTab}
@@ -644,7 +644,7 @@ function AlertsContent() {
         <div className="lg:col-span-9 space-y-6">
           {/* TAB 1: Active Alerts */}
           {activeTab === "active" && (
-            <Card className="border-indigo-500/15 glass-indigo">
+            <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up hover-premium">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-indigo-500/10">
                 <div>
                   <CardTitle className="text-lg">🔔 {t.activeAlertsTab}</CardTitle>
@@ -669,7 +669,7 @@ function AlertsContent() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm divide-y divide-zinc-800/40">
                       <thead>
-                        <tr className="text-zinc-400 font-semibold bg-zinc-900/20">
+                        <tr className="text-zinc-400 light:text-zinc-500 font-semibold bg-zinc-900/20 light:bg-zinc-100/50">
                           <th className="px-6 py-4">{locale === "zh-TW" ? "交易對" : "Symbol"}</th>
                           <th className="px-6 py-4">{t.conditionLabel}</th>
                           <th className="px-6 py-4">{t.targetPriceLabel}</th>
@@ -679,7 +679,7 @@ function AlertsContent() {
                           <th className="px-6 py-4 text-right">{locale === "zh-TW" ? "操作" : "Action"}</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-zinc-800/20 text-zinc-200">
+                      <tbody className="divide-y divide-zinc-800/20 text-zinc-200 light:text-zinc-800">
                         {activeAlerts.map((alert) => {
                           const currentVal = alert.currentPrice;
                           const targetVal = parseFloat(alert.targetPrice);
@@ -712,10 +712,10 @@ function AlertsContent() {
                                     : (locale === "zh-TW" ? "▼ 低於" : "▼ BELOW")}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 font-mono font-bold text-zinc-300">{alert.targetPrice}</td>
+                              <td className="px-6 py-4 font-mono font-bold text-zinc-300 light:text-zinc-700">{alert.targetPrice}</td>
                               <td className="px-6 py-4 font-mono">
                                 {currentVal !== null ? (
-                                  <span className="text-zinc-400">{currentVal}</span>
+                                  <span className="text-zinc-400 light:text-zinc-600">{currentVal}</span>
                                 ) : (
                                   <span className="text-zinc-600 animate-pulse">Loading...</span>
                                 )}
@@ -763,7 +763,7 @@ function AlertsContent() {
 
           {/* TAB 2: Trigger History */}
           {activeTab === "history" && (
-            <Card className="border-indigo-500/15 glass-indigo">
+            <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up hover-premium">
               <CardHeader className="pb-4 border-b border-indigo-500/10">
                 <CardTitle className="text-lg">📜 {t.alertHistoryTab}</CardTitle>
                 <CardDescription className="text-xs text-zinc-400 mt-1">
@@ -779,7 +779,7 @@ function AlertsContent() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm divide-y divide-zinc-800/40">
                       <thead>
-                        <tr className="text-zinc-400 font-semibold bg-zinc-900/20">
+                        <tr className="text-zinc-400 light:text-zinc-500 font-semibold bg-zinc-900/20 light:bg-zinc-100/50">
                           <th className="px-6 py-4">{locale === "zh-TW" ? "交易對" : "Symbol"}</th>
                           <th className="px-6 py-4">{t.conditionLabel}</th>
                           <th className="px-6 py-4">{t.targetPriceLabel}</th>
@@ -788,7 +788,7 @@ function AlertsContent() {
                           <th className="px-6 py-4 text-right">{locale === "zh-TW" ? "操作" : "Action"}</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-zinc-800/20 text-zinc-200">
+                      <tbody className="divide-y divide-zinc-800/20 text-zinc-200 light:text-zinc-800">
                         {triggeredHistory.map((alert) => (
                           <tr key={alert.id} className="hover:bg-zinc-900/30 transition-all opacity-80">
                             <td className="px-6 py-4 font-bold tracking-wider">{alert.symbol}</td>
@@ -801,7 +801,7 @@ function AlertsContent() {
                                   : (locale === "zh-TW" ? "▼ 低於" : "▼ BELOW")}
                               </span>
                             </td>
-                            <td className="px-6 py-4 font-mono text-zinc-300">{alert.targetPrice}</td>
+                            <td className="px-6 py-4 font-mono text-zinc-300 light:text-zinc-700">{alert.targetPrice}</td>
                             <td className="px-6 py-4">
                               {alert.isTriggered ? (
                                 <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
@@ -809,13 +809,13 @@ function AlertsContent() {
                                   {locale === "zh-TW" ? "已觸發" : "Triggered"}
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-xs text-zinc-400 font-bold bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded-full">
+                                <span className="inline-flex items-center gap-1 text-xs text-zinc-400 light:text-zinc-600 font-bold bg-zinc-800 dark:bg-zinc-800 light:bg-zinc-200 border border-zinc-700 light:border-zinc-300 px-2 py-0.5 rounded-full">
                                   <XCircle className="h-3 w-3" />
                                   {locale === "zh-TW" ? "手動關閉" : "Disabled"}
                                 </span>
                               )}
                             </td>
-                            <td className="px-6 py-4 text-zinc-400 text-xs font-mono">
+                            <td className="px-6 py-4 text-zinc-400 light:text-zinc-550 text-xs font-mono">
                               {alert.triggeredAt
                                 ? new Date(alert.triggeredAt).toLocaleString(locale, {
                                     month: "2-digit",
@@ -863,7 +863,7 @@ function AlertsContent() {
           {activeTab === "channels" && (
             <div className="space-y-6">
               {/* Web Push */}
-              <Card className="border-indigo-500/15 glass-indigo">
+              <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up hover-premium">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
@@ -878,12 +878,12 @@ function AlertsContent() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-zinc-900/20 border border-zinc-800/40">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-zinc-900/20 dark:bg-zinc-900/20 light:bg-zinc-100/50 border border-zinc-800/40 light:border-zinc-200">
                     <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-zinc-200">
+                      <h4 className="text-sm font-bold text-zinc-200 light:text-zinc-800">
                         {locale === "zh-TW" ? "瀏覽器訂閱狀態" : "Push Subscription Status"}
                       </h4>
-                      <p className="text-xs text-zinc-400">
+                      <p className="text-xs text-zinc-400 light:text-zinc-600">
                         {!pushSupported
                           ? t.webPushUnsupported
                           : pushSubscribed
@@ -908,7 +908,7 @@ function AlertsContent() {
               </Card>
 
               {/* Discord Webhook */}
-              <Card className="border-indigo-500/15 glass-indigo">
+              <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up delay-100 hover-premium">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
@@ -933,7 +933,7 @@ function AlertsContent() {
                           placeholder="https://discord.com/api/webhooks/..."
                           value={discordWebhookInput}
                           onChange={(e) => setDiscordWebhookInput(e.target.value)}
-                          className="flex-1 font-mono text-xs border-indigo-500/25 bg-zinc-950/40"
+                          className="flex-1 font-mono text-xs border-indigo-500/25 bg-zinc-950/40 light:bg-white"
                         />
                         <Button type="submit" loading={savingWebhook} className="cursor-pointer bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shrink-0">
                           {t.saveSettingsBtn}
@@ -953,12 +953,12 @@ function AlertsContent() {
                   </form>
 
                   {/* Discord Guide (Steps) */}
-                  <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-3">
+                  <div className="p-4 rounded-xl bg-zinc-900/40 dark:bg-zinc-900/40 light:bg-zinc-100/50 border border-zinc-800/80 light:border-zinc-200 space-y-3">
                     <h4 className="text-xs font-bold text-indigo-400 tracking-wider flex items-center gap-1.5">
                       <Settings className="h-3.5 w-3.5" />
                       {t.discordGuideTitle}
                     </h4>
-                    <ol className="text-xs text-zinc-400 space-y-2 list-decimal list-inside leading-relaxed pl-1">
+                    <ol className="text-xs text-zinc-400 light:text-zinc-650 space-y-2 list-decimal list-inside leading-relaxed pl-1">
                       <li>{t.discordGuideStep1}</li>
                       <li>{t.discordGuideStep2}</li>
                       <li>{t.discordGuideStep3}</li>
@@ -969,7 +969,7 @@ function AlertsContent() {
               </Card>
 
               {/* Telegram Bot */}
-              <Card className="border-indigo-500/15 glass-indigo">
+              <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up delay-200 hover-premium">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
@@ -984,12 +984,12 @@ function AlertsContent() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-zinc-900/20 border border-zinc-800/40">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-zinc-900/20 dark:bg-zinc-900/20 light:bg-zinc-100/50 border border-zinc-800/40 light:border-zinc-200">
                     <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-zinc-200">
+                      <h4 className="text-sm font-bold text-zinc-200 light:text-zinc-800">
                         {locale === "zh-TW" ? "Telegram 通知狀態" : "Telegram Alert Status"}
                       </h4>
-                      <p className="text-xs text-zinc-400">
+                      <p className="text-xs text-zinc-400 light:text-zinc-600">
                         {user?.telegramChatId
                           ? (locale === "zh-TW" ? "已連線並啟用到價通知" : "Connected and active")
                           : (locale === "zh-TW" ? "尚未啟動機器人通知" : "Inactive")}
@@ -1035,17 +1035,17 @@ function AlertsContent() {
                   </div>
 
                   {botLink && (
-                    <div className="text-[10.5px] text-amber-400/90 leading-normal text-center bg-amber-500/5 border border-amber-500/10 p-3 rounded-lg">
+                    <div className="text-[10.5px] text-amber-400/90 light:text-amber-800 leading-normal text-center bg-amber-500/5 border border-amber-500/10 light:border-amber-500/25 p-3 rounded-lg">
                       ⚠️ {t.botGuidance}
                     </div>
                   )}
 
-                  <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-2">
+                  <div className="p-4 rounded-xl bg-zinc-900/40 dark:bg-zinc-900/40 light:bg-zinc-100/50 border border-zinc-800/80 light:border-zinc-200 space-y-2">
                     <h4 className="text-xs font-bold text-indigo-400 tracking-wider flex items-center gap-1.5">
                       <Settings className="h-3.5 w-3.5" />
                       {t.telegramGuideTitle}
                     </h4>
-                    <ol className="text-xs text-zinc-400 space-y-2 list-decimal list-inside leading-relaxed pl-1">
+                    <ol className="text-xs text-zinc-400 light:text-zinc-650 space-y-2 list-decimal list-inside leading-relaxed pl-1">
                       <li>{t.telegramGuideStep1}</li>
                       <li>{t.telegramGuideStep2}</li>
                       <li>{t.telegramGuideStep3}</li>
@@ -1063,7 +1063,7 @@ function AlertsContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <Card className="w-full max-w-md border-indigo-500/20 glass-indigo shadow-2xl animate-in zoom-in-95 duration-200">
             <CardHeader className="pb-3 border-b border-indigo-500/10">
-              <CardTitle className="text-lg flex items-center gap-2 text-white">
+              <CardTitle className="text-lg flex items-center gap-2 text-zinc-900 dark:text-white">
                 <Bell className="h-5 w-5 text-indigo-400 animate-pulse" />
                 {editingAlertId
                   ? (locale === "zh-TW" ? "編輯到價通知" : "Edit Price Notification")
@@ -1099,7 +1099,7 @@ function AlertsContent() {
                         key={s}
                         type="button"
                         onClick={() => setSymbolInput(s)}
-                        className="text-[10px] bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white px-2 py-0.5 rounded border border-zinc-800 transition"
+                        className="text-[10px] bg-zinc-900 dark:bg-zinc-900 light:bg-zinc-100 hover:bg-zinc-800 light:hover:bg-zinc-200 text-zinc-400 light:text-zinc-600 hover:text-white light:hover:text-zinc-900 px-2 py-0.5 rounded border border-zinc-800 light:border-zinc-200 transition"
                       >
                         {s}
                       </button>
@@ -1116,7 +1116,7 @@ function AlertsContent() {
                       className={`py-2 px-3 rounded-lg text-xs font-bold transition border cursor-pointer ${
                         conditionInput === "ABOVE"
                           ? "bg-emerald-500/15 border-emerald-500 text-emerald-400 font-extrabold"
-                          : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                          : "bg-zinc-950 dark:bg-zinc-950 light:bg-zinc-100 border-zinc-800 light:border-zinc-200 text-zinc-400 light:text-zinc-650 hover:text-zinc-200 light:hover:text-zinc-900"
                       }`}
                     >
                       ▲ {locale === "zh-TW" ? "大於或等於" : "ABOVE (>=)"}
@@ -1127,7 +1127,7 @@ function AlertsContent() {
                       className={`py-2 px-3 rounded-lg text-xs font-bold transition border cursor-pointer ${
                         conditionInput === "BELOW"
                           ? "bg-red-500/15 border-red-500 text-red-400 font-extrabold"
-                          : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                          : "bg-zinc-950 dark:bg-zinc-950 light:bg-zinc-100 border-zinc-800 light:border-zinc-200 text-zinc-400 light:text-zinc-650 hover:text-zinc-200 light:hover:text-zinc-900"
                       }`}
                     >
                       ▼ {locale === "zh-TW" ? "小於或等於" : "BELOW (<=)"}

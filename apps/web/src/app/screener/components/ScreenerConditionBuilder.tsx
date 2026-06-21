@@ -46,7 +46,7 @@ export function ScreenerConditionBuilder({
   locale,
 }: ScreenerConditionBuilderProps) {
   return (
-    <Card className="border-indigo-500/15 glass-indigo">
+    <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up hover-premium">
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -68,7 +68,7 @@ export function ScreenerConditionBuilder({
         {timeframes.map((tf, tfIdx) => (
           <div
             key={tfIdx}
-            className="p-4 rounded-xl border border-zinc-800/80 light:border-zinc-200 bg-zinc-900/30 light:bg-slate-50/50 space-y-4 relative group"
+            className="p-4 rounded-xl border border-zinc-800/80 light:border-zinc-200 bg-zinc-900/30 light:bg-slate-50/50 space-y-4 relative group transition-all duration-300 hover:border-indigo-500/20"
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-2">

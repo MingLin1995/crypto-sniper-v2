@@ -298,7 +298,7 @@ export function TradingViewChart({
   }, [selectedSymbol, chartInterval, theme, locale, timeframes]);
 
   return (
-    <Card className="border-indigo-500/15 glass-indigo">
+    <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up delay-300 hover-premium">
       <CardHeader className="pb-3 flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-lg flex items-center gap-2">

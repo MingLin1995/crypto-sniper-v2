@@ -468,7 +468,7 @@ function ProfileContent() {
       {/* Row 1: Profile Info + Account Security (2-column) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Profile Info Card */}
-        <Card className="border-indigo-500/15 glass-indigo">
+        <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up hover-premium">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-400">
@@ -517,7 +517,7 @@ function ProfileContent() {
         </Card>
 
         {/* Change Email Card */}
-        <Card className="border-indigo-500/15 glass-indigo flex flex-col">
+        <Card className="border-indigo-500/15 glass-indigo flex flex-col animate-fade-in-up delay-100 hover-premium">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-400">
@@ -583,7 +583,7 @@ function ProfileContent() {
       </div>
 
       {/* Row 2: Change Password (full width) */}
-      <Card className="border-indigo-500/15 glass-indigo">
+      <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up delay-200 hover-premium">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-400">
@@ -646,7 +646,7 @@ function ProfileContent() {
       </Card>
 
       {/* Row 3: Linked Services */}
-      <Card className="border-indigo-500/15 glass-indigo">
+      <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up delay-300 hover-premium">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-400">

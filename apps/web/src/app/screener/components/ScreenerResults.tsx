@@ -39,7 +39,7 @@ export function ScreenerResults({
   }, [watchlistItems]);
 
   return (
-    <Card className="border-indigo-500/15 glass-indigo lg:absolute lg:inset-0 flex flex-col">
+    <Card className="border-indigo-500/15 glass-indigo lg:absolute lg:inset-0 flex flex-col animate-fade-in-up delay-200 hover-premium">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center justify-between">
           <div className="flex items-center gap-2">

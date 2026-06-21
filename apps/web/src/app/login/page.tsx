@@ -134,7 +134,7 @@ function LoginContent() {
   };
 
   return (
-    <Card className="w-full max-w-md border-indigo-500/20 glass-indigo">
+    <Card className="w-full max-w-md border-indigo-500/20 glass-indigo animate-fade-in-up hover-premium">
       <CardHeader className="space-y-1 text-center">
         <CardTitle className="text-2xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
           {t.loginTitle}

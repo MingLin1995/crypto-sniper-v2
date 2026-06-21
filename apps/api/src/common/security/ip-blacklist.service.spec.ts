@@ -18,6 +18,7 @@ describe('IpBlacklistService (IP 黑名單防護服務)', () => {
       sadd: jest.fn(),
       srem: jest.fn(),
       sismember: jest.fn(),
+      exists: jest.fn().mockResolvedValue(1),
     };
 
     // 模擬 Redis 服務
@@ -125,7 +126,7 @@ describe('IpBlacklistService (IP 黑名單防護服務)', () => {
 
     it('若 Redis 發生連線異常，應降級改用資料庫查詢並正確回傳', async () => {
       mockRedisClient.get.mockResolvedValue('1');
-      mockRedisClient.sismember.mockRejectedValue(new Error('Redis connection lost'));
+      mockRedisClient.exists.mockRejectedValue(new Error('Redis connection lost'));
       mockPrisma.client.blacklistedIp.findUnique.mockResolvedValue({ ip: '1.2.3.4' });
 
       const result = await service.isIpBlacklisted('1.2.3.4');
@@ -135,6 +136,19 @@ describe('IpBlacklistService (IP 黑名單防護服務)', () => {
         where: { ip: '1.2.3.4' },
         select: { ip: true },
       });
+    });
+
+    it('若 Redis 中的初始化標記遺失 (exists === 0)，應觸發強制重新載入快取', async () => {
+      mockRedisClient.exists.mockResolvedValue(0); // 模擬被 evicted
+      mockRedisClient.get.mockResolvedValue(null); // initializeCache 內部 get 也返 null
+      mockPrisma.client.blacklistedIp.findMany.mockResolvedValue([{ ip: '9.9.9.9' }]);
+      mockRedisClient.sismember.mockResolvedValue(1);
+
+      const result = await service.isIpBlacklisted('9.9.9.9');
+
+      expect(result).toBe(true);
+      expect(mockPrisma.client.blacklistedIp.findMany).toHaveBeenCalled();
+      expect(mockRedisClient.sadd).toHaveBeenCalledWith('security:blacklist:ips', '9.9.9.9');
     });
   });
 

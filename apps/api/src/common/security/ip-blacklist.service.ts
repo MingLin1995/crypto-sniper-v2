@@ -72,6 +72,15 @@ export class IpBlacklistService implements OnModuleInit {
 
     try {
       const redis = this.redisService.getClient();
+      
+      // 快速檢查 Redis 端的初始化標記是否存在，避免 Redis 被 Evict/重啟後遺失 Set 資料而導致漏防
+      const isInitializedInRedis = await redis.exists(this.INITIALIZED_KEY);
+      if (isInitializedInRedis === 0) {
+        this.logger.warn('IP blacklist cache initialized key is missing in Redis. Re-initializing...');
+        this.isInitializedInMemory = false;
+        await this.initializeCache(true);
+      }
+
       const isMember = await redis.sismember(this.BLACKLIST_SET_KEY, ip);
       return isMember === 1;
     } catch (error) {

@@ -40,20 +40,19 @@ export class ScreenerService {
           throw new ServiceUnavailableException('目前無法取得交易對資料');
         }
 
-        // 3. 行情預熱偵測：檢索第一個時間週期之 K 線快取。
-        // 若快取覆蓋率小於 10% 且至少有 5 個交易對時，判定系統處於行情預熱/重設狀態，提醒使用者稍後再試。
-        const firstTf = dto.timeframes[0];
-        if (firstTf) {
+        // 3. 行情預熱偵測：檢索所有配置的時間週期之 K 線快取。
+        // 若任何一個時框的快取覆蓋率小於 10% 且至少有 5 個交易對時，判定系統該時框處於行情預熱狀態。
+        for (const tf of dto.timeframes) {
           const sampleCheckCount = Math.min(20, symbols.length);
           const sampleSymbols = symbols.slice(0, sampleCheckCount);
           const caches = await Promise.all(
-            sampleSymbols.map((s) => this.marketCacheService.getKlines(s, firstTf.interval)),
+            sampleSymbols.map((s) => this.marketCacheService.getKlines(s, tf.interval)),
           );
           const cachedCount = caches.filter((c) => c && c.length > 0).length;
           
           // 若取樣中快取命中率小於 10%，拋出預熱異常
           if (cachedCount === 0 || cachedCount / sampleCheckCount < 0.1) {
-            throw new ServiceUnavailableException('行情資料預熱中，請稍後再試');
+            throw new ServiceUnavailableException(`行情資料 (${tf.interval}) 預熱中，請稍後再試`);
           }
         }
 

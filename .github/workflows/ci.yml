@@ -95,6 +95,20 @@ jobs:
             ${{ steps.login-ecr.outputs.registry }}/cryptosniper-web:latest
             ${{ steps.login-ecr.outputs.registry }}/cryptosniper-web:${{ github.sha }}
 
+      - name: 取得 GitHub Runner 公網 IP
+        id: get-ip
+        run: |
+          ip=$(curl -s https://checkip.amazonaws.com)
+          echo "ip=$ip" >> $GITHUB_OUTPUT
+
+      - name: 臨時允許 Runner IP 透過 SSH 連線 (Port 22)
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id ${{ secrets.AWS_SG_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.get-ip.outputs.ip }}/32
+
       - name: 透過 SSH 部署至 AWS EC2 生產伺服器
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -113,3 +127,13 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
             # 清理過期/無用的 Docker 資源
             docker image prune -f
+
+      - name: 撤銷 Runner IP 的 SSH 連線權限
+        if: always() && steps.get-ip.outputs.ip != ''
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id ${{ secrets.AWS_SG_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.get-ip.outputs.ip }}/32
+

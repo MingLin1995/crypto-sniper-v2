@@ -43,6 +43,7 @@ export class TelegramController {
   @Post('telegram/login')
   @ApiOperation({ summary: 'Telegram Widget 登入' })
   async telegramLogin(
+    @Request() req: any,
     @Body() dto: TelegramWidgetLoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
@@ -53,7 +54,9 @@ export class TelegramController {
       first_name: dto.first_name,
     });
 
-    const result = await this.authService.login(user);
+    const ip = req.ip;
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const result = await this.authService.login(user, ip, userAgent);
     const isProd = this.configService.get<string>('NODE_ENV') === 'production';
     res.cookie('access_token', result.accessToken, ACCESS_TOKEN_COOKIE_OPTIONS(isProd));
     res.cookie('refresh_token', result.refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS(isProd));

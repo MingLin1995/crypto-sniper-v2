@@ -32,23 +32,43 @@ async function seedAdminAccounts() {
 
   console.info('Starting admin accounts seeding...');
 
-  const defaultAdmins = [
-    {
-      email: process.env.ADMIN_EMAIL_1 || 'admin001@example.com',
+  const defaultAdmins: { email: string; nickname: string; password: string }[] = [];
+
+  if (process.env.ADMIN_EMAIL_1 && process.env.ADMIN_PASSWORD_1) {
+    defaultAdmins.push({
+      email: process.env.ADMIN_EMAIL_1,
       nickname: process.env.ADMIN_NICKNAME_1 || 'admin001',
-      password: process.env.ADMIN_PASSWORD_1 || '000000',
-    },
-    {
-      email: process.env.ADMIN_EMAIL_2 || 'admin002@example.com',
+      password: process.env.ADMIN_PASSWORD_1,
+    });
+  }
+
+  if (process.env.ADMIN_EMAIL_2 && process.env.ADMIN_PASSWORD_2) {
+    defaultAdmins.push({
+      email: process.env.ADMIN_EMAIL_2,
       nickname: process.env.ADMIN_NICKNAME_2 || 'admin002',
-      password: process.env.ADMIN_PASSWORD_2 || '000000',
-    },
-    {
-      email: process.env.ADMIN_EMAIL_3 || 'admin003@example.com',
+      password: process.env.ADMIN_PASSWORD_2,
+    });
+  }
+
+  if (process.env.ADMIN_EMAIL_3 && process.env.ADMIN_PASSWORD_3) {
+    defaultAdmins.push({
+      email: process.env.ADMIN_EMAIL_3,
       nickname: process.env.ADMIN_NICKNAME_3 || 'admin003',
-      password: process.env.ADMIN_PASSWORD_3 || '000000',
-    },
-  ];
+      password: process.env.ADMIN_PASSWORD_3,
+    });
+  }
+
+  if (defaultAdmins.length === 0) {
+    console.info('No admin environment variables defined. Skipping admin seeding.');
+    await prisma.systemConfig.create({
+      data: {
+        key: 'admin_accounts_setup_completed',
+        value: 'true',
+      },
+    });
+    console.info('Admin accounts seeding completed (skipped).');
+    return;
+  }
 
   await prisma.$transaction(async (tx) => {
     for (const admin of defaultAdmins) {

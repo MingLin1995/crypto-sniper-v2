@@ -188,13 +188,15 @@ export class UsersService {
     return { message: '用戶已刪除' };
   }
 
-  async createRefreshToken(userId: string, token: string, expiresAt: Date, id?: string) {
+  async createRefreshToken(userId: string, token: string, expiresAt: Date, id?: string, ip?: string, userAgent?: string) {
     return this.prisma.client.refreshToken.create({
       data: {
         ...(id && { id }),
         userId,
         token,
         expiresAt,
+        ip,
+        userAgent,
       },
     });
   }

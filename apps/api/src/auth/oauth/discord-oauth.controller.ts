@@ -68,8 +68,9 @@ export class DiscordOAuthController {
   async discordCallback(
     @Query('code') code: string,
     @Query('state') state: string,
+    @Req() req: any,
     @Res() res: Response,
   ) {
-    await this.oauthService.handleCallbackAndRedirect('discord', code, state, res);
+    await this.oauthService.handleCallbackAndRedirect('discord', code, state, req, res);
   }
 }

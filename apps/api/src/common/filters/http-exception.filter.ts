@@ -39,30 +39,34 @@ export class HttpExceptionFilter implements ExceptionFilter {
       ? message
       : (exception instanceof Error ? exception.message : '內部伺服器錯誤');
 
-    this.logger.log({
-      level: LogLevel.ERROR,
-      type: LogType.ERROR,
-      message: `[${method}] ${url} - ${logMessage}`,
-      errorType: exception.constructor.name,
-      errorStack: exception instanceof Error ? exception.stack : undefined,
-      method,
-      url,
-      statusCode: status,
-      requestBody: maskSensitiveData(body),
-      requestParams: params,
-      requestQuery: query,
-      clientIp: ip,
-      userAgent,
-      userId,
-      userAccount,
-      metadata: {
-        timestamp: taipeiTime,
-        // 如果是 HttpException，記錄額外的 response 資訊
-        ...(exception instanceof HttpException && {
-          exceptionResponse: exception.getResponse(),
-        }),
-      },
-    });
+    // 只有在攔截器或其它地方未記錄時才寫入日誌，以防重複記錄
+    if (!(request as any).__systemLogged) {
+      this.logger.log({
+        level: LogLevel.ERROR,
+        type: LogType.ERROR,
+        message: `[${method}] ${url} - ${logMessage}`,
+        errorType: exception.constructor.name,
+        errorStack: exception instanceof Error ? exception.stack : undefined,
+        method,
+        url,
+        statusCode: status,
+        requestBody: maskSensitiveData(body),
+        requestParams: params,
+        requestQuery: query,
+        clientIp: ip,
+        userAgent,
+        userId,
+        userAccount,
+        metadata: {
+          timestamp: taipeiTime,
+          // 如果是 HttpException，記錄額外的 response 資訊
+          ...(exception instanceof HttpException && {
+            exceptionResponse: exception.getResponse(),
+          }),
+        },
+      });
+      (request as any).__systemLogged = true;
+    }
 
     const clientMessage = exception instanceof HttpException ? message : '內部伺服器錯誤';
 

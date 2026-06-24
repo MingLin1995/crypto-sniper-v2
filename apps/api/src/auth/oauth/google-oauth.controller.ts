@@ -68,8 +68,9 @@ export class GoogleOAuthController {
   async googleCallback(
     @Query('code') code: string,
     @Query('state') state: string,
+    @Req() req: any,
     @Res() res: Response,
   ) {
-    await this.oauthService.handleCallbackAndRedirect('google', code, state, res);
+    await this.oauthService.handleCallbackAndRedirect('google', code, state, req, res);
   }
 }

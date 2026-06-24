@@ -12,13 +12,21 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
-# 停止舊的容器
+# 停止舊的容器 (選擇性，也可以直接 pull & up)
 echo "Stopping old containers..."
 docker compose -f docker-compose.prod.yml down
 
-# 建置並啟動
-echo "Building and starting containers..."
-docker compose -f docker-compose.prod.yml up -d --build
+# 拉取最新映像檔
+echo "Pulling latest images from ECR..."
+docker compose -f docker-compose.prod.yml pull
+
+# 啟動容器
+echo "Starting containers..."
+docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+# 執行資料庫遷移
+echo "Running database migrations..."
+docker compose -f docker-compose.prod.yml exec -T app bunx prisma migrate deploy
 
 # 等待服務啟動
 echo "Waiting for services to start..."

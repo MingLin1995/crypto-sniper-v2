@@ -56,8 +56,10 @@ export class AuthController {
   @ApiOperation({ summary: '註冊' })
   @ApiBody({ type: RegisterDto })
   @ApiCreatedResponseGeneric(AuthResponseDto)
-  async register(@Body() registerDto: RegisterDto, @Res({ passthrough: true }) res: Response) {
-    const result = await this.authService.register(registerDto);
+  async register(@Request() req: any, @Body() registerDto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+    const ip = req.ip;
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const result = await this.authService.register(registerDto, ip, userAgent);
     this.setAuthCookies(res, result.accessToken, result.refreshToken);
     return result;
   }
@@ -68,9 +70,11 @@ export class AuthController {
   @ApiOperation({ summary: '登入' })
   @ApiBody({ type: LoginDto })
   @ApiOkResponseGeneric(AuthResponseDto)
-  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
+  async login(@Request() req: any, @Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const user = await this.authService.validateUser(loginDto);
-    const result = await this.authService.login(user);
+    const ip = req.ip;
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const result = await this.authService.login(user, ip, userAgent);
     this.setAuthCookies(res, result.accessToken, result.refreshToken);
     return result;
   }
@@ -112,7 +116,9 @@ export class AuthController {
   async refreshTokens(@Request() req: any, @Res({ passthrough: true }) res: Response) {
     const userId = req.user['sub'];
     const refreshToken = req.user['refreshToken'];
-    const result = await this.authService.refreshTokens(userId, refreshToken);
+    const ip = req.ip;
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const result = await this.authService.refreshTokens(userId, refreshToken, ip, userAgent);
     this.setAuthCookies(res, result.accessToken, result.refreshToken);
     return result;
   }

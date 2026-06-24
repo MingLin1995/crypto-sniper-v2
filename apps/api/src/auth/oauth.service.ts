@@ -245,6 +245,7 @@ export class OAuthService {
     provider: 'google' | 'discord',
     code: string,
     state: string,
+    req: Request,
     res: Response,
   ) {
     const defaultFrontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
@@ -301,7 +302,9 @@ export class OAuthService {
       }
 
       const user = await this.handleOAuthLoginOrLink(provider, profile, stateData.userId);
-      const loginRes = await this.authService.login(user);
+      const ip = req.ip;
+      const userAgent = (req.headers['user-agent'] as string) || 'Unknown';
+      const loginRes = await this.authService.login(user, ip, userAgent);
 
       const isProd = this.configService.get<string>('NODE_ENV') === 'production';
       res.cookie('access_token', loginRes.accessToken, ACCESS_TOKEN_COOKIE_OPTIONS(isProd));

@@ -43,8 +43,8 @@ export class AuthService {
     return this.usersService.findOne(user.id);
   }
 
-  async login(user: AuthenticatedUser): Promise<LoginResponse> {
-    const tokens = await this.generateTokens(user.id, user.email || null, user.role);
+  async login(user: AuthenticatedUser, ip?: string, userAgent?: string): Promise<LoginResponse> {
+    const tokens = await this.generateTokens(user.id, user.email || null, user.role, ip, userAgent);
 
     return {
       accessToken: tokens.accessToken,
@@ -58,7 +58,7 @@ export class AuthService {
     };
   }
 
-  async register(registerDto: RegisterDto): Promise<LoginResponse> {
+  async register(registerDto: RegisterDto, ip?: string, userAgent?: string): Promise<LoginResponse> {
     await this.verificationCodeService.verifyCode(
       'email_verify',
       registerDto.email,
@@ -71,7 +71,7 @@ export class AuthService {
       nickname: registerDto.nickname,
     });
 
-    return this.login(user);
+    return this.login(user, ip, userAgent);
   }
 
   async logout(user: RequestUser) {
@@ -82,7 +82,7 @@ export class AuthService {
     }
   }
 
-  async refreshTokens(userId: string, rt: string): Promise<LoginResponse> {
+  async refreshTokens(userId: string, rt: string, ip?: string, userAgent?: string): Promise<LoginResponse> {
     try {
       const decoded = (await this.jwtService.verifyAsync(rt, {
         secret:
@@ -101,9 +101,15 @@ export class AuthService {
       const rtMatches = await bcrypt.compare(rt, tokenRecord.token);
       if (!rtMatches) throw new ForbiddenException('Access Denied');
 
+      // 檢查 Session 劫持：若儲存的 User-Agent 存在且與當前不同，強制登出並撤銷所有 Token
+      if (tokenRecord.userAgent && userAgent && tokenRecord.userAgent !== userAgent) {
+        await this.usersService.deleteUserRefreshTokens(userId);
+        throw new ForbiddenException('偵測到 Session 劫持風險，已撤銷該用戶所有裝置的登入狀態');
+      }
+
       await this.usersService.deleteRefreshToken(tokenId);
 
-      const tokens = await this.generateTokens(userId, decoded.email || null, decoded.role);
+      const tokens = await this.generateTokens(userId, decoded.email || null, decoded.role, ip, userAgent);
 
       const user = await this.usersService.findOne(userId);
 
@@ -118,11 +124,14 @@ export class AuthService {
         },
       };
     } catch (error) {
+      if (error instanceof ForbiddenException) {
+        throw error;
+      }
       throw new ForbiddenException('Access Denied');
     }
   }
 
-  async generateTokens(userId: string, email: string | null, role: string) {
+  async generateTokens(userId: string, email: string | null, role: string, ip?: string, userAgent?: string) {
     const tokenId = crypto.randomUUID();
 
     const payload = {
@@ -151,7 +160,7 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + expiresMs);
 
     const hash = await bcrypt.hash(rt, 10);
-    await this.usersService.createRefreshToken(userId, hash, expiresAt, tokenId);
+    await this.usersService.createRefreshToken(userId, hash, expiresAt, tokenId, ip, userAgent);
 
     return {
       accessToken: at,

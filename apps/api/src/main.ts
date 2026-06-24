@@ -35,7 +35,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.setGlobalPrefix('api', {
-    exclude: ['/', 'apidoc'],
+    exclude: ['/', 'apidoc', 'metrics'],
   });
 
   app.set('trust proxy', true);

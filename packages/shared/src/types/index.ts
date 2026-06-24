@@ -10,9 +10,49 @@ export interface WatchlistItemDto {
   symbol: string;
 }
 
+export interface WatchlistItemPriceDto {
+  id: string;
+  symbol: string;
+  price: number | null;
+  createdAt: string;
+}
+
 export interface CreatePriceAlertDto {
   symbol: string;
   targetPrice: number;
   condition: AlertCondition;
   notificationMethod: string[];
 }
+
+export interface MACondition {
+  ma1Type: 'SMA' | 'EMA';
+  ma1Period: number | '';
+  operator: 'gt' | 'lt';
+  ma2Type: 'SMA' | 'EMA';
+  ma2Period: number | '';
+}
+
+export interface ScreenerTimeframeBlock {
+  interval: string;
+  conditions: MACondition[];
+}
+
+export interface ScreenerRequestDto {
+  timeframes: ScreenerTimeframeBlock[];
+}
+
+export interface StrategyConfigDto extends ScreenerRequestDto {
+  category?: string;
+  sortOrder?: number;
+  categories?: string[];
+}
+
+export interface SavedStrategyDto {
+  id: string;
+  name: string;
+  config: StrategyConfigDto;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+

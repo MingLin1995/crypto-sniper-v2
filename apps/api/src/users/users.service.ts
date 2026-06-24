@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ExtendedPrismaService } from '../common/prisma/extended-prisma.service';
 import { Prisma } from '@prisma/client';
 import { RegisterDto } from '../auth/dto/auth.dto';
@@ -7,27 +7,27 @@ import { Role } from '../common/decorators/roles.decorator';
 import * as bcrypt from 'bcrypt';
 import { UserQueryDto } from './dto/user-query.dto';
 import { calculatePagination, createPaginatedResponse } from '../common/utils/pagination.helper';
+import { VerificationCodeService } from '../auth/verification-code.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: ExtendedPrismaService) { }
-  async findByAccount(account: string) {
+  constructor(
+    private readonly prisma: ExtendedPrismaService,
+    private readonly verificationCodeService: VerificationCodeService,
+  ) { }
+
+  async findByEmail(email: string) {
     return this.prisma.client.user.findFirst({
       where: {
-        account,
+        email,
+      },
+      omit: {
+        password: false,
       },
     });
   }
 
-  async create(registerDto: RegisterDto) {
-    const existingUser = await this.prisma.client.user.findUnique({
-      where: { account: registerDto.account },
-    });
-
-    if (existingUser) {
-      throw new ConflictException('帳號已存在');
-    }
-
+  async create(registerDto: Omit<RegisterDto, 'code'>) {
     const existingEmail = await this.prisma.client.user.findUnique({
       where: { email: registerDto.email },
     });
@@ -38,64 +38,32 @@ export class UsersService {
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
     const userData = {
-      ...registerDto,
+      email: registerDto.email,
+      nickname: registerDto.nickname,
       password: hashedPassword,
       role: Role.USER,
     };
 
     return this.prisma.client.user.create({
       data: userData,
-      omit: { password: true },
-    });
-  }
-
-  async createSocialUser(data: {
-    account: string;
-    email?: string;
-    googleId?: string;
-    telegramId?: string;
-    discordId?: string;
-  }) {
-    if (data.email) {
-      const existingEmail = await this.prisma.client.user.findUnique({
-        where: { email: data.email },
-      });
-      if (existingEmail) {
-        throw new ConflictException('Email 已被使用');
-      }
-    }
-
-    const existingUser = await this.prisma.client.user.findUnique({
-      where: { account: data.account },
-    });
-    if (existingUser) {
-      throw new ConflictException('帳號已存在');
-    }
-
-    return this.prisma.client.user.create({
-      data: {
-        account: data.account,
-        email: data.email,
-        googleId: data.googleId,
-        telegramId: data.telegramId,
-        discordId: data.discordId,
-        role: Role.USER,
-      },
-      omit: { password: true },
     });
   }
 
   async findOne(id: string) {
     const user = await this.prisma.client.user.findFirst({
-      where: { id, },
-      omit: { password: true },
+      where: { id },
+      omit: { password: false },
     });
 
     if (!user) {
       throw new NotFoundException(`用戶不存在`);
     }
 
-    return user;
+    const { password, ...userWithoutPassword } = user;
+    return {
+      ...userWithoutPassword,
+      hasPassword: !!password,
+    };
   }
 
   async findAll(queryDto: UserQueryDto) {
@@ -104,24 +72,18 @@ export class UsersService {
     const limit = queryDto.limit ?? 10;
 
     const where: Prisma.UserWhereInput = {
-      // 帳號搜尋（模糊搜尋，不區分大小寫）
-      ...(queryDto.account && {
-        account: {
-          contains: queryDto.account,
+      // 暱稱搜尋
+      ...(queryDto.nickname && {
+        nickname: {
+          contains: queryDto.nickname,
           mode: 'insensitive',
         },
       }),
-      // Email 搜尋（模糊搜尋，不區分大小寫）
+      // Email 搜尋
       ...(queryDto.email && {
         email: {
           contains: queryDto.email,
           mode: 'insensitive',
-        },
-      }),
-      // 電話搜尋（模糊搜尋）
-      ...(queryDto.phone && {
-        phone: {
-          contains: queryDto.phone,
         },
       }),
       // 角色篩選
@@ -133,7 +95,6 @@ export class UsersService {
         where,
         skip,
         take,
-        omit: { password: true },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.client.user.count({ where }),
@@ -145,13 +106,48 @@ export class UsersService {
   async update(id: string, updateUserDto: UpdateUserDto) {
     const user = await this.prisma.client.user.findFirst({
       where: { id },
+      omit: { password: false },
     });
 
     if (!user) {
       throw new NotFoundException(`用戶不存在`);
     }
 
-    const dataToUpdate = { ...updateUserDto };
+    if (updateUserDto.email && updateUserDto.email !== user.email) {
+      const emailExists = await this.prisma.client.user.findFirst({
+        where: {
+          email: updateUserDto.email,
+          id: { not: id },
+        },
+      });
+      if (emailExists) {
+        throw new ConflictException('此電子信箱已被其他帳戶使用');
+      }
+
+      // 檢查驗證碼
+      if (!updateUserDto.code) {
+        throw new BadRequestException('更新電子信箱時需要提供驗證碼');
+      }
+
+      await this.verificationCodeService.verifyCode('email_verify', updateUserDto.email, updateUserDto.code);
+    }
+
+    if (updateUserDto.password) {
+      if (user.password) {
+        if (!updateUserDto.currentPassword) {
+          throw new BadRequestException('請提供當前舊密碼以驗證身分');
+        }
+        const isCurrentPasswordValid = await bcrypt.compare(
+          updateUserDto.currentPassword,
+          user.password,
+        );
+        if (!isCurrentPasswordValid) {
+          throw new BadRequestException('當前舊密碼輸入錯誤');
+        }
+      }
+    }
+
+    const { code: _, currentPassword: __, ...dataToUpdate } = updateUserDto;
     if (dataToUpdate.password) {
       dataToUpdate.password = await bcrypt.hash(dataToUpdate.password, 10);
       // 密碼變更時，撤銷該用戶所有裝置的 Refresh Token
@@ -161,7 +157,6 @@ export class UsersService {
     return this.prisma.client.user.update({
       where: { id },
       data: dataToUpdate,
-      omit: { password: true },
     });
   }
 
@@ -174,11 +169,16 @@ export class UsersService {
       throw new NotFoundException(`用戶不存在`);
     }
 
+    // 軟刪除：更新 deletedAt，並修改 email 以避免佔用唯一鍵，同時清除第三方綁定以利重複使用
     await this.prisma.client.user.update({
       where: { id },
       data: {
         deletedAt: new Date(),
-        account: `${user.account}_deleted_${Date.now()}`,
+        email: user.email ? `${user.email}_deleted_${Date.now()}` : null,
+        googleId: null,
+        discordId: null,
+        telegramId: null,
+        telegramChatId: null,
       },
     });
 
@@ -188,13 +188,15 @@ export class UsersService {
     return { message: '用戶已刪除' };
   }
 
-  async createRefreshToken(userId: string, token: string, expiresAt: Date, id?: string) {
+  async createRefreshToken(userId: string, token: string, expiresAt: Date, id?: string, ip?: string, userAgent?: string) {
     return this.prisma.client.refreshToken.create({
       data: {
         ...(id && { id }),
         userId,
         token,
         expiresAt,
+        ip,
+        userAgent,
       },
     });
   }

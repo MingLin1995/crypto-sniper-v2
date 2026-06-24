@@ -7,8 +7,13 @@ import * as path from 'path';
 import helmet from 'helmet';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { apiReference } from '@scalar/nestjs-api-reference';
+import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
+  const packageJsonPath = path.resolve(__dirname, '../../package.json');
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  process.env.APP_VERSION = packageJson.version;
+
   // JWT 密碼強度驗證
   if (process.env.NODE_ENV === 'production') {
     const jwtSecret = process.env.JWT_SECRET;
@@ -29,22 +34,14 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  app.setGlobalPrefix('api', {
+    exclude: ['/', 'apidoc', 'metrics'],
+  });
+
   app.set('trust proxy', true);
 
   // 全域中介軟體 (Cookie 解析)
-  app.use((req: any, _res: any, next: any) => {
-    const rawCookies = req.headers.cookie;
-    req.cookies = {};
-    if (rawCookies) {
-      rawCookies.split(';').forEach((cookie: string) => {
-        const parts = cookie.split('=');
-        const name = parts[0].trim();
-        const value = parts.slice(1).join('=');
-        req.cookies[name] = decodeURIComponent(value);
-      });
-    }
-    next();
-  });
+  app.use(cookieParser());
 
   app.use(
     helmet({
@@ -74,13 +71,10 @@ async function bootstrap() {
     }),
   );
 
-  const packageJsonPath = path.resolve(__dirname, '../../package.json');
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-
   const config = new DocumentBuilder()
-    .setTitle('NestJS Template API')
+    .setTitle('CryptoSniper v2 API')
     .setDescription('時間格式一率使用 UTC+0，相關判斷由前後端各自處理')
-    .setVersion(`v${packageJson.version}`)
+    .setVersion(`v${process.env.APP_VERSION}`)
     .addBearerAuth()
     .build();
 
@@ -105,7 +99,7 @@ async function bootstrap() {
   console.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.info(`API URL:        http://localhost:${appPort}`);
   console.info(`API Docs:       http://localhost:${appPort}/apidoc (Scalar)`);
-  console.info(`Version:        v${packageJson.version}`);
+  console.info(`Version:        v${process.env.APP_VERSION}`);
   console.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.info('');
 }

@@ -1,0 +1,4 @@
+export const JWT_CONFIG = {
+  SECRET_FALLBACK: '',
+  REFRESH_SECRET_FALLBACK: '',
+};

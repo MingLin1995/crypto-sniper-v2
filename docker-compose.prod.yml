@@ -8,11 +8,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    # 警告：此處直接映射 Port 5432。若使用 AWS 安全群組，請務必限縮來源 IP。
-    # 更安全的替代方案：移除此處 ports 宣告，改用 SSH Port Forwarding 連線資料庫：
-    # ssh -L 5432:localhost:5432 -i your-key.pem ubuntu@your-ec2-ip
-    ports:
-      - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
     restart: unless-stopped
@@ -31,12 +26,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 200M
 
   redis:
     image: redis:7-alpine
     container_name: ${PROJECT_NAME:-app}-redis-prod
-    # Redis 僅限內部通訊使用，不對外暴露 Port
     restart: unless-stopped
     networks:
       - app-network-prod
@@ -53,15 +47,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 64M
 
   app:
-    build:
-      context: ./apps/api
-      dockerfile: Dockerfile.prod
+    image: ${API_IMAGE}
     container_name: ${PROJECT_NAME:-app}-api-prod
-    ports:
-      - '${APP_PORT:-3000}:3000'
     env_file:
       - .env
     environment:
@@ -76,6 +66,13 @@ services:
     restart: unless-stopped
     networks:
       - app-network-prod
+      - traefik-public
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.${PROJECT_NAME}-api.rule=Host(`${API_DOMAIN}`)'
+      - 'traefik.http.routers.${PROJECT_NAME}-api.entrypoints=websecure'
+      - 'traefik.http.routers.${PROJECT_NAME}-api.tls=true'
+      - 'traefik.http.services.${PROJECT_NAME}-api.loadbalancer.server.port=3000'
     healthcheck:
       test: ['CMD', 'wget', '--no-verbose', '--spider', 'http://localhost:3000/']
       interval: 15s
@@ -89,32 +86,35 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 256M
 
   web:
-    build:
-      context: ./apps/web
-      dockerfile: Dockerfile.prod
+    image: ${WEB_IMAGE}/cryptosniper-web:latest
     container_name: ${PROJECT_NAME:-app}-web-prod
-    ports:
-      - '3001:3001'
     env_file:
       - .env
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - API_URL=http://app:3000/api/v1
+      - API_URL=https://${API_DOMAIN}
     depends_on:
       app:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - app-network-prod
+      - traefik-public
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.${PROJECT_NAME}-web.rule=Host(`${APP_DOMAIN}`) || Host(`${ROOT_DOMAIN}`)'
+      - 'traefik.http.routers.${PROJECT_NAME}-web.entrypoints=websecure'
+      - 'traefik.http.routers.${PROJECT_NAME}-web.tls=true'
+      - 'traefik.http.services.${PROJECT_NAME}-web.loadbalancer.server.port=3001'
     healthcheck:
       test: ['CMD', 'wget', '--no-verbose', '--spider', 'http://localhost:3001/']
       interval: 15s
       timeout: 5s
       retries: 3
-    networks:
-      - app-network-prod
     logging:
       driver: 'json-file'
       options:
@@ -123,13 +123,53 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 200M
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ${PROJECT_NAME:-app}-prometheus-prod
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+    networks:
+      - app-network-prod
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ${PROJECT_NAME:-app}-grafana-prod
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - app-network-prod
+      - traefik-public
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.${PROJECT_NAME}-grafana.rule=Host(`${MONITOR_DOMAIN}`)'
+      - 'traefik.http.routers.${PROJECT_NAME}-grafana.entrypoints=websecure'
+      - 'traefik.http.routers.${PROJECT_NAME}-grafana.tls=true'
+      - 'traefik.http.services.${PROJECT_NAME}-grafana.loadbalancer.server.port=3000'
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 150M
 
 volumes:
   postgres_data_prod:
     name: ${PROJECT_NAME:-app}_postgres_data_prod
+  prometheus_data:
+    name: ${PROJECT_NAME:-app}_prometheus_data
+  grafana_data:
+    name: ${PROJECT_NAME:-app}_grafana_data
 
 networks:
   app-network-prod:
     name: ${PROJECT_NAME:-app}_network_prod
     driver: bridge
+  traefik-public:
+    external: true

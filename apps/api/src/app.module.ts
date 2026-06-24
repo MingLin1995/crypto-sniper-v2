@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR, APP_FILTER } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -15,11 +15,17 @@ import { LogsModule } from './logs/logs.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { CleanupService } from './tasks/cleanup.service';
 import { PrismaModule } from './common/prisma/prisma.module';
-// import { NotificationsModule } from './notifications/notifications.module';
-// 需要的套件：
-//   - Email: npm install @nestjs-modules/mailer@^2.0.1 nodemailer@^7.0.10
-//   - LINE:  npm install @line/bot-sdk@^9.5.0
-//   - SMS:   無需額外套件（使用內建 HttpModule）
+import { RedisModule } from './common/redis/redis.module';
+import { IpBlacklistModule } from './common/security/ip-blacklist.module';
+import { IpBlacklistMiddleware } from './common/security/ip-blacklist.middleware';
+import { EmailModule } from './common/email/email.module';
+import { MarketModule } from './market/market.module';
+import { StrategiesModule } from './strategies/strategies.module';
+import { WatchlistModule } from './watchlist/watchlist.module';
+import { BullModule } from '@nestjs/bullmq';
+import { AlertsModule } from './alerts/alerts.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { MetricsModule } from './common/metrics/metrics.module';
 
 @Module({
   imports: [
@@ -28,6 +34,9 @@ import { PrismaModule } from './common/prisma/prisma.module';
       envFilePath: ['.env', '../../.env'],
     }),
     PrismaModule,
+    RedisModule,
+    IpBlacklistModule,
+    EmailModule,
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // 60 ses
@@ -35,11 +44,21 @@ import { PrismaModule } from './common/prisma/prisma.module';
       },
     ]),
     ScheduleModule.forRoot(),
+    BullModule.forRoot({
+      connection: {
+        url: process.env.REDIS_URL || 'redis://localhost:6379',
+      },
+    }),
     LoggerModule,
     AuthModule,
     UsersModule,
     LogsModule,
-    // NotificationsModule,
+    MarketModule,
+    StrategiesModule,
+    WatchlistModule,
+    AlertsModule,
+    NotificationsModule,
+    MetricsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -70,4 +89,8 @@ import { PrismaModule } from './common/prisma/prisma.module';
     CleanupService,
   ],
 })
-export class AppModule { }
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(IpBlacklistMiddleware).forRoutes('*');
+  }
+}

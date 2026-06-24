@@ -1,14 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength, IsNotEmpty, IsOptional, Matches } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsNotEmpty, Matches } from 'class-validator';
+import { PASSWORD_REGEX, PASSWORD_VALIDATION_MESSAGE } from '../../common/constants/regex.constants';
 
 export class RegisterDto {
   @ApiProperty({
-    description: '帳號',
-    example: 'user001',
+    description: 'Email 電子信箱 (登入帳號)',
+    example: 'user@example.com',
+    required: true,
   })
-  @IsString()
+  @IsEmail()
   @IsNotEmpty()
-  account!: string;
+  email!: string;
 
   @ApiProperty({
     description: '密碼',
@@ -18,13 +20,33 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty()
   @MinLength(8)
-  @Matches(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/, {
-    message: '密碼必須至少包含一個英文字母和一個數字，且長度至少 8 碼',
+  @Matches(PASSWORD_REGEX, {
+    message: PASSWORD_VALIDATION_MESSAGE,
   })
   password!: string;
 
   @ApiProperty({
-    description: 'Email',
+    description: '使用者暱稱',
+    example: '小明',
+    required: true,
+  })
+  @IsString()
+  @IsNotEmpty()
+  nickname!: string;
+
+  @ApiProperty({
+    description: 'Email 驗證碼 (6位數字)',
+    example: '123456',
+    required: true,
+  })
+  @IsString()
+  @IsNotEmpty()
+  code!: string;
+}
+
+export class LoginDto {
+  @ApiProperty({
+    description: 'Email 電子信箱',
     example: 'user@example.com',
     required: true,
   })
@@ -33,27 +55,9 @@ export class RegisterDto {
   email!: string;
 
   @ApiProperty({
-    description: '電話',
-    example: '0912345678',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  phone?: string;
-}
-
-export class LoginDto {
-  @ApiProperty({
-    description: '帳號',
-    example: 'user001',
-  })
-  @IsString()
-  @IsNotEmpty()
-  account!: string;
-
-  @ApiProperty({
     description: '密碼',
-    example: '000000',
+    example: '000000a1',
+    required: true,
   })
   @IsString()
   @IsNotEmpty()
@@ -78,13 +82,15 @@ export class AuthResponseDto {
     type: 'object',
     properties: {
       id: { type: 'string', example: 'uuid-string' },
-      account: { type: 'string', example: 'user001' },
+      email: { type: 'string', example: 'user@example.com', nullable: true },
+      nickname: { type: 'string', example: '小明' },
       role: { type: 'string', example: 'USER' },
     },
   })
   user!: {
     id: string;
-    account: string;
+    email: string | null;
+    nickname: string;
     role: string;
   };
 }
@@ -95,4 +101,48 @@ export class LogoutResponseDto {
     example: 'Logged out successfully',
   })
   message!: string;
+}
+
+export class ForgotPasswordDto {
+  @ApiProperty({
+    description: 'Email 電子信箱',
+    example: 'user@example.com',
+    required: true,
+  })
+  @IsEmail()
+  @IsNotEmpty()
+  email!: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({
+    description: 'Email 電子信箱',
+    example: 'user@example.com',
+    required: true,
+  })
+  @IsEmail()
+  @IsNotEmpty()
+  email!: string;
+
+  @ApiProperty({
+    description: '新密碼',
+    example: '000000a1',
+    minLength: 8,
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(8)
+  @Matches(PASSWORD_REGEX, {
+    message: PASSWORD_VALIDATION_MESSAGE,
+  })
+  password!: string;
+
+  @ApiProperty({
+    description: 'Email 驗證碼 (6位數字)',
+    example: '123456',
+    required: true,
+  })
+  @IsString()
+  @IsNotEmpty()
+  code!: string;
 }

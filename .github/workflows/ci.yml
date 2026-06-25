@@ -195,6 +195,8 @@ jobs:
           script_stop: true
           script: |
             cd /home/${{ secrets.EC2_USERNAME }}/crypto-sniper-v2
+            # 檢查並自動建立 traefik-public 外部網路 (供 Traefik 路由使用)
+            docker network inspect traefik-public >/dev/null 2>&1 || docker network create traefik-public
             # 登入 AWS ECR 以便拉取映像檔
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
             # 拉取最新映像檔

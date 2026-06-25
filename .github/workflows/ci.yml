@@ -186,10 +186,17 @@ jobs:
           source: 'docker-compose.prod.yml,prometheus/prometheus.yml,.env'
           target: '/home/${{ secrets.EC2_USERNAME }}/crypto-sniper-v2/'
 
+      - name: 取得 ECR 登入密碼 (Token)
+        id: ecr-token
+        run: |
+          token=$(aws ecr get-login-password --region ${{ secrets.AWS_REGION }})
+          echo "::add-mask::$token"
+          echo "ECR_PASSWORD=$token" >> $GITHUB_ENV
+
       - name: 透過 SSH 部署至 AWS EC2 生產伺服器
         uses: appleboy/ssh-action@v1.0.3
         env:
-          ECR_PASSWORD: ${{ steps.login-ecr.outputs.docker_password }}
+          ECR_PASSWORD: ${{ env.ECR_PASSWORD }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}

@@ -127,54 +127,31 @@ jobs:
 
       - name: 建立與配置生產環境 .env 檔案
         env:
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
-          APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
-          ROOT_DOMAIN: ${{ secrets.ROOT_DOMAIN }}
-          API_DOMAIN: ${{ secrets.API_DOMAIN }}
-          MONITOR_DOMAIN: ${{ secrets.MONITOR_DOMAIN }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
-          DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
+          ALL_SECRETS: ${{ toJson(secrets) }}
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           node -e '
             const fs = require("fs");
             let env = fs.readFileSync(".env.example", "utf8");
             
-            const secrets = {
-              POSTGRES_USER: process.env.POSTGRES_USER,
-              POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD,
-              POSTGRES_DB: process.env.POSTGRES_DB,
-              DATABASE_URL: process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD && process.env.POSTGRES_DB
-                ? `postgresql://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}@db:5432/${process.env.POSTGRES_DB}?schema=public`
-                : "",
-              JWT_SECRET: process.env.JWT_SECRET,
-              JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
-              API_IMAGE: process.env.REGISTRY ? `${process.env.REGISTRY}/cryptosniper-api:latest` : "",
-              WEB_IMAGE: process.env.REGISTRY ? `${process.env.REGISTRY}/cryptosniper-web:latest` : "",
-              APP_DOMAIN: process.env.APP_DOMAIN,
-              ROOT_DOMAIN: process.env.ROOT_DOMAIN,
-              API_DOMAIN: process.env.API_DOMAIN,
-              MONITOR_DOMAIN: process.env.MONITOR_DOMAIN,
-              TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
-              GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
-              GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-              DISCORD_CLIENT_ID: process.env.DISCORD_CLIENT_ID,
-              DISCORD_CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET,
-            };
+            const secrets = JSON.parse(process.env.ALL_SECRETS || "{}");
+            
+            // 建立動態環境變數
+            secrets.DATABASE_URL = secrets.POSTGRES_USER && secrets.POSTGRES_PASSWORD && secrets.POSTGRES_DB
+              ? `postgresql://${secrets.POSTGRES_USER}:${secrets.POSTGRES_PASSWORD}@db:5432/${secrets.POSTGRES_DB}?schema=public`
+              : "";
+            secrets.API_IMAGE = process.env.REGISTRY ? `${process.env.REGISTRY}/cryptosniper-api:latest` : "";
+            secrets.WEB_IMAGE = process.env.REGISTRY ? `${process.env.REGISTRY}/cryptosniper-web:latest` : "";
+
+            // 僅允許寫入存在於 .env.example 中的金鑰，或在此白名單中的自訂欄位
+            const appendWhitelist = ["DATABASE_URL", "API_IMAGE", "WEB_IMAGE"];
 
             for (const [key, value] of Object.entries(secrets)) {
               if (value) {
                 const regex = new RegExp(`^#?\\s*${key}=.*`, "m");
                 if (regex.test(env)) {
                   env = env.replace(regex, `${key}=${value}`);
-                } else {
+                } else if (appendWhitelist.includes(key)) {
                   env += `\n${key}=${value}`;
                 }
               }

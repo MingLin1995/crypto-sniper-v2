@@ -143,10 +143,24 @@ jobs:
             secrets.API_IMAGE = process.env.REGISTRY ? `${process.env.REGISTRY}/cryptosniper-api:latest` : "";
             secrets.WEB_IMAGE = process.env.REGISTRY ? `${process.env.REGISTRY}/cryptosniper-web:latest` : "";
 
+            // 排除基礎設施與部署相關的 Secrets
+            const excludeKeys = [
+              "AWS_ACCESS_KEY_ID",
+              "AWS_SECRET_ACCESS_KEY",
+              "AWS_REGION",
+              "AWS_SG_ID",
+              "EC2_HOST",
+              "EC2_USERNAME",
+              "EC2_SSH_KEY",
+              "github_token"
+            ];
+
             // 僅允許寫入存在於 .env.example 中的金鑰，或在此白名單中的自訂欄位
             const appendWhitelist = ["DATABASE_URL", "API_IMAGE", "WEB_IMAGE"];
 
             for (const [key, value] of Object.entries(secrets)) {
+              if (excludeKeys.includes(key)) continue;
+
               if (value) {
                 const regex = new RegExp(`^#?\\s*${key}=.*`, "m");
                 if (regex.test(env)) {

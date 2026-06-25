@@ -188,17 +188,20 @@ jobs:
 
       - name: 透過 SSH 部署至 AWS EC2 生產伺服器
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          ECR_PASSWORD: ${{ steps.login-ecr.outputs.docker_password }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script_stop: true
+          envs: ECR_PASSWORD
           script: |
             cd /home/${{ secrets.EC2_USERNAME }}/crypto-sniper-v2
             # 檢查並自動建立 traefik-public 外部網路 (供 Traefik 路由使用)
             docker network inspect traefik-public >/dev/null 2>&1 || docker network create traefik-public
-            # 登入 AWS ECR 以便拉取映像檔
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+            # 登入 AWS ECR 以便拉取映像檔 (直接使用 Runner 傳遞的 Token，免於在 EC2 安裝 AWS CLI)
+            echo "$ECR_PASSWORD" | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
             # 拉取最新映像檔
             docker compose -f docker-compose.prod.yml pull
             # 啟動/更新服務 (需先啟動，後續 exec 才能在運行中的容器內執行)

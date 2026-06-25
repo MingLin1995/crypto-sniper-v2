@@ -38,8 +38,8 @@ jobs:
         working-directory: apps/api
         run: bun run test -- --reporters=default --reporters=jest-junit
         env:
-          JEST_JUNIT_OUTPUT_DIR: "."
-          JEST_JUNIT_OUTPUT_NAME: "junit.xml"
+          JEST_JUNIT_OUTPUT_DIR: '.'
+          JEST_JUNIT_OUTPUT_NAME: 'junit.xml'
         # 即使測試失敗也繼續，以便下一階段發布完整報告
         continue-on-error: true
 
@@ -120,22 +120,92 @@ jobs:
             --port 22 \
             --cidr ${{ env.RUNNER_IP }}/32
 
+      - name: 建立與配置生產環境 .env 檔案
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
+          ROOT_DOMAIN: ${{ secrets.ROOT_DOMAIN }}
+          API_DOMAIN: ${{ secrets.API_DOMAIN }}
+          MONITOR_DOMAIN: ${{ secrets.MONITOR_DOMAIN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            let env = fs.readFileSync(".env.example", "utf8");
+            
+            const secrets = {
+              POSTGRES_USER: process.env.POSTGRES_USER,
+              POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD,
+              POSTGRES_DB: process.env.POSTGRES_DB,
+              DATABASE_URL: process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD && process.env.POSTGRES_DB
+                ? `postgresql://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}@db:5432/${process.env.POSTGRES_DB}?schema=public`
+                : "",
+              JWT_SECRET: process.env.JWT_SECRET,
+              JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
+              API_IMAGE: process.env.REGISTRY ? `${process.env.REGISTRY}/cryptosniper-api:latest` : "",
+              WEB_IMAGE: process.env.REGISTRY ? `${process.env.REGISTRY}/cryptosniper-web:latest` : "",
+              APP_DOMAIN: process.env.APP_DOMAIN,
+              ROOT_DOMAIN: process.env.ROOT_DOMAIN,
+              API_DOMAIN: process.env.API_DOMAIN,
+              MONITOR_DOMAIN: process.env.MONITOR_DOMAIN,
+              TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+              GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+              GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+              DISCORD_CLIENT_ID: process.env.DISCORD_CLIENT_ID,
+              DISCORD_CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET,
+            };
+
+            for (const [key, value] of Object.entries(secrets)) {
+              if (value) {
+                const regex = new RegExp(`^#?\\s*${key}=.*`, "m");
+                if (regex.test(env)) {
+                  env = env.replace(regex, `${key}=${value}`);
+                } else {
+                  env += `\n${key}=${value}`;
+                }
+              }
+            }
+            fs.writeFileSync(".env", env);
+          '
+
+      - name: 複製部署與設定檔至 EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: 'docker-compose.prod.yml,prometheus/prometheus.yml,.env'
+          target: '/home/${{ secrets.EC2_USERNAME }}/crypto-sniper-v2/'
+
       - name: 透過 SSH 部署至 AWS EC2 生產伺服器
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
           script: |
             cd /home/${{ secrets.EC2_USERNAME }}/crypto-sniper-v2
             # 登入 AWS ECR 以便拉取映像檔
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
             # 拉取最新映像檔
             docker compose -f docker-compose.prod.yml pull
+            # 啟動/更新服務 (需先啟動，後續 exec 才能在運行中的容器內執行)
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            # 等待資料庫健康檢查通過
+            echo '等待資料庫就緒...'
+            docker compose -f docker-compose.prod.yml exec -T db sh -c 'until pg_isready -U $POSTGRES_USER -d $POSTGRES_DB; do sleep 2; done'
             # 執行資料庫遷移
             docker compose -f docker-compose.prod.yml exec -T app bunx prisma migrate deploy
-            # 重新啟動服務
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
             # 清理過期/無用的 Docker 資源
             docker image prune -f
 
@@ -148,5 +218,3 @@ jobs:
             --protocol tcp \
             --port 22 \
             --cidr ${{ env.RUNNER_IP }}/32
-
-

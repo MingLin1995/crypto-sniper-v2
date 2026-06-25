@@ -89,7 +89,7 @@ services:
           memory: 256M
 
   web:
-    image: ${WEB_IMAGE}/cryptosniper-web:latest
+    image: ${WEB_IMAGE}
     container_name: ${PROJECT_NAME:-app}-web-prod
     env_file:
       - .env

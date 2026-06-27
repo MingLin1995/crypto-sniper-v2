@@ -2,11 +2,11 @@ name: ${PROJECT_NAME:-app}-prod
 
 services:
   traefik:
-    image: traefik:v3.3
+    image: traefik:v3.6
     container_name: ${PROJECT_NAME:-app}-traefik-prod
     restart: unless-stopped
     environment:
-      - DOCKER_API_VERSION=1.44
+      - DOCKER_API_VERSION=1.46
     command:
       - '--api.dashboard=false'
       - '--providers.docker=true'

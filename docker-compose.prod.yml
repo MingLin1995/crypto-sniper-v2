@@ -2,7 +2,7 @@ name: ${PROJECT_NAME:-app}-prod
 
 services:
   traefik:
-    image: traefik:v3.1
+    image: traefik:v3.3
     container_name: ${PROJECT_NAME:-app}-traefik-prod
     restart: unless-stopped
     environment:

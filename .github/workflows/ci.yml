@@ -168,6 +168,8 @@ jobs:
               "EC2_HOST",
               "EC2_USERNAME",
               "EC2_SSH_KEY",
+              "CF_ORIGIN_CERT",
+              "CF_ORIGIN_KEY",
               "github_token"
             ];
 
@@ -181,13 +183,35 @@ jobs:
             fs.writeFileSync(".env", envOutput.trim() + "\n");
           '
 
+      - name: 建立 Traefik SSL 憑證與動態設定
+        env:
+          CF_ORIGIN_CERT: ${{ secrets.CF_ORIGIN_CERT }}
+          CF_ORIGIN_KEY: ${{ secrets.CF_ORIGIN_KEY }}
+        run: |
+          mkdir -p traefik/dynamic traefik/certs
+          if [ -n "$CF_ORIGIN_CERT" ] && [ -n "$CF_ORIGIN_KEY" ]; then
+            echo "$CF_ORIGIN_CERT" > traefik/certs/cert.pem
+            echo "$CF_ORIGIN_KEY" > traefik/certs/key.pem
+            cat << 'EOF' > traefik/dynamic/tls.yml
+          tls:
+            stores:
+              default:
+                defaultCertificate:
+                  certFile: /etc/traefik/certs/cert.pem
+                  keyFile: /etc/traefik/certs/key.pem
+          EOF
+            echo "成功生成 Cloudflare 源站憑證與 TLS 動態設定。"
+          else
+            echo "未設定 CF_ORIGIN_CERT 或 CF_ORIGIN_KEY，將使用 Traefik 預設自簽憑證。"
+          fi
+
       - name: 複製部署與設定檔至 EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: 'docker-compose.prod.yml,prometheus/prometheus.yml,.env'
+          source: 'docker-compose.prod.yml,prometheus/prometheus.yml,.env,traefik'
           target: "/home/${{ secrets.EC2_USERNAME }}/${{ secrets.PROJECT_NAME || 'crypto-sniper-v2' }}/"
 
       - name: 取得 ECR 登入密碼 (Token)

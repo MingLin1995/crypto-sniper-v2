@@ -9,6 +9,8 @@ services:
       - '--api.dashboard=false'
       - '--providers.docker=true'
       - '--providers.docker.exposedbydefault=false'
+      - '--providers.docker.apiVersion=1.44'
+      - '--providers.docker.network=traefik-public'
       - '--providers.file.directory=/etc/traefik/dynamic'
       - '--providers.file.watch=true'
       - '--entrypoints.web.address=:80'

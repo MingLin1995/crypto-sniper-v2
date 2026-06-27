@@ -132,18 +132,34 @@ jobs:
         run: |
           node -e '
             const fs = require("fs");
-            let env = fs.readFileSync(".env.example", "utf8");
-            
             const secrets = JSON.parse(process.env.ALL_SECRETS || "{}");
             
-            // 建立動態環境變數
-            secrets.DATABASE_URL = secrets.POSTGRES_USER && secrets.POSTGRES_PASSWORD && secrets.POSTGRES_DB
-              ? `postgresql://${secrets.POSTGRES_USER}:${secrets.POSTGRES_PASSWORD}@db:5432/${secrets.POSTGRES_DB}?schema=public`
-              : "";
-            secrets.API_IMAGE = process.env.REGISTRY ? `${process.env.REGISTRY}/cryptosniper-api:latest` : "";
-            secrets.WEB_IMAGE = process.env.REGISTRY ? `${process.env.REGISTRY}/cryptosniper-web:latest` : "";
+            // 基礎非敏感系統預設配置 (可被 GitHub Secrets 覆蓋)
+            const baseConfig = {
+              APP_NAME: "crypto-sniper-v2",
+              PROJECT_NAME: "crypto-sniper-v2",
+              PORT: "3000",
+              APP_PORT: "3000",
+              ENABLE_CORS: "false",
+              FRONTEND_URL: "http://localhost:3001",
+              LOG_ALL_REQUESTS: "false",
+              REDIS_HOST: "redis",
+              REDIS_PORT: "6379"
+            };
 
-            // 排除基礎設施與部署相關的 Secrets
+            // 合併 baseConfig 與 GitHub Secrets
+            const mergedEnv = { ...baseConfig, ...secrets };
+
+            // 動態生成部署專用變數
+            if (mergedEnv.POSTGRES_USER && mergedEnv.POSTGRES_PASSWORD && mergedEnv.POSTGRES_DB) {
+              mergedEnv.DATABASE_URL = `postgresql://${mergedEnv.POSTGRES_USER}:${mergedEnv.POSTGRES_PASSWORD}@db:5432/${mergedEnv.POSTGRES_DB}?schema=public`;
+            }
+            if (process.env.REGISTRY) {
+              mergedEnv.API_IMAGE = `${process.env.REGISTRY}/cryptosniper-api:latest`;
+              mergedEnv.WEB_IMAGE = `${process.env.REGISTRY}/cryptosniper-web:latest`;
+            }
+
+            // 排除基礎設施與部署無關的 Secrets
             const excludeKeys = [
               "AWS_ACCESS_KEY_ID",
               "AWS_SECRET_ACCESS_KEY",
@@ -155,22 +171,14 @@ jobs:
               "github_token"
             ];
 
-            // 僅允許寫入存在於 .env.example 中的金鑰，或在此白名單中的自訂欄位
-            const appendWhitelist = ["DATABASE_URL", "API_IMAGE", "WEB_IMAGE"];
-
-            for (const [key, value] of Object.entries(secrets)) {
+            let envOutput = "";
+            for (const [key, value] of Object.entries(mergedEnv)) {
               if (excludeKeys.includes(key)) continue;
-
-              if (value) {
-                const regex = new RegExp(`^#?\\s*${key}=.*`, "m");
-                if (regex.test(env)) {
-                  env = env.replace(regex, `${key}=${value}`);
-                } else if (appendWhitelist.includes(key)) {
-                  env += `\n${key}=${value}`;
-                }
+              if (value !== undefined && value !== null && value !== "") {
+                envOutput += `${key}=${value}\n`;
               }
             }
-            fs.writeFileSync(".env", env);
+            fs.writeFileSync(".env", envOutput.trim() + "\n");
           '
 
       - name: 複製部署與設定檔至 EC2
@@ -180,7 +188,7 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           source: 'docker-compose.prod.yml,prometheus/prometheus.yml,.env'
-          target: '/home/${{ secrets.EC2_USERNAME }}/crypto-sniper-v2/'
+          target: "/home/${{ secrets.EC2_USERNAME }}/${{ secrets.PROJECT_NAME || 'crypto-sniper-v2' }}/"
 
       - name: 取得 ECR 登入密碼 (Token)
         id: ecr-token
@@ -200,7 +208,7 @@ jobs:
           script_stop: true
           envs: ECR_PASSWORD
           script: |
-            cd /home/${{ secrets.EC2_USERNAME }}/crypto-sniper-v2
+            cd /home/${{ secrets.EC2_USERNAME }}/${{ secrets.PROJECT_NAME || 'crypto-sniper-v2' }}
             # 檢查並自動建立 traefik-public 外部網路 (供 Traefik 路由使用)
             docker network inspect traefik-public >/dev/null 2>&1 || docker network create traefik-public
             # 登入 AWS ECR 以便拉取映像檔 (直接使用 Runner 傳遞的 Token，免於在 EC2 安裝 AWS CLI)

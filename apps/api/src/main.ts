@@ -45,7 +45,30 @@ async function bootstrap() {
 
   app.use(
     helmet({
-      contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+      contentSecurityPolicy:
+        process.env.NODE_ENV === 'production'
+          ? {
+              directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: [
+                  "'self'",
+                  "'unsafe-inline'",
+                  "'unsafe-eval'",
+                  'https://cdn.jsdelivr.net',
+                  'https://static.cloudflareinsights.com',
+                ],
+                styleSrc: [
+                  "'self'",
+                  "'unsafe-inline'",
+                  'https://fonts.googleapis.com',
+                  'https://cdn.jsdelivr.net',
+                ],
+                fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+                imgSrc: ["'self'", 'data:', 'https:'],
+                connectSrc: ["'self'", 'https:', 'wss:'],
+              },
+            }
+          : false,
     }),
   );
 

@@ -31,7 +31,8 @@ export class TelegramBotService implements OnModuleInit {
         });
         this.logger.log(`Telegram Webhook 註冊成功: ${JSON.stringify(response.data)}`);
       } catch (error: any) {
-        this.logger.error(`Telegram Webhook 註冊失敗: ${error.message}`);
+        const errMsg = error.response?.data?.description || error.message;
+        this.logger.error(`Telegram Webhook 註冊失敗: ${errMsg}`);
       }
     } else {
       this.logger.warn('未設定 TELEGRAM_WEBHOOK_URL 或 TELEGRAM_BOT_TOKEN，跳過 Webhook 自動註冊。');

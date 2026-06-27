@@ -1,6 +1,34 @@
 name: ${PROJECT_NAME:-app}-prod
 
 services:
+  traefik:
+    image: traefik:v3.1
+    container_name: ${PROJECT_NAME:-app}-traefik-prod
+    restart: unless-stopped
+    command:
+      - '--api.dashboard=false'
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+      - '--entrypoints.web.address=:80'
+      - '--entrypoints.websecure.address=:443'
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik-public
+      - app-network-prod
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
   db:
     image: postgres:16-alpine
     container_name: ${PROJECT_NAME:-app}-db-prod
@@ -69,6 +97,8 @@ services:
       - traefik-public
     labels:
       - 'traefik.enable=true'
+      - 'traefik.http.routers.${PROJECT_NAME}-api-http.rule=Host(`${API_DOMAIN}`)'
+      - 'traefik.http.routers.${PROJECT_NAME}-api-http.entrypoints=web'
       - 'traefik.http.routers.${PROJECT_NAME}-api.rule=Host(`${API_DOMAIN}`)'
       - 'traefik.http.routers.${PROJECT_NAME}-api.entrypoints=websecure'
       - 'traefik.http.routers.${PROJECT_NAME}-api.tls=true'
@@ -106,6 +136,8 @@ services:
       - traefik-public
     labels:
       - 'traefik.enable=true'
+      - 'traefik.http.routers.${PROJECT_NAME}-web-http.rule=Host(`${APP_DOMAIN}`) || Host(`${ROOT_DOMAIN}`)'
+      - 'traefik.http.routers.${PROJECT_NAME}-web-http.entrypoints=web'
       - 'traefik.http.routers.${PROJECT_NAME}-web.rule=Host(`${APP_DOMAIN}`) || Host(`${ROOT_DOMAIN}`)'
       - 'traefik.http.routers.${PROJECT_NAME}-web.entrypoints=websecure'
       - 'traefik.http.routers.${PROJECT_NAME}-web.tls=true'
@@ -149,6 +181,8 @@ services:
       - traefik-public
     labels:
       - 'traefik.enable=true'
+      - 'traefik.http.routers.${PROJECT_NAME}-grafana-http.rule=Host(`${MONITOR_DOMAIN}`)'
+      - 'traefik.http.routers.${PROJECT_NAME}-grafana-http.entrypoints=web'
       - 'traefik.http.routers.${PROJECT_NAME}-grafana.rule=Host(`${MONITOR_DOMAIN}`)'
       - 'traefik.http.routers.${PROJECT_NAME}-grafana.entrypoints=websecure'
       - 'traefik.http.routers.${PROJECT_NAME}-grafana.tls=true'

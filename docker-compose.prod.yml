@@ -1,23 +1,39 @@
+# ==============================================================================
+# CryptoSniper v2 生產環境 Docker Compose 配置 (AWS EC2 + ECR + Traefik)
+# ==============================================================================
+# 1. 映像檔來源：不從本地 Dockerfile 建置，而是拉取 AWS ECR 預編譯的映像檔 (API_IMAGE, WEB_IMAGE)。
+# 2. 邊界路由：增設 Traefik 反向代理網關，負責 Cloudflare SSL 憑證掛載與子網域動態分流。
+# 3. 網路隔離：PostgreSQL 與 Redis 不對外開放 Port (無 ports 映射)，僅在內部網路 app-network-prod 溝通。
+# 4. 資源管理：配置 memory limits，Redis 啟用雙層限制 (外部 40M + 內部 28MB LRU) 以防 Swap I/O 懲罰。
+# 5. 可觀測性：增設 Prometheus 與 Grafana 監控容器，即時收集系統與業務指標。
+# ==============================================================================
 name: ${PROJECT_NAME:-app}-prod
 
 services:
+  # [邊界網關] 負責 HTTPS SSL 終止與子網域動態路由 (需對接 docker socket 與 SSL 憑證)
   traefik:
     image: traefik:v3.6
     container_name: ${PROJECT_NAME:-app}-traefik-prod
     restart: unless-stopped
     environment:
       - DOCKER_API_VERSION=1.46
+    # Traefik 啟動參數：關閉自帶後台以縮減攻擊面、開啟 Docker 監聽以動態生成路由、載入本地 SSL 動態配置
     command:
+      # 關閉 Traefik 預設的 Web 儀表板與 API，避免對外暴露管理介面而增加資安風險
       - '--api.dashboard=false'
+      # 啟用 Docker 作為設定來源 (Provider)，自動監聽容器啟動/停止事件以動態調整路由表
       - '--providers.docker=true'
+      # 預設不代理任何 Docker 容器，僅對帶有 traefik.enable=true 標籤的容器開啟路由 (零信任白名單)
       - '--providers.docker.exposedbydefault=false'
+      # 指定 Traefik 與後端容器進行代理轉發時，專屬使用的外部 Docker 網路名稱
       - '--providers.docker.network=traefik-public'
+      # 指定動態設定檔的本地目錄 (供載入 Cloudflare 源站 SSL 憑證與 TLS 設定)
       - '--providers.file.directory=/etc/traefik/dynamic'
+      # 啟用檔案監控，當 dynamic 目錄下的憑證或設定異動時即時熱更新，無須重啟 Traefik
       - '--providers.file.watch=true'
-      - '--entrypoints.web.address=:80'
+      # 宣告名為 "websecure" 的進入點 (Entrypoint)，監聽 443 埠 (純 HTTPS 加密流量，不開 80 埠)
       - '--entrypoints.websecure.address=:443'
     ports:
-      - '80:80'
       - '443:443'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -36,6 +52,7 @@ services:
         limits:
           memory: 48M
 
+  # [資料庫] 與 dev 不同，生產環境不開放 5432 Port 至主機，防止外部網路端口掃描攻擊
   db:
     image: postgres:16-alpine
     container_name: ${PROJECT_NAME:-app}-db-prod
@@ -63,6 +80,7 @@ services:
         limits:
           memory: 128M
 
+  # [快取與佇列] 不開放 6379 Port；內外雙層限制 (內部 28M 觸發 LRU 淘汰，外部限制 40M)
   redis:
     image: redis:7-alpine
     container_name: ${PROJECT_NAME:-app}-redis-prod
@@ -79,12 +97,14 @@ services:
       options:
         max-size: '10m'
         max-file: '3'
+    # Redis 啟動命令：內部硬性限制 28MB 觸發 LRU 淘汰機制，保留空間給 OS 網路 Buffer，避免觸發 Swap
     command: redis-server --maxmemory 28mb --maxmemory-policy volatile-lru
     deploy:
       resources:
         limits:
           memory: 40M
 
+  # [後端 API] 讀取 ECR 映像檔；透過 Traefik Labels 綁定 API_DOMAIN，並無本地原始碼掛載
   app:
     image: ${API_IMAGE}
     container_name: ${PROJECT_NAME:-app}-api-prod
@@ -103,13 +123,17 @@ services:
     networks:
       - app-network-prod
       - traefik-public
+    # Traefik 動態路由標籤：宣告監聽純 HTTPS 進入點並將 API_DOMAIN 加密流量轉發至容器內部的 3000 埠
     labels:
+      # 宣告此 API 容器允許被 Traefik 反向代理轉發
       - 'traefik.enable=true'
-      - 'traefik.http.routers.${PROJECT_NAME}-api-http.rule=Host(`${API_DOMAIN}`)'
-      - 'traefik.http.routers.${PROJECT_NAME}-api-http.entrypoints=web'
+      # [HTTPS 路由匹配] 當請求 Host 符合 API_DOMAIN 時，觸發此加密路由規則
       - 'traefik.http.routers.${PROJECT_NAME}-api.rule=Host(`${API_DOMAIN}`)'
+      # [HTTPS 進入點] 將此加密路由綁定至 "websecure" (443 埠) 進入點
       - 'traefik.http.routers.${PROJECT_NAME}-api.entrypoints=websecure'
+      # [TLS 解密] 啟用 TLS 終止，Traefik 會使用 Cloudflare 源站憑證為此路由解密
       - 'traefik.http.routers.${PROJECT_NAME}-api.tls=true'
+      # [內部轉發目標] 指示 Traefik 將解密後的流量，轉發給容器內部監聽的 3000 埠
       - 'traefik.http.services.${PROJECT_NAME}-api.loadbalancer.server.port=3000'
     healthcheck:
       test: ['CMD', 'wget', '--no-verbose', '--spider', 'http://localhost:3000/']
@@ -126,6 +150,7 @@ services:
         limits:
           memory: 220M
 
+  # [前端 Web] 讀取 ECR 映像檔；透過 Traefik Labels 綁定 APP_DOMAIN 與 ROOT_DOMAIN
   web:
     image: ${WEB_IMAGE}
     container_name: ${PROJECT_NAME:-app}-web-prod
@@ -142,13 +167,17 @@ services:
     networks:
       - app-network-prod
       - traefik-public
+    # Traefik 動態路由標籤：同時監聽 APP_DOMAIN 與 ROOT_DOMAIN，純 TLS 加密轉發至容器內部 3001 埠
     labels:
+      # 宣告此前端 Web 容器允許被 Traefik 代理轉發
       - 'traefik.enable=true'
-      - 'traefik.http.routers.${PROJECT_NAME}-web-http.rule=Host(`${APP_DOMAIN}`) || Host(`${ROOT_DOMAIN}`)'
-      - 'traefik.http.routers.${PROJECT_NAME}-web-http.entrypoints=web'
+      # [HTTPS 路由匹配] 當請求 Host 符合 APP_DOMAIN 或 ROOT_DOMAIN (主網域或根網域) 時觸發加密路由
       - 'traefik.http.routers.${PROJECT_NAME}-web.rule=Host(`${APP_DOMAIN}`) || Host(`${ROOT_DOMAIN}`)'
+      # [HTTPS 進入點] 綁定至 "websecure" (443 埠) 進入點
       - 'traefik.http.routers.${PROJECT_NAME}-web.entrypoints=websecure'
+      # [TLS 解密] 啟用 TLS 解密功能
       - 'traefik.http.routers.${PROJECT_NAME}-web.tls=true'
+      # [內部轉發目標] 指示 Traefik 將流量轉發至 Next.js 內部監聽的 3001 埠
       - 'traefik.http.services.${PROJECT_NAME}-web.loadbalancer.server.port=3001'
     healthcheck:
       test: ['CMD', 'wget', '--no-verbose', '--spider', 'http://localhost:3001/']
@@ -165,13 +194,19 @@ services:
         limits:
           memory: 110M
 
+  # [指標蒐集] 位於內部網路定期抓取 API /metrics，不對外開放 Port，保留 7 天歷史數據
   prometheus:
     image: prom/prometheus:latest
     container_name: ${PROJECT_NAME:-app}-prometheus-prod
+    # Prometheus 啟動參數：載入抓取規則配置檔，並限制時序數據最多保留 7 天或 1GB 上限以防硬碟爆滿
     command:
+      # 指定 Prometheus 讀取抓取目標配置檔案的容器內路徑
       - '--config.file=/etc/prometheus/prometheus.yml'
+      # 指定時序資料庫 (TSDB) 落地儲存的資料夾路徑 (會掛載至 Docker Volume)
       - '--storage.tsdb.path=/prometheus'
+      # 限制監控數據的保留期為 7 天，超過期限的舊資料會自動清除
       - '--storage.tsdb.retention.time=7d'
+      # 限制時序資料庫最大儲存容量為 1GB，防止長期運行下把 EC2 磁碟撐爆
       - '--storage.tsdb.retention.size=1GB'
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -184,6 +219,7 @@ services:
         limits:
           memory: 64M
 
+  # [視覺化儀表板] 透過 Traefik Labels 綁定 MONITOR_DOMAIN，供管理員安全登入查看監控圖表
   grafana:
     image: grafana/grafana:latest
     container_name: ${PROJECT_NAME:-app}-grafana-prod
@@ -192,13 +228,17 @@ services:
     networks:
       - app-network-prod
       - traefik-public
+    # Traefik 動態路由標籤：綁定 MONITOR_DOMAIN 子網域並轉發至 Grafana 內部 3000 埠，提供純 HTTPS 加密連線
     labels:
+      # 宣告此 Grafana 監控容器允許被 Traefik 代理轉發
       - 'traefik.enable=true'
-      - 'traefik.http.routers.${PROJECT_NAME}-grafana-http.rule=Host(`${MONITOR_DOMAIN}`)'
-      - 'traefik.http.routers.${PROJECT_NAME}-grafana-http.entrypoints=web'
+      # [HTTPS 路由匹配] 當請求 Host 符合 MONITOR_DOMAIN (監控後台子網域) 時觸發加密路由
       - 'traefik.http.routers.${PROJECT_NAME}-grafana.rule=Host(`${MONITOR_DOMAIN}`)'
+      # [HTTPS 進入點] 綁定至 "websecure" (443 埠) 進入點
       - 'traefik.http.routers.${PROJECT_NAME}-grafana.entrypoints=websecure'
+      # [TLS 解密] 啟用 TLS 加密連線
       - 'traefik.http.routers.${PROJECT_NAME}-grafana.tls=true'
+      # [內部轉發目標] 指示 Traefik 將流量轉發至 Grafana 預設監聽的 3000 埠
       - 'traefik.http.services.${PROJECT_NAME}-grafana.loadbalancer.server.port=3000'
     restart: unless-stopped
     deploy:
@@ -215,8 +255,10 @@ volumes:
     name: ${PROJECT_NAME:-app}_grafana_data
 
 networks:
+  # 內部隔離網路：容器間通訊專用
   app-network-prod:
     name: ${PROJECT_NAME:-app}_network_prod
     driver: bridge
+  # 外部邊界網路：供 Traefik 代理對外流量 (由 CI/CD 腳本自動檢查建立)
   traefik-public:
     external: true

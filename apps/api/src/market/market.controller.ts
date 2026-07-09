@@ -3,6 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { ScreenerService } from './screener.service';
 import { ScreenerRequestDto } from './dto/screener.dto';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Market')
 @ApiBearerAuth()
@@ -10,7 +11,8 @@ import { ScreenerRequestDto } from './dto/screener.dto';
 export class MarketController {
   constructor(private readonly screenerService: ScreenerService) {}
 
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  @Public()
   @Post('screener')
   @HttpCode(200)
   @ApiOperation({ summary: '多時框均線指標篩選' })

@@ -174,13 +174,14 @@ async function handleProxy(
         console.warn("[BFF Proxy] Refresh token failed. Logging out user...");
         // If refresh fails, clear cookies so the user is logged out
         const clearHeaders = new Headers();
+        const cookieDomain = process.env.COOKIE_DOMAIN ? `; domain=${process.env.COOKIE_DOMAIN}` : '';
         clearHeaders.append(
           "set-cookie",
-          "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; httponly; secure; samesite=lax"
+          `access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; httponly; secure; samesite=lax${cookieDomain}`
         );
         clearHeaders.append(
           "set-cookie",
-          "refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; httponly; secure; samesite=lax"
+          `refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; httponly; secure; samesite=lax${cookieDomain}`
         );
 
         return new NextResponse(

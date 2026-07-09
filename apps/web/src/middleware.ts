@@ -25,12 +25,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/screener", request.url));
   }
 
-  // 3. For root page /, redirect to screener if logged in, otherwise redirect to login
+  // 3. For root page /, redirect to screener if logged in, otherwise let it fall through to landing page
   if (pathname === "/") {
     if (refreshToken) {
       return NextResponse.redirect(new URL("/screener", request.url));
-    } else {
-      return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 

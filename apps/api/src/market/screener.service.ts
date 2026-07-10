@@ -2,7 +2,7 @@ import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import { BinanceService } from './binance.service';
 import { MarketCacheService } from './market-cache.service';
 import { ScreenerRequestDto, ScreenerTimeframeBlockDto, MAConditionDto } from './dto/screener.dto';
-import { calculateSMA, calculateEMA } from './indicators';
+import { calculateSMA, calculateEMA, calculateRSI, calculateMACD } from './indicators';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -159,30 +159,108 @@ export class ScreenerService {
     }
   }
 
+  private normalizeCondition(cond: MAConditionDto) {
+    if (cond.ma1Type && cond.ma1Period !== undefined && cond.ma2Type && cond.ma2Period !== undefined) {
+      return {
+        type: cond.ma1Type,
+        period: cond.ma1Period,
+        operator: cond.operator,
+        compareType: 'indicator' as const,
+        compareIndicatorType: cond.ma2Type,
+        comparePeriod: cond.ma2Period,
+      };
+    }
+    return {
+      type: cond.type || 'EMA',
+      period: cond.period,
+      macdFast: cond.macdFast,
+      macdSlow: cond.macdSlow,
+      macdSignal: cond.macdSignal,
+      macdProperty: cond.macdProperty,
+      operator: cond.operator,
+      compareType: cond.compareType || 'indicator',
+      compareIndicatorType: cond.compareIndicatorType,
+      comparePeriod: cond.comparePeriod,
+      compareMacdFast: cond.compareMacdFast,
+      compareMacdSlow: cond.compareMacdSlow,
+      compareMacdSignal: cond.compareMacdSignal,
+      compareMacdProperty: cond.compareMacdProperty,
+      compareValue: cond.compareValue,
+    };
+  }
+
+  private getIndicatorSeries(
+    prices: number[],
+    type: 'SMA' | 'EMA' | 'RSI' | 'MACD',
+    params: {
+      period?: number;
+      macdFast?: number;
+      macdSlow?: number;
+      macdSignal?: number;
+      macdProperty?: 'macd' | 'signal' | 'hist';
+    },
+  ): (number | null)[] {
+    switch (type) {
+      case 'SMA':
+        return calculateSMA(prices, params.period || 14);
+      case 'EMA':
+        return calculateEMA(prices, params.period || 14);
+      case 'RSI':
+        return calculateRSI(prices, params.period || 14);
+      case 'MACD': {
+        const fast = params.macdFast || 12;
+        const slow = params.macdSlow || 26;
+        const sig = params.macdSignal || 9;
+        const macdRes = calculateMACD(prices, fast, slow, sig);
+        if (params.macdProperty === 'signal') return macdRes.signal;
+        if (params.macdProperty === 'hist') return macdRes.histogram;
+        return macdRes.macd;
+      }
+      default:
+        return Array(prices.length).fill(null);
+    }
+  }
+
   /**
    * 評估單一指標條件是否成立
    */
   private evaluateCondition(prices: number[], cond: MAConditionDto): boolean {
-    const ma1Values =
-      cond.ma1Type === 'SMA'
-        ? calculateSMA(prices, cond.ma1Period)
-        : calculateEMA(prices, cond.ma1Period);
+    const norm = this.normalizeCondition(cond);
 
-    const ma2Values =
-      cond.ma2Type === 'SMA'
-        ? calculateSMA(prices, cond.ma2Period)
-        : calculateEMA(prices, cond.ma2Period);
+    const series1 = this.getIndicatorSeries(prices, norm.type as any, {
+      period: norm.period,
+      macdFast: norm.macdFast,
+      macdSlow: norm.macdSlow,
+      macdSignal: norm.macdSignal,
+      macdProperty: norm.macdProperty,
+    });
+    const val1 = series1[series1.length - 1];
 
-    const val1 = ma1Values[ma1Values.length - 1];
-    const val2 = ma2Values[ma2Values.length - 1];
-
-    if (val1 === null || val2 === null || isNaN(val1) || isNaN(val2)) {
-      return false; // 無法計算均線值時，不成立
+    if (val1 === null || val1 === undefined || isNaN(val1)) {
+      return false;
     }
 
-    if (cond.operator === 'gt') {
+    let val2: number | null = null;
+    if (norm.compareType === 'value') {
+      val2 = norm.compareValue !== undefined ? norm.compareValue : null;
+    } else {
+      const series2 = this.getIndicatorSeries(prices, (norm.compareIndicatorType || 'EMA') as any, {
+        period: norm.comparePeriod,
+        macdFast: norm.compareMacdFast,
+        macdSlow: norm.compareMacdSlow,
+        macdSignal: norm.compareMacdSignal,
+        macdProperty: norm.compareMacdProperty,
+      });
+      val2 = series2[series2.length - 1];
+    }
+
+    if (val2 === null || val2 === undefined || isNaN(val2)) {
+      return false;
+    }
+
+    if (norm.operator === 'gt') {
       return val1 > val2;
-    } else if (cond.operator === 'lt') {
+    } else if (norm.operator === 'lt') {
       return val1 < val2;
     }
 
@@ -193,16 +271,10 @@ export class ScreenerService {
    * 將篩選配置結構化排序後雜湊，生成唯一的快取 Key
    */
   private hashConfig(dto: ScreenerRequestDto): string {
-    // 排序時間週期與條件，確保相同配置得到相同的 Hash
     const normalized = dto.timeframes.map((tf) => ({
       interval: tf.interval,
-      conditions: tf.conditions.map((c) => ({
-        ma1Type: c.ma1Type,
-        ma1Period: c.ma1Period,
-        operator: c.operator,
-        ma2Type: c.ma2Type,
-        ma2Period: c.ma2Period,
-      })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+      conditions: tf.conditions.map((c) => this.normalizeCondition(c))
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
     })).sort((a, b) => a.interval.localeCompare(b.interval));
 
     const jsonStr = JSON.stringify(normalized);

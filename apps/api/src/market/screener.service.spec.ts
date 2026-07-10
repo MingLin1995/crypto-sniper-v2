@@ -159,5 +159,86 @@ describe('ScreenerService', () => {
         { symbol: 'SOLUSDT', price: 150, volume: 3000000 },
       ]);
     });
+
+    it('應正確篩選符合 RSI 條件的交易對', async () => {
+      mockMarketCacheService.getScreenerResult.mockResolvedValue(null);
+      mockBinanceService.getUSDTFuturesSymbols.mockResolvedValue(['BTCUSDT', 'ETHUSDT']);
+
+      const btcKlines = [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38];
+      const ethKlines = [38, 36, 34, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10];
+
+      mockMarketCacheService.getKlines.mockImplementation(async (symbol: string) => {
+        if (symbol === 'BTCUSDT') return btcKlines;
+        if (symbol === 'ETHUSDT') return ethKlines;
+        return null;
+      });
+
+      mockMarketCacheService.getPrices.mockResolvedValue({ BTCUSDT: 38, ETHUSDT: 10 });
+      mockMarketCacheService.getVolumeRanking.mockResolvedValue([]);
+
+      const request = {
+        timeframes: [
+          {
+            interval: '15m',
+            conditions: [
+              {
+                type: 'RSI' as const,
+                period: 14,
+                operator: 'gt' as const,
+                compareType: 'value' as const,
+                compareValue: 50,
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = await service.screen(request);
+
+      expect(result.length).toBe(1);
+      expect(result[0].symbol).toBe('BTCUSDT');
+    });
+
+    it('應正確篩選符合 MACD 條件的交易對', async () => {
+      mockMarketCacheService.getScreenerResult.mockResolvedValue(null);
+      mockBinanceService.getUSDTFuturesSymbols.mockResolvedValue(['BTCUSDT', 'ETHUSDT']);
+
+      const btcKlines = Array(35).fill(100).map((v, i) => v + i * i * 0.1);
+      const ethKlines = Array(35).fill(100).map((v, i) => v - i * i * 0.1);
+
+      mockMarketCacheService.getKlines.mockImplementation(async (symbol: string) => {
+        if (symbol === 'BTCUSDT') return btcKlines;
+        if (symbol === 'ETHUSDT') return ethKlines;
+        return null;
+      });
+
+      mockMarketCacheService.getPrices.mockResolvedValue({ BTCUSDT: 222.5, ETHUSDT: -22.5 });
+      mockMarketCacheService.getVolumeRanking.mockResolvedValue([]);
+
+      const request = {
+        timeframes: [
+          {
+            interval: '15m',
+            conditions: [
+              {
+                type: 'MACD' as const,
+                macdFast: 12,
+                macdSlow: 26,
+                macdSignal: 9,
+                macdProperty: 'hist' as const,
+                operator: 'gt' as const,
+                compareType: 'value' as const,
+                compareValue: 0,
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = await service.screen(request);
+
+      expect(result.length).toBe(1);
+      expect(result[0].symbol).toBe('BTCUSDT');
+    });
   });
 });

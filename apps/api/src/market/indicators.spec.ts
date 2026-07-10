@@ -1,4 +1,4 @@
-import { calculateSMA, calculateEMA } from './indicators';
+import { calculateSMA, calculateEMA, calculateRSI, calculateMACD } from './indicators';
 
 describe('Indicators calculations', () => {
   describe('calculateSMA', () => {
@@ -63,6 +63,50 @@ describe('Indicators calculations', () => {
       const prices = [10, 20, 30];
       expect(calculateEMA(prices, 0)).toEqual([null, null, null]);
       expect(calculateEMA(prices, -1)).toEqual([null, null, null]);
+    });
+  });
+
+  describe('calculateRSI', () => {
+    it('should calculate RSI correctly', () => {
+      // Create a series of price increases
+      const prices = [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38]; // 15 elements, 14 changes
+      const period = 14;
+      const result = calculateRSI(prices, period);
+
+      expect(result.length).toBe(15);
+      expect(result[0]).toBeNull();
+      expect(result[13]).toBeNull();
+      // All changes are +2, so Gain is 2, Loss is 0. RSI should be 100
+      expect(result[14]).toBeCloseTo(100);
+    });
+
+    it('should return nulls if prices length is less than or equal to period', () => {
+      const prices = [10, 20];
+      const period = 2;
+      const result = calculateRSI(prices, period);
+
+      expect(result).toEqual([null, null]);
+    });
+  });
+
+  describe('calculateMACD', () => {
+    it('should calculate MACD elements correctly', () => {
+      // standard inputs
+      const prices = Array(35).fill(100).map((val, idx) => val + idx); // linear uptrend
+      const result = calculateMACD(prices, 12, 26, 9);
+
+      expect(result.macd.length).toBe(35);
+      expect(result.signal.length).toBe(35);
+      expect(result.histogram.length).toBe(35);
+
+      // check leading nulls
+      expect(result.macd[24]).toBeNull();
+      expect(result.macd[25]).not.toBeNull(); // EMA26 is populated on index 25 (26th element)
+      
+      // signal starts at first valid macd idx (25) + signalPeriod (9) - 1 = 33
+      expect(result.signal[32]).toBeNull();
+      expect(result.signal[33]).not.toBeNull();
+      expect(result.histogram[33]).not.toBeNull();
     });
   });
 });

@@ -205,43 +205,67 @@ export function TradingViewChart({
         return tvVal === chartInterval;
       });
 
-      // 2. 提取出所有不重複的均線 (EMA / SMA 與對應週期，相容字串與數值型別)
-      const uniqueMAs: { type: "EMA" | "SMA"; period: number }[] = [];
+      // 2. 提取出所有不重複的指標 (相容 EMA, SMA, RSI, MACD)
+      const uniqueStudies: { type: "EMA" | "SMA" | "RSI" | "MACD"; period?: number }[] = [];
       if (activeTf) {
         activeTf.conditions.forEach((cond) => {
-          const p1 = cond.ma1Period !== "" ? Number(cond.ma1Period) : 0;
-          const p2 = cond.ma2Period !== "" ? Number(cond.ma2Period) : 0;
-
-          if (p1 > 0) {
-            const exists = uniqueMAs.some(
-              (ma) => ma.type === cond.ma1Type && ma.period === p1
-            );
-            if (!exists) {
-              uniqueMAs.push({ type: cond.ma1Type, period: p1 });
+          const type1 = cond.type || cond.ma1Type || "EMA";
+          const p1 = cond.period !== undefined && cond.period !== "" ? Number(cond.period) : (cond.ma1Period !== "" ? Number(cond.ma1Period) : 0);
+          
+          if (type1 === "EMA" || type1 === "SMA") {
+            if (p1 > 0) {
+              const exists = uniqueStudies.some((s) => s.type === type1 && s.period === p1);
+              if (!exists) uniqueStudies.push({ type: type1, period: p1 });
             }
+          } else if (type1 === "RSI") {
+            const exists = uniqueStudies.some((s) => s.type === "RSI");
+            if (!exists) uniqueStudies.push({ type: "RSI", period: p1 || 14 });
+          } else if (type1 === "MACD") {
+            const exists = uniqueStudies.some((s) => s.type === "MACD");
+            if (!exists) uniqueStudies.push({ type: "MACD" });
           }
-          if (p2 > 0) {
-            const exists = uniqueMAs.some(
-              (ma) => ma.type === cond.ma2Type && ma.period === p2
-            );
-            if (!exists) {
-              uniqueMAs.push({ type: cond.ma2Type, period: p2 });
+
+          const compareType = cond.compareType || "indicator";
+          if (compareType === "indicator") {
+            const type2 = cond.compareIndicatorType || cond.ma2Type || "EMA";
+            const p2 = cond.comparePeriod !== undefined && cond.comparePeriod !== "" ? Number(cond.comparePeriod) : (cond.ma2Period !== "" ? Number(cond.ma2Period) : 0);
+            
+            if (type2 === "EMA" || type2 === "SMA") {
+              if (p2 > 0) {
+                const exists = uniqueStudies.some((s) => s.type === type2 && s.period === p2);
+                if (!exists) uniqueStudies.push({ type: type2, period: p2 });
+              }
+            } else if (type2 === "RSI") {
+              const exists = uniqueStudies.some((s) => s.type === "RSI");
+              if (!exists) uniqueStudies.push({ type: "RSI", period: p2 || 14 });
+            } else if (type2 === "MACD") {
+              const exists = uniqueStudies.some((s) => s.type === "MACD");
+              if (!exists) uniqueStudies.push({ type: "MACD" });
             }
           }
         });
       }
 
-      // 3. 將均線放入指標載入清單之中
-      uniqueMAs.forEach((ma) => {
-        if (ma.type === "EMA") {
+      // 3. 將指標放入載入清單之中
+      uniqueStudies.forEach((study) => {
+        if (study.type === "EMA") {
           chartStudies.push({
             id: "MAExp@tv-basicstudies",
-            inputs: { length: ma.period }
+            inputs: { length: study.period }
           });
-        } else {
+        } else if (study.type === "SMA") {
           chartStudies.push({
             id: "MASimple@tv-basicstudies",
-            inputs: { length: ma.period }
+            inputs: { length: study.period }
+          });
+        } else if (study.type === "RSI") {
+          chartStudies.push({
+            id: "RSI@tv-basicstudies",
+            inputs: { length: study.period || 14 }
+          });
+        } else if (study.type === "MACD") {
+          chartStudies.push({
+            id: "MACD@tv-basicstudies"
           });
         }
       });

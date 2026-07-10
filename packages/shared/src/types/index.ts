@@ -25,11 +25,28 @@ export interface CreatePriceAlertDto {
 }
 
 export interface MACondition {
-  ma1Type: 'SMA' | 'EMA';
-  ma1Period: number | '';
+  type?: 'SMA' | 'EMA' | 'RSI' | 'MACD';
+  period?: number | '';
+  macdFast?: number | '';
+  macdSlow?: number | '';
+  macdSignal?: number | '';
+  macdProperty?: 'macd' | 'signal' | 'hist';
+
   operator: 'gt' | 'lt';
-  ma2Type: 'SMA' | 'EMA';
-  ma2Period: number | '';
+
+  compareType?: 'indicator' | 'value';
+  compareIndicatorType?: 'SMA' | 'EMA' | 'RSI' | 'MACD';
+  comparePeriod?: number | '';
+  compareMacdFast?: number | '';
+  compareMacdSlow?: number | '';
+  compareMacdSignal?: number | '';
+  compareMacdProperty?: 'macd' | 'signal' | 'hist';
+  compareValue?: number | '';
+
+  ma1Type?: 'SMA' | 'EMA';
+  ma1Period?: number | '';
+  ma2Type?: 'SMA' | 'EMA';
+  ma2Period?: number | '';
 }
 
 export interface ScreenerTimeframeBlock {
@@ -54,5 +71,3 @@ export interface SavedStrategyDto {
   createdAt: string;
   updatedAt?: string;
 }
-
-

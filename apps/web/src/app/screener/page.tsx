@@ -25,11 +25,26 @@ const intervalOrder = ["5m", "15m", "30m", "1h", "2h", "4h", "1d", "1w", "1M"];
 function sanitizeTimeframes(blocks: ScreenerTimeframeBlock[]) {
   return blocks.map((tf) => ({
     ...tf,
-    conditions: tf.conditions.map((c) => ({
-      ...c,
-      ma1Period: c.ma1Period === "" ? 0 : Number(c.ma1Period),
-      ma2Period: c.ma2Period === "" ? 0 : Number(c.ma2Period),
-    })),
+    conditions: tf.conditions.map((c: any) => {
+      const sanitized: any = { ...c };
+
+      if (c.ma1Period !== undefined) sanitized.ma1Period = c.ma1Period === "" ? 0 : Number(c.ma1Period);
+      if (c.ma2Period !== undefined) sanitized.ma2Period = c.ma2Period === "" ? 0 : Number(c.ma2Period);
+
+      if (c.period !== undefined) sanitized.period = c.period === "" ? 0 : Number(c.period);
+      if (c.macdFast !== undefined) sanitized.macdFast = c.macdFast === "" ? 0 : Number(c.macdFast);
+      if (c.macdSlow !== undefined) sanitized.macdSlow = c.macdSlow === "" ? 0 : Number(c.macdSlow);
+      if (c.macdSignal !== undefined) sanitized.macdSignal = c.macdSignal === "" ? 0 : Number(c.macdSignal);
+
+      if (c.comparePeriod !== undefined) sanitized.comparePeriod = c.comparePeriod === "" ? 0 : Number(c.comparePeriod);
+      if (c.compareMacdFast !== undefined) sanitized.compareMacdFast = c.compareMacdFast === "" ? 0 : Number(c.compareMacdFast);
+      if (c.compareMacdSlow !== undefined) sanitized.compareMacdSlow = c.compareMacdSlow === "" ? 0 : Number(c.compareMacdSlow);
+      if (c.compareMacdSignal !== undefined) sanitized.compareMacdSignal = c.compareMacdSignal === "" ? 0 : Number(c.compareMacdSignal);
+
+      if (c.compareValue !== undefined) sanitized.compareValue = c.compareValue === "" ? 0 : Number(c.compareValue);
+
+      return sanitized;
+    }),
   }));
 }
 
@@ -605,11 +620,12 @@ function ScreenerContent() {
         interval: "1h",
         conditions: [
           {
-            ma1Type: "EMA",
-            ma1Period: 25,
+            type: "EMA",
+            period: 25,
             operator: "gt",
-            ma2Type: "EMA",
-            ma2Period: 60,
+            compareType: "indicator",
+            compareIndicatorType: "EMA",
+            comparePeriod: 60,
           },
         ],
       },
@@ -629,11 +645,12 @@ function ScreenerContent() {
   const addCondition = (tfIdx: number) => {
     const updated = [...timeframes];
     updated[tfIdx].conditions.push({
-      ma1Type: "EMA",
-      ma1Period: 25,
+      type: "EMA",
+      period: 25,
       operator: "gt",
-      ma2Type: "EMA",
-      ma2Period: 60,
+      compareType: "indicator",
+      compareIndicatorType: "EMA",
+      comparePeriod: 60,
     });
     setTimeframes(updated);
   };

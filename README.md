@@ -28,6 +28,84 @@ CryptoSniper v2 是一款基於 Monorepo 架構設計的企業級加密貨幣即
 
 ---
 
+## 系統架構與資料流向
+
+本系統設計了 9 大核心資料流向與資料庫實體關係，以應對高頻行情監控、低延遲告警與高安全性要求。
+
+### 核心網路與流量路由 (User Traffic & Routing)
+以下為系統的高階網路拓撲與請求路由流向：
+
+![User Traffic & Routing Flow](./docs/assets/user-traffic-routing-flow.svg)
+
+---
+
+### 詳細資料流向與架構圖 (點擊展開)
+
+<details>
+<summary><b>1. 開發與 CI/CD 自動化部署流向 (CI/CD Deployment)</b></summary>
+<br>
+
+![CI/CD Deployment Flow](./docs/assets/cicd-deployment-flow.svg)
+</details>
+
+<details>
+<summary><b>2. 第三方 OAuth 登入與帳號綁定合併流程 (OAuth & Account Linking)</b></summary>
+<br>
+
+![OAuth & Account Linking Flow](./docs/assets/oauth-account-linking-flow.svg)
+</details>
+
+<details>
+<summary><b>3. 認證與 Session 安全生命週期流向 (Authentication & Session Lifecycle)</b></summary>
+<br>
+
+![Authentication & Session Lifecycle Flow](./docs/assets/authentication-session-lifecycle.svg)
+</details>
+
+<details>
+<summary><b>4. 幣安行情資料抓取與限流自適應調度流程 (Binance Ingestion & Rate Limit)</b></summary>
+<br>
+
+![Binance Ingestion & Rate Limit Flow](./docs/assets/binance-ingestion-rate-limit.svg)
+</details>
+
+<details>
+<summary><b>5. 即時行情告警比對與多管道推送流程 (Real-time Alert & Push)</b></summary>
+<br>
+
+![Real-time Alert & Push Flow](./docs/assets/realtime-alert-push-flow.svg)
+</details>
+
+<details>
+<summary><b>6. 策略篩選引擎資料流向 (Screener Strategy Engine)</b></summary>
+<br>
+
+![Screener Strategy Engine Flow](./docs/assets/screener-strategy-engine.svg)
+</details>
+
+<details>
+<summary><b>7. 系統可觀測性與監控數據流向 (Observability & Monitoring)</b></summary>
+<br>
+
+![Observability & Monitoring Data Flow](./docs/assets/observability-monitoring-flow.svg)
+</details>
+
+<details>
+<summary><b>8. NestJS 全域請求管線架構 (Global Request Pipeline)</b></summary>
+<br>
+
+![NestJS Global Request Pipeline Architecture](./docs/assets/nestjs-global-request-pipeline.svg)
+</details>
+
+<details>
+<summary><b>9. 資料庫實體關係圖 (Database ER Diagram)</b></summary>
+<br>
+
+![Database ER Diagram](./docs/assets/database-er-diagram.svg)
+</details>
+
+---
+
 ## 技術棧一覽
 
 | 類別              | 技術                      | 說明                                                      |

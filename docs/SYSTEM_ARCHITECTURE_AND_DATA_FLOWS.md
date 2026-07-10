@@ -26,6 +26,8 @@
 
 本專案實踐了「基礎設施即程式碼 (IaC)」與零手動部署流程，確保每次發布均經過嚴格驗證並無縫升級。
 
+![CI/CD Deployment Flow](./assets/cicd-deployment-flow.svg)
+
 ```
 [本機開發者]
    │ (git push)
@@ -51,6 +53,8 @@
 ## 2. 使用者存取與邊界路由流向 (User Traffic & Routing Flow)
 
 為防禦 DDoS 並確保 SSL 加密，系統在邊界網路層配置了「隱形源站」與動態反向代理：
+
+![User Traffic & Routing Flow](./assets/user-traffic-routing-flow.svg)
 
 ```
 [使用者瀏覽器 / 外部客戶端]
@@ -79,6 +83,8 @@
 
 當使用者使用 Google、Discord 或 Telegram 進行登入或個人中心綁定時，系統採用了高安全性的狀態校驗機制與資料庫原子事務 (Database Transaction)，解決「臨時帳號與主帳號衝突合併」的問題。
 
+![OAuth & Account Linking Flow](./assets/oauth-account-linking-flow.svg)
+
 ### 流程詳解：
 
 1. **發起授權請求**：使用者點擊登入/綁定，後端產生一組隨機的 UUID 作為 `state`，並將其暫存於 Redis（設定 5 分鐘過期），記錄此請求屬於「登入 (Login)」還是「綁定 (Link)」，隨後將使用者導向第三方授權頁面。
@@ -101,6 +107,8 @@
 系統採用 **雙 Token 架構 (Dual Token Architecture)** 搭配 **HttpOnly Secure Cookie** 傳輸機制，並在 Refresh Token 層實作了旋轉更新 (Rotation)、Session 劫持偵測與前端 SSR 層路由守衛。
 
 ### 架構圖：
+
+![Authentication & Session Lifecycle Flow](./assets/authentication-session-lifecycle.svg)
 
 ```mermaid
 sequenceDiagram
@@ -156,6 +164,8 @@ sequenceDiagram
 
 行情數據抓取與指標計算是策略篩選看板（Screener）的基石。為了解決多時框（9 個）、多交易對（700+）高頻請求導致幣安 `429 Rate Limit` 封鎖的問題，系統在 `MarketScheduleService` 實作了冷熱分流、自適應權重延遲與主備援切換機制。
 
+![Binance Ingestion & Rate Limit Flow](./assets/binance-ingestion-rate-limit.svg)
+
 ### 流程詳解：
 
 1. **冷熱交易對分流 (Hot/Cold Separation)**：
@@ -180,6 +190,8 @@ sequenceDiagram
 
 > [!NOTE]
 > 當 WebSocket 長連線因網路異常中斷時，系統會啟動 REST 備援輪詢機制以更新 Redis 即時行情快取，防止前端看板價格凍結。詳細的切換與限流機制請參閱 [5. 幣安行情資料抓取與限流自適應調度流程](#5-幣安行情資料抓取與限流自適應調度流程-binance-ingestion--rate-limit-flow)。
+
+![Real-time Alert & Push Flow](./assets/realtime-alert-push-flow.svg)
 
 ```
 [Binance 幣安 WebSocket 伺服器]
@@ -212,6 +224,8 @@ sequenceDiagram
 Screener 是產品的核心功能，讓用戶在 700+ 個 USDT 永續合約中，透過自訂「多時框均線交叉條件」快速篩選出符合策略的標的。篩選引擎採用了**配置 Hash 快取、行情預熱偵測、併發批次控制與 K 線回退機制**。
 
 ### 架構圖：
+
+![Screener Strategy Engine Flow](./assets/screener-strategy-engine.svg)
 
 ```mermaid
 flowchart TD
@@ -248,6 +262,8 @@ flowchart TD
 
 實踐了「動靜分離與內部隔離」的可觀測性架構，確保監控系統在提供高清晰度儀表板的同時，不暴露內部底層指標接口。
 
+![Observability & Monitoring Data Flow](./assets/observability-monitoring-flow.svg)
+
 ```
 [NestJS API 應用程式] (安裝 prom-client 統計 Request 延遲、事件迴圈與佇列積壓)
    │ 暴露內部接口 `/metrics` (僅限內部網路訪問)
@@ -268,6 +284,8 @@ flowchart TD
 系統在 NestJS 框架上構建了一條**七層全域防禦管線**，每一層各司其職，從網路層攔截到資料層安全，實現縱深防禦 (Defense in Depth)。
 
 ### 架構圖：
+
+![NestJS Global Request Pipeline Architecture](./assets/nestjs-global-request-pipeline.svg)
 
 ```mermaid
 flowchart TD
@@ -311,6 +329,8 @@ flowchart TD
 ## 10. 資料庫實體關係圖 (Database ER Diagram)
 
 本系統使用 PostgreSQL 16 作為主要關聯式資料庫，並使用 Prisma ORM 進行資料庫操作。以下是系統實體的關係圖：
+
+![Database ER Diagram](./assets/database-er-diagram.svg)
 
 ```mermaid
 erDiagram

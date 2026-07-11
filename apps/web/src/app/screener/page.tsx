@@ -1,18 +1,18 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { useState, useEffect, Suspense } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { useApp } from "@/components/AppProviders";
-import { ThemeLanguageSelector } from "@/components/ThemeLanguageSelector";
-import { Sparkles } from "lucide-react";
-import { MACondition, ScreenerTimeframeBlock, SavedStrategyDto as SavedStrategy } from "shared";
+import * as React from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { useApp } from '@/components/AppProviders';
+import { ThemeLanguageSelector } from '@/components/ThemeLanguageSelector';
+import { Sparkles } from 'lucide-react';
+import { MACondition, ScreenerTimeframeBlock, SavedStrategyDto as SavedStrategy } from 'shared';
 
-import { ScreenerConditionBuilder } from "./components/ScreenerConditionBuilder";
-import { StrategyManager } from "./components/StrategyManager";
-import { ScreenerResults } from "./components/ScreenerResults";
-import { TradingViewChart } from "./components/TradingViewChart";
+import { ScreenerConditionBuilder } from './components/ScreenerConditionBuilder';
+import { StrategyManager } from './components/StrategyManager';
+import { ScreenerResults } from './components/ScreenerResults';
+import { TradingViewChart } from './components/TradingViewChart';
 
 interface ScreenerResultItem {
   symbol: string;
@@ -20,7 +20,7 @@ interface ScreenerResultItem {
   volume: number;
 }
 
-const intervalOrder = ["5m", "15m", "30m", "1h", "2h", "4h", "1d", "1w", "1M"];
+const intervalOrder = ['5m', '15m', '30m', '1h', '2h', '4h', '1d', '1w', '1M'];
 
 function sanitizeTimeframes(blocks: ScreenerTimeframeBlock[]) {
   return blocks.map((tf) => ({
@@ -28,24 +28,55 @@ function sanitizeTimeframes(blocks: ScreenerTimeframeBlock[]) {
     conditions: tf.conditions.map((c: any) => {
       const sanitized: any = { ...c };
 
-      if (c.ma1Period !== undefined) sanitized.ma1Period = c.ma1Period === "" ? 0 : Number(c.ma1Period);
-      if (c.ma2Period !== undefined) sanitized.ma2Period = c.ma2Period === "" ? 0 : Number(c.ma2Period);
+      if (c.ma1Period !== undefined)
+        sanitized.ma1Period = c.ma1Period === '' ? 0 : Number(c.ma1Period);
+      if (c.ma2Period !== undefined)
+        sanitized.ma2Period = c.ma2Period === '' ? 0 : Number(c.ma2Period);
 
-      if (c.period !== undefined) sanitized.period = c.period === "" ? 0 : Number(c.period);
-      if (c.macdFast !== undefined) sanitized.macdFast = c.macdFast === "" ? 0 : Number(c.macdFast);
-      if (c.macdSlow !== undefined) sanitized.macdSlow = c.macdSlow === "" ? 0 : Number(c.macdSlow);
-      if (c.macdSignal !== undefined) sanitized.macdSignal = c.macdSignal === "" ? 0 : Number(c.macdSignal);
+      if (c.period !== undefined) sanitized.period = c.period === '' ? 0 : Number(c.period);
+      if (c.macdFast !== undefined) sanitized.macdFast = c.macdFast === '' ? 0 : Number(c.macdFast);
+      if (c.macdSlow !== undefined) sanitized.macdSlow = c.macdSlow === '' ? 0 : Number(c.macdSlow);
+      if (c.macdSignal !== undefined)
+        sanitized.macdSignal = c.macdSignal === '' ? 0 : Number(c.macdSignal);
 
-      if (c.comparePeriod !== undefined) sanitized.comparePeriod = c.comparePeriod === "" ? 0 : Number(c.comparePeriod);
-      if (c.compareMacdFast !== undefined) sanitized.compareMacdFast = c.compareMacdFast === "" ? 0 : Number(c.compareMacdFast);
-      if (c.compareMacdSlow !== undefined) sanitized.compareMacdSlow = c.compareMacdSlow === "" ? 0 : Number(c.compareMacdSlow);
-      if (c.compareMacdSignal !== undefined) sanitized.compareMacdSignal = c.compareMacdSignal === "" ? 0 : Number(c.compareMacdSignal);
+      if (c.comparePeriod !== undefined)
+        sanitized.comparePeriod = c.comparePeriod === '' ? 0 : Number(c.comparePeriod);
+      if (c.compareMacdFast !== undefined)
+        sanitized.compareMacdFast = c.compareMacdFast === '' ? 0 : Number(c.compareMacdFast);
+      if (c.compareMacdSlow !== undefined)
+        sanitized.compareMacdSlow = c.compareMacdSlow === '' ? 0 : Number(c.compareMacdSlow);
+      if (c.compareMacdSignal !== undefined)
+        sanitized.compareMacdSignal = c.compareMacdSignal === '' ? 0 : Number(c.compareMacdSignal);
 
-      if (c.compareValue !== undefined) sanitized.compareValue = c.compareValue === "" ? 0 : Number(c.compareValue);
+      if (c.compareValue !== undefined)
+        sanitized.compareValue = c.compareValue === '' ? 0 : Number(c.compareValue);
 
       return sanitized;
     }),
   }));
+}
+
+function hasInvalidPeriod(blocks: ScreenerTimeframeBlock[]): boolean {
+  for (const tf of blocks) {
+    for (const c of tf.conditions) {
+      const periods = [
+        c.period,
+        c.comparePeriod,
+        c.macdFast,
+        c.macdSlow,
+        c.macdSignal,
+        c.compareMacdFast,
+        c.compareMacdSlow,
+        c.compareMacdSignal,
+        c.ma1Period,
+        c.ma2Period,
+      ];
+      if (periods.some((p) => p !== undefined && p !== '' && Number(p) > 500)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 function ScreenerContent() {
@@ -57,7 +88,7 @@ function ScreenerContent() {
 
   // 策略儲存與管理狀態
   const [strategies, setStrategies] = useState<SavedStrategy[]>([]);
-  const [strategyName, setStrategyName] = useState("");
+  const [strategyName, setStrategyName] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
 
   // 分類與拖曳狀態
@@ -70,23 +101,26 @@ function ScreenerContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isWarmingUp, setIsWarmingUp] = useState(false);
-  const [selectedSymbol, setSelectedSymbol] = useState<string>("BTCUSDT");
+  const [selectedSymbol, setSelectedSymbol] = useState<string>('BTCUSDT');
   const [watchlistItems, setWatchlistItems] = useState<any[]>([]);
 
   const handleSelectSymbol = (symbol: string) => {
     setSelectedSymbol(symbol);
-    const element = document.getElementById("tradingview-chart-section");
+    const element = document.getElementById('tradingview-chart-section');
     if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
-  const watchlistSymbols = React.useMemo(() => watchlistItems.map((item) => item.symbol), [watchlistItems]);
+  const watchlistSymbols = React.useMemo(
+    () => watchlistItems.map((item) => item.symbol),
+    [watchlistItems],
+  );
 
   // 依分類分組並排序儲存策略
   const groupedStrategies = React.useMemo(() => {
     const groups: Record<string, SavedStrategy[]> = {};
-    const uncategorizedLabel = locale === "zh-TW" ? "未分類" : "Uncategorized";
+    const uncategorizedLabel = locale === 'zh-TW' ? '未分類' : 'Uncategorized';
 
     // 初始化分類群組
     customCategories.forEach((cat) => {
@@ -95,7 +129,7 @@ function ScreenerContent() {
     groups[uncategorizedLabel] = [];
 
     // 排除系統內置的分類儲存策略
-    const userStrategies = strategies.filter((s) => s.name !== "__categories__");
+    const userStrategies = strategies.filter((s) => s.name !== '__categories__');
 
     // 依 sortOrder 排序
     const sortedStrats = [...userStrategies].sort((a, b) => {
@@ -108,10 +142,10 @@ function ScreenerContent() {
       const cat = strat.config.category || uncategorizedLabel;
       let mappedCat = cat;
       // 自動跨語系對應未分類
-      if (locale !== "zh-TW" && cat === "未分類") {
-        mappedCat = "Uncategorized";
-      } else if (locale === "zh-TW" && cat === "Uncategorized") {
-        mappedCat = "未分類";
+      if (locale !== 'zh-TW' && cat === '未分類') {
+        mappedCat = 'Uncategorized';
+      } else if (locale === 'zh-TW' && cat === 'Uncategorized') {
+        mappedCat = '未分類';
       }
 
       if (!groups[mappedCat]) {
@@ -126,41 +160,44 @@ function ScreenerContent() {
   // 1. 取得儲存的策略列表與初始篩選
   const fetchStrategies = async () => {
     try {
-      const res = await fetch("/api/strategies");
+      const res = await fetch('/api/strategies');
       if (res.ok) {
         const data = await res.json();
         const list: SavedStrategy[] = data.data || [];
         setStrategies(list);
 
         // 從資料庫載入自訂分類，優先於本地暫存以支援跨裝置同步
-        const systemStrat = list.find((s) => s.name === "__categories__");
+        const systemStrat = list.find((s) => s.name === '__categories__');
         if (
           systemStrat &&
           systemStrat.config?.categories &&
           Array.isArray(systemStrat.config.categories) &&
-          systemStrat.config.categories.every((item: any) => typeof item === "string")
+          systemStrat.config.categories.every((item: any) => typeof item === 'string')
         ) {
           setCustomCategories(systemStrat.config.categories);
-          localStorage.setItem("screener_categories", JSON.stringify(systemStrat.config.categories));
+          localStorage.setItem(
+            'screener_categories',
+            JSON.stringify(systemStrat.config.categories),
+          );
         }
       } else if (res.status === 401) {
-        router.push("/login");
+        router.push('/login');
       }
     } catch (err) {
-      console.error("Failed to fetch strategies", err);
+      console.error('Failed to fetch strategies', err);
     }
   };
 
   const fetchWatchlist = async () => {
     try {
-      const res = await fetch("/api/watchlist");
+      const res = await fetch('/api/watchlist');
       if (res.ok) {
         const data = await res.json();
         const list = data.data || [];
         setWatchlistItems(list);
       }
     } catch (err) {
-      console.error("Failed to fetch watchlist", err);
+      console.error('Failed to fetch watchlist', err);
     }
   };
 
@@ -169,18 +206,18 @@ function ScreenerContent() {
     try {
       if (isWatchlisted) {
         const res = await fetch(`/api/watchlist/${symbol}`, {
-          method: "DELETE",
+          method: 'DELETE',
         });
         if (res.ok) {
           setWatchlistItems((prev) => prev.filter((item) => item.symbol !== symbol));
         } else {
           const data = await res.json();
-          throw new Error(data.message || "取消追蹤失敗");
+          throw new Error(data.message || '取消追蹤失敗');
         }
       } else {
-        const res = await fetch("/api/watchlist", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const res = await fetch('/api/watchlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ symbol }),
         });
         if (res.ok) {
@@ -194,7 +231,7 @@ function ScreenerContent() {
           setWatchlistItems((prev) => [newItem, ...prev]);
         } else {
           const data = await res.json();
-          throw new Error(data.message || "加入追蹤失敗");
+          throw new Error(data.message || '加入追蹤失敗');
         }
       }
     } catch (err: any) {
@@ -204,12 +241,12 @@ function ScreenerContent() {
 
   const saveCategoriesToDb = async (updatedCategories: string[]) => {
     // 尋找資料庫中是否已存在 __categories__ 設定
-    const systemStrat = strategies.find((s) => s.name === "__categories__");
+    const systemStrat = strategies.find((s) => s.name === '__categories__');
     try {
       if (systemStrat) {
         await fetch(`/api/strategies/${systemStrat.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             config: {
               ...systemStrat.config,
@@ -218,11 +255,11 @@ function ScreenerContent() {
           }),
         });
       } else {
-        await fetch("/api/strategies", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        await fetch('/api/strategies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: "__categories__",
+            name: '__categories__',
             config: {
               categories: updatedCategories,
               timeframes: [],
@@ -234,7 +271,7 @@ function ScreenerContent() {
       // 非同步重拉以確保本地 strategies 同步
       await fetchStrategies();
     } catch (err) {
-      console.error("Failed to save categories to database", err);
+      console.error('Failed to save categories to database', err);
     }
   };
 
@@ -247,33 +284,41 @@ function ScreenerContent() {
 
   useEffect(() => {
     // 載入自訂分類（依語系動態初始化作為 fallback）
-    const saved = localStorage.getItem("screener_categories");
+    const saved = localStorage.getItem('screener_categories');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
+        if (Array.isArray(parsed) && parsed.every((item) => typeof item === 'string')) {
           setCustomCategories(parsed);
           return;
         }
       } catch (e) {
-        console.error("Failed to parse saved categories", e);
+        console.error('Failed to parse saved categories', e);
       }
     }
-    setCustomCategories(locale === "zh-TW" ? ["多頭", "空頭"] : ["Long", "Short"]);
+    setCustomCategories(locale === 'zh-TW' ? ['多頭', '空頭'] : ['Long', 'Short']);
   }, [locale]);
 
   // 2. 執行篩選
   const handleScreen = async (overrideTimeframes?: ScreenerTimeframeBlock[]) => {
     const targetTimeframes = overrideTimeframes !== undefined ? overrideTimeframes : timeframes;
+    if (hasInvalidPeriod(targetTimeframes)) {
+      setError(
+        locale === 'zh-TW'
+          ? '指標參數上限為 500 根 K 棒'
+          : 'Indicator parameter limit is 500 K-lines',
+      );
+      return;
+    }
     setLoading(true);
     setError(null);
     setIsWarmingUp(false);
     try {
       const sanitizedTimeframes = sanitizeTimeframes(targetTimeframes);
 
-      const res = await fetch("/api/market/screener", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/market/screener', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ timeframes: sanitizedTimeframes }),
       });
 
@@ -285,7 +330,7 @@ function ScreenerContent() {
       }
 
       if (!res.ok) {
-        throw new Error(data.message || (locale === "zh-TW" ? "篩選失敗" : "Screening failed"));
+        throw new Error(data.message || (locale === 'zh-TW' ? '篩選失敗' : 'Screening failed'));
       }
 
       const list: ScreenerResultItem[] = data.data || [];
@@ -299,7 +344,7 @@ function ScreenerContent() {
         }
       }
     } catch (err: any) {
-      if (err.message?.includes("預熱中")) {
+      if (err.message?.includes('預熱中')) {
         setIsWarmingUp(true);
       } else {
         setError(err.message);
@@ -319,24 +364,28 @@ function ScreenerContent() {
   const handleAddCategory = (name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    if (customCategories.includes(trimmed) || trimmed === "未分類" || trimmed === "Uncategorized") return;
+    if (customCategories.includes(trimmed) || trimmed === '未分類' || trimmed === 'Uncategorized')
+      return;
     const updated = [...customCategories, trimmed];
     setCustomCategories(updated);
-    localStorage.setItem("screener_categories", JSON.stringify(updated));
+    localStorage.setItem('screener_categories', JSON.stringify(updated));
     saveCategoriesToDb(updated);
   };
 
   const handleDeleteCategory = (name: string) => {
-    const confirmMsg = locale === "zh-TW" ? `確定要刪除分類「${name}」嗎？分類下的策略將移至「未分類」。` : `Delete category "${name}"? Strategies under it will move to "Uncategorized".`;
+    const confirmMsg =
+      locale === 'zh-TW'
+        ? `確定要刪除分類「${name}」嗎？分類下的策略將移至「未分類」。`
+        : `Delete category "${name}"? Strategies under it will move to "Uncategorized".`;
     if (!confirm(confirmMsg)) return;
 
     const updated = customCategories.filter((c) => c !== name);
     setCustomCategories(updated);
-    localStorage.setItem("screener_categories", JSON.stringify(updated));
+    localStorage.setItem('screener_categories', JSON.stringify(updated));
     saveCategoriesToDb(updated);
 
     // 將刪除分類下的策略歸回「未分類 / Uncategorized」
-    const fallbackCategory = locale === "zh-TW" ? "未分類" : "Uncategorized";
+    const fallbackCategory = locale === 'zh-TW' ? '未分類' : 'Uncategorized';
     const stratsToReset = strategies.filter((s) => s.config.category === name);
     if (stratsToReset.length > 0) {
       (async () => {
@@ -344,8 +393,8 @@ function ScreenerContent() {
           await Promise.all(
             stratsToReset.map(async (strat) => {
               await fetch(`/api/strategies/${strat.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   config: {
                     ...strat.config,
@@ -353,10 +402,10 @@ function ScreenerContent() {
                   },
                 }),
               });
-            })
+            }),
           );
         } catch (err) {
-          console.error("Failed to reset category for strategy", err);
+          console.error('Failed to reset category for strategy', err);
         } finally {
           await fetchStrategies();
         }
@@ -364,10 +413,10 @@ function ScreenerContent() {
     }
   };
 
-  const handleMoveCategory = (name: string, direction: "up" | "down") => {
+  const handleMoveCategory = (name: string, direction: 'up' | 'down') => {
     const idx = customCategories.indexOf(name);
     if (idx === -1) return;
-    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (targetIdx < 0 || targetIdx >= customCategories.length) return;
 
     const updated = [...customCategories];
@@ -376,18 +425,18 @@ function ScreenerContent() {
     updated[targetIdx] = temp;
 
     setCustomCategories(updated);
-    localStorage.setItem("screener_categories", JSON.stringify(updated));
+    localStorage.setItem('screener_categories', JSON.stringify(updated));
     saveCategoriesToDb(updated);
   };
 
   const handleDragStartCategory = (e: React.DragEvent, categoryName: string) => {
-    e.dataTransfer.setData("text/category", categoryName);
-    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData('text/category', categoryName);
+    e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleDragStart = (e: React.DragEvent, strategyId: string) => {
-    e.dataTransfer.setData("text/plain", strategyId);
-    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData('text/plain', strategyId);
+    e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleDragOverStrategy = (e: React.DragEvent, id: string) => {
@@ -414,7 +463,7 @@ function ScreenerContent() {
     setDragOverCategory(null);
 
     // 判斷是否為分類拖曳排序
-    const categoryName = e.dataTransfer.getData("text/category");
+    const categoryName = e.dataTransfer.getData('text/category');
     if (categoryName) {
       if (categoryName === targetCategory) return;
       const fromIdx = customCategories.indexOf(categoryName);
@@ -426,18 +475,19 @@ function ScreenerContent() {
       updated.splice(toIdx, 0, categoryName);
 
       setCustomCategories(updated);
-      localStorage.setItem("screener_categories", JSON.stringify(updated));
+      localStorage.setItem('screener_categories', JSON.stringify(updated));
       saveCategoriesToDb(updated);
       return;
     }
 
-    const strategyId = e.dataTransfer.getData("text/plain");
+    const strategyId = e.dataTransfer.getData('text/plain');
     if (!strategyId) return;
 
     const strategy = strategies.find((s) => s.id === strategyId);
     if (!strategy) return;
 
-    const currentCategory = strategy.config.category || (locale === "zh-TW" ? "未分類" : "Uncategorized");
+    const currentCategory =
+      strategy.config.category || (locale === 'zh-TW' ? '未分類' : 'Uncategorized');
     if (currentCategory === targetCategory) return;
 
     // 本地即時更新
@@ -457,8 +507,8 @@ function ScreenerContent() {
 
     try {
       const res = await fetch(`/api/strategies/${strategyId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           config: {
             ...strategy.config,
@@ -479,17 +529,18 @@ function ScreenerContent() {
     e.stopPropagation();
     setDragOverStrategyId(null);
 
-    const draggedId = e.dataTransfer.getData("text/plain");
+    const draggedId = e.dataTransfer.getData('text/plain');
     if (!draggedId || draggedId === targetStrategyId) return;
 
     const draggedStrat = strategies.find((s) => s.id === draggedId);
     const targetStrat = strategies.find((s) => s.id === targetStrategyId);
     if (!draggedStrat || !targetStrat) return;
 
-    const targetCategory = targetStrat.config.category || (locale === "zh-TW" ? "未分類" : "Uncategorized");
+    const targetCategory =
+      targetStrat.config.category || (locale === 'zh-TW' ? '未分類' : 'Uncategorized');
 
     // 排除系統內置的 __categories__ 策略，只對使用者策略進行排序
-    const userStrategies = strategies.filter((s) => s.name !== "__categories__");
+    const userStrategies = strategies.filter((s) => s.name !== '__categories__');
     const remaining = userStrategies.filter((s) => s.id !== draggedId);
     const insertIdx = remaining.findIndex((s) => s.id === targetStrategyId);
 
@@ -513,7 +564,7 @@ function ScreenerContent() {
     }));
 
     // 保留內置的 __categories__ 策略並更新狀態
-    const systemStrat = strategies.find((s) => s.name === "__categories__");
+    const systemStrat = strategies.find((s) => s.name === '__categories__');
     setStrategies(systemStrat ? [systemStrat, ...finalReordered] : finalReordered);
 
     try {
@@ -527,10 +578,10 @@ function ScreenerContent() {
         ) {
           savePromises.push(
             fetch(`/api/strategies/${strat.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ config: strat.config }),
-            })
+            }),
           );
         }
       }
@@ -547,8 +598,17 @@ function ScreenerContent() {
     const trimmedName = strategyName.trim();
     if (!trimmedName) return;
 
-    if (trimmedName === "__categories__") {
-      setError(locale === "zh-TW" ? "不允許使用系統保留名稱" : "System reserved name not allowed");
+    if (trimmedName === '__categories__') {
+      setError(locale === 'zh-TW' ? '不允許使用系統保留名稱' : 'System reserved name not allowed');
+      return;
+    }
+
+    if (hasInvalidPeriod(timeframes)) {
+      setError(
+        locale === 'zh-TW'
+          ? '指標參數上限為 500 根 K 棒'
+          : 'Indicator parameter limit is 500 K-lines',
+      );
       return;
     }
 
@@ -556,16 +616,16 @@ function ScreenerContent() {
     setError(null);
     try {
       const sanitizedTimeframes = sanitizeTimeframes(timeframes);
-      const userStrategies = strategies.filter((s) => s.name !== "__categories__");
+      const userStrategies = strategies.filter((s) => s.name !== '__categories__');
 
-      const res = await fetch("/api/strategies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/strategies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: trimmedName,
           config: {
             timeframes: sanitizedTimeframes,
-            category: locale === "zh-TW" ? "未分類" : "Uncategorized",
+            category: locale === 'zh-TW' ? '未分類' : 'Uncategorized',
             sortOrder: userStrategies.length,
           },
         }),
@@ -573,10 +633,10 @@ function ScreenerContent() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || "儲存策略失敗");
+        throw new Error(data.message || '儲存策略失敗');
       }
 
-      setStrategyName("");
+      setStrategyName('');
       fetchStrategies();
     } catch (err: any) {
       setError(err.message);
@@ -587,18 +647,19 @@ function ScreenerContent() {
 
   // 4. 刪除策略
   const handleDeleteStrategy = async (id: string, name: string) => {
-    const confirmMsg = locale === "zh-TW" ? `確定要刪除策略「${name}」嗎？` : `Delete strategy "${name}"?`;
+    const confirmMsg =
+      locale === 'zh-TW' ? `確定要刪除策略「${name}」嗎？` : `Delete strategy "${name}"?`;
     if (!confirm(confirmMsg)) return;
 
     try {
       const res = await fetch(`/api/strategies/${id}`, {
-        method: "DELETE",
+        method: 'DELETE',
       });
       if (res.ok) {
         fetchStrategies();
       } else {
         const data = await res.json();
-        throw new Error(data.message || "刪除失敗");
+        throw new Error(data.message || '刪除失敗');
       }
     } catch (err: any) {
       setError(err.message);
@@ -617,14 +678,14 @@ function ScreenerContent() {
     setTimeframes([
       ...timeframes,
       {
-        interval: "1h",
+        interval: '1h',
         conditions: [
           {
-            type: "EMA",
+            type: 'EMA',
             period: 25,
-            operator: "gt",
-            compareType: "indicator",
-            compareIndicatorType: "EMA",
+            operator: 'gt',
+            compareType: 'indicator',
+            compareIndicatorType: 'EMA',
             comparePeriod: 60,
           },
         ],
@@ -645,11 +706,11 @@ function ScreenerContent() {
   const addCondition = (tfIdx: number) => {
     const updated = [...timeframes];
     updated[tfIdx].conditions.push({
-      type: "EMA",
+      type: 'EMA',
       period: 25,
-      operator: "gt",
-      compareType: "indicator",
-      compareIndicatorType: "EMA",
+      operator: 'gt',
+      compareType: 'indicator',
+      compareIndicatorType: 'EMA',
       comparePeriod: 60,
     });
     setTimeframes(updated);
@@ -665,7 +726,7 @@ function ScreenerContent() {
     tfIdx: number,
     condIdx: number,
     field: keyof MACondition,
-    value: any
+    value: any,
   ) => {
     const updated = [...timeframes];
     updated[tfIdx].conditions[condIdx] = {
@@ -682,28 +743,28 @@ function ScreenerContent() {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent flex items-center gap-2">
             <Sparkles className="h-7 w-7 text-indigo-400 animate-pulse" />
-            {locale === "zh-TW" ? "多時框均線篩選器" : "Multi-Timeframe MA Screener"}
+            {locale === 'zh-TW' ? '多時框均線篩選器' : 'Multi-Timeframe MA Screener'}
           </h1>
           <p className="text-sm text-zinc-400 mt-1">
-            {locale === "zh-TW"
-              ? "自訂多時框 EMA/SMA 複合交叉條件，一鍵篩選全市場 USDT 永續合約標的。"
-              : "Set multi-timeframe EMA/SMA crossing conditions to scan the market."}
+            {locale === 'zh-TW'
+              ? '自訂多時框 EMA/SMA 複合交叉條件，一鍵篩選全市場 USDT 永續合約標的。'
+              : 'Set multi-timeframe EMA/SMA crossing conditions to scan the market.'}
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            onClick={() => router.push("/alerts")}
+            onClick={() => router.push('/alerts')}
             className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10 text-zinc-200"
           >
-            {locale === "zh-TW" ? "到價通知設定" : "Price Notifications"}
+            {locale === 'zh-TW' ? '到價通知設定' : 'Price Notifications'}
           </Button>
           <Button
             variant="outline"
-            onClick={() => router.push("/profile")}
+            onClick={() => router.push('/profile')}
             className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10 text-zinc-200"
           >
-            {locale === "zh-TW" ? "個人帳號設定" : "Account Settings"}
+            {locale === 'zh-TW' ? '個人帳號設定' : 'Account Settings'}
           </Button>
         </div>
       </div>

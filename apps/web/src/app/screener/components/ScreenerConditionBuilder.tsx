@@ -1,9 +1,16 @@
-import * as React from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Plus, Trash2, Save, Play, Sliders } from "lucide-react";
-import { MACondition, ScreenerTimeframeBlock } from "shared";
+import * as React from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Plus, Trash2, Save, Play, Sliders } from 'lucide-react';
+import { MACondition, ScreenerTimeframeBlock } from 'shared';
 
 interface ScreenerConditionBuilderProps {
   timeframes: ScreenerTimeframeBlock[];
@@ -16,7 +23,7 @@ interface ScreenerConditionBuilderProps {
     tfIdx: number,
     condIdx: number,
     field: keyof MACondition,
-    value: any
+    value: any,
   ) => void;
   strategyName: string;
   setStrategyName: (val: string) => void;
@@ -51,17 +58,17 @@ export function ScreenerConditionBuilder({
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
             <Sliders className="h-5 w-5 text-indigo-400" />
-            {locale === "zh-TW" ? "篩選條件設定" : "Criteria Settings"}
+            {locale === 'zh-TW' ? '篩選條件設定' : 'Criteria Settings'}
           </CardTitle>
           <Button size="sm" onClick={addTimeframeBlock} className="cursor-pointer gap-1">
             <Plus className="h-4 w-4" />
-            {locale === "zh-TW" ? "新增時框區塊" : "Add Timeframe"}
+            {locale === 'zh-TW' ? '新增時框區塊' : 'Add Timeframe'}
           </Button>
         </div>
         <CardDescription>
-          {locale === "zh-TW"
-            ? "不同時間週期區塊之間為「交集 (AND)」邏輯，標的必須同時滿足所有區塊條件。"
-            : "All timeframe blocks are combined using intersection (AND) logic."}
+          {locale === 'zh-TW'
+            ? '不同時間週期區塊之間為「交集 (AND)」邏輯，標的必須同時滿足所有區塊條件。'
+            : 'All timeframe blocks are combined using intersection (AND) logic.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -73,14 +80,14 @@ export function ScreenerConditionBuilder({
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-1 rounded bg-indigo-500/15 text-indigo-400 text-xs font-bold uppercase border border-indigo-500/20">
-                  {locale === "zh-TW" ? `時框區塊 #${tfIdx + 1}` : `Timeframe #${tfIdx + 1}`}
+                  {locale === 'zh-TW' ? `時框區塊 #${tfIdx + 1}` : `Timeframe #${tfIdx + 1}`}
                 </span>
                 <select
                   value={tf.interval}
                   onChange={(e) => updateTimeframeInterval(tfIdx, e.target.value)}
                   className="bg-zinc-950 light:bg-white border border-zinc-800 light:border-zinc-200 rounded px-2.5 py-1 text-sm text-zinc-100 light:text-zinc-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                 >
-                  {["5m", "15m", "30m", "1h", "2h", "4h", "1d", "1w", "1M"].map((i) => (
+                  {['5m', '15m', '30m', '1h', '2h', '4h', '1d', '1w', '1M'].map((i) => (
                     <option key={i} value={i}>
                       {i}
                     </option>
@@ -96,7 +103,7 @@ export function ScreenerConditionBuilder({
                   className="text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 cursor-pointer gap-1 text-xs"
                 >
                   <Plus className="h-3 w-3" />
-                  {locale === "zh-TW" ? "增加條件" : "Add Condition"}
+                  {locale === 'zh-TW' ? '增加條件' : 'Add Condition'}
                 </Button>
                 {timeframes.length > 1 && (
                   <Button
@@ -115,21 +122,25 @@ export function ScreenerConditionBuilder({
             <div className="space-y-3">
               {tf.conditions.map((cond, condIdx) => {
                 // 解析新舊欄位以支援向後相容
-                const condType = cond.type || cond.ma1Type || "EMA";
-                const condPeriod = cond.period !== undefined ? cond.period : (cond.ma1Period ?? "");
+                const condType = cond.type || cond.ma1Type || 'EMA';
+                const condPeriod = cond.period !== undefined ? cond.period : (cond.ma1Period ?? '');
                 const condMacdFast = cond.macdFast !== undefined ? cond.macdFast : 12;
                 const condMacdSlow = cond.macdSlow !== undefined ? cond.macdSlow : 26;
                 const condMacdSignal = cond.macdSignal !== undefined ? cond.macdSignal : 9;
-                const condMacdProperty = cond.macdProperty || "hist";
+                const condMacdProperty = cond.macdProperty || 'hist';
 
-                const condCompareType = cond.compareType || "indicator";
-                const condCompareIndicatorType = cond.compareIndicatorType || cond.ma2Type || "EMA";
-                const condComparePeriod = cond.comparePeriod !== undefined ? cond.comparePeriod : (cond.ma2Period ?? "");
-                const condCompareMacdFast = cond.compareMacdFast !== undefined ? cond.compareMacdFast : 12;
-                const condCompareMacdSlow = cond.compareMacdSlow !== undefined ? cond.compareMacdSlow : 26;
-                const condCompareMacdSignal = cond.compareMacdSignal !== undefined ? cond.compareMacdSignal : 9;
-                const condCompareMacdProperty = cond.compareMacdProperty || "hist";
-                const condCompareValue = cond.compareValue !== undefined ? cond.compareValue : "";
+                const condCompareType = cond.compareType || 'indicator';
+                const condCompareIndicatorType = cond.compareIndicatorType || cond.ma2Type || 'EMA';
+                const condComparePeriod =
+                  cond.comparePeriod !== undefined ? cond.comparePeriod : (cond.ma2Period ?? '');
+                const condCompareMacdFast =
+                  cond.compareMacdFast !== undefined ? cond.compareMacdFast : 12;
+                const condCompareMacdSlow =
+                  cond.compareMacdSlow !== undefined ? cond.compareMacdSlow : 26;
+                const condCompareMacdSignal =
+                  cond.compareMacdSignal !== undefined ? cond.compareMacdSignal : 9;
+                const condCompareMacdProperty = cond.compareMacdProperty || 'hist';
+                const condCompareValue = cond.compareValue !== undefined ? cond.compareValue : '';
 
                 return (
                   <div
@@ -142,9 +153,9 @@ export function ScreenerConditionBuilder({
                         value={condType}
                         onChange={(e) => {
                           const val = e.target.value as any;
-                          updateConditionField(tfIdx, condIdx, "type", val);
-                          updateConditionField(tfIdx, condIdx, "ma1Type", undefined);
-                          updateConditionField(tfIdx, condIdx, "ma1Period", undefined);
+                          updateConditionField(tfIdx, condIdx, 'type', val);
+                          updateConditionField(tfIdx, condIdx, 'ma1Type', undefined);
+                          updateConditionField(tfIdx, condIdx, 'ma1Period', undefined);
                         }}
                         className="bg-zinc-900 light:bg-white border border-zinc-800 light:border-zinc-200 rounded px-1.5 py-1 text-xs text-zinc-200 light:text-zinc-800 cursor-pointer font-semibold"
                       >
@@ -155,58 +166,91 @@ export function ScreenerConditionBuilder({
                       </select>
 
                       {/* MA/EMA/RSI 週期 */}
-                      {(condType === "EMA" || condType === "SMA" || condType === "RSI") && (
+                      {(condType === 'EMA' || condType === 'SMA' || condType === 'RSI') && (
                         <Input
                           type="number"
                           value={condPeriod}
                           min={1}
-                          placeholder={locale === "zh-TW" ? "週期" : "Len"}
+                          max={500}
+                          placeholder={locale === 'zh-TW' ? '週期' : 'Len'}
                           onChange={(e) => {
-                            const val = e.target.value === "" ? "" : (parseInt(e.target.value) || 0);
-                            updateConditionField(tfIdx, condIdx, "period", val);
-                            updateConditionField(tfIdx, condIdx, "ma1Period", val);
+                            const val = e.target.value === '' ? '' : parseInt(e.target.value) || 0;
+                            updateConditionField(tfIdx, condIdx, 'period', val);
+                            updateConditionField(tfIdx, condIdx, 'ma1Period', val);
                           }}
                           className="w-16 h-8 text-center bg-zinc-900 light:bg-white border-zinc-800 light:border-zinc-200 text-zinc-100 light:text-zinc-800 text-xs"
                         />
                       )}
 
                       {/* MACD 參數與屬性 */}
-                      {condType === "MACD" && (
+                      {condType === 'MACD' && (
                         <div className="flex items-center gap-1">
                           <select
                             value={condMacdProperty}
-                            onChange={(e) => updateConditionField(tfIdx, condIdx, "macdProperty", e.target.value)}
+                            onChange={(e) =>
+                              updateConditionField(tfIdx, condIdx, 'macdProperty', e.target.value)
+                            }
                             className="bg-zinc-900 light:bg-white border border-zinc-800 light:border-zinc-200 rounded px-1 py-1 text-xs text-zinc-300 cursor-pointer"
                           >
-                            <option value="macd">{locale === "zh-TW" ? "MACD線" : "MACD Line"}</option>
-                            <option value="signal">{locale === "zh-TW" ? "訊號線" : "Signal Line"}</option>
-                            <option value="hist">{locale === "zh-TW" ? "柱體" : "Histogram"}</option>
+                            <option value="macd">
+                              {locale === 'zh-TW' ? 'MACD線' : 'MACD Line'}
+                            </option>
+                            <option value="signal">
+                              {locale === 'zh-TW' ? '訊號線' : 'Signal Line'}
+                            </option>
+                            <option value="hist">
+                              {locale === 'zh-TW' ? '柱體' : 'Histogram'}
+                            </option>
                           </select>
                           <Input
                             type="number"
                             value={condMacdFast}
                             min={1}
+                            max={500}
                             placeholder="Fast"
-                            title={locale === "zh-TW" ? "快線週期 (Fast)" : "Fast EMA"}
-                            onChange={(e) => updateConditionField(tfIdx, condIdx, "macdFast", e.target.value === "" ? "" : (parseInt(e.target.value) || 0))}
+                            title={locale === 'zh-TW' ? '快線週期 (Fast)' : 'Fast EMA'}
+                            onChange={(e) =>
+                              updateConditionField(
+                                tfIdx,
+                                condIdx,
+                                'macdFast',
+                                e.target.value === '' ? '' : parseInt(e.target.value) || 0,
+                              )
+                            }
                             className="w-11 h-8 text-center bg-zinc-900 light:bg-white border-zinc-800 text-xs px-1"
                           />
                           <Input
                             type="number"
                             value={condMacdSlow}
                             min={1}
+                            max={500}
                             placeholder="Slow"
-                            title={locale === "zh-TW" ? "慢線週期 (Slow)" : "Slow EMA"}
-                            onChange={(e) => updateConditionField(tfIdx, condIdx, "macdSlow", e.target.value === "" ? "" : (parseInt(e.target.value) || 0))}
+                            title={locale === 'zh-TW' ? '慢線週期 (Slow)' : 'Slow EMA'}
+                            onChange={(e) =>
+                              updateConditionField(
+                                tfIdx,
+                                condIdx,
+                                'macdSlow',
+                                e.target.value === '' ? '' : parseInt(e.target.value) || 0,
+                              )
+                            }
                             className="w-11 h-8 text-center bg-zinc-900 light:bg-white border-zinc-800 text-xs px-1"
                           />
                           <Input
                             type="number"
                             value={condMacdSignal}
                             min={1}
+                            max={500}
                             placeholder="Sig"
-                            title={locale === "zh-TW" ? "訊號線週期 (Signal)" : "Signal EMA"}
-                            onChange={(e) => updateConditionField(tfIdx, condIdx, "macdSignal", e.target.value === "" ? "" : (parseInt(e.target.value) || 0))}
+                            title={locale === 'zh-TW' ? '訊號線週期 (Signal)' : 'Signal EMA'}
+                            onChange={(e) =>
+                              updateConditionField(
+                                tfIdx,
+                                condIdx,
+                                'macdSignal',
+                                e.target.value === '' ? '' : parseInt(e.target.value) || 0,
+                              )
+                            }
                             className="w-9 h-8 text-center bg-zinc-900 light:bg-white border-zinc-800 text-xs px-1"
                           />
                         </div>
@@ -217,44 +261,50 @@ export function ScreenerConditionBuilder({
                     <select
                       value={cond.operator}
                       onChange={(e) =>
-                        updateConditionField(tfIdx, condIdx, "operator", e.target.value as "gt" | "lt")
+                        updateConditionField(
+                          tfIdx,
+                          condIdx,
+                          'operator',
+                          e.target.value as 'gt' | 'lt',
+                        )
                       }
                       className="bg-zinc-900 light:bg-white border border-zinc-800 light:border-zinc-200 rounded px-2 py-1 text-xs font-semibold text-indigo-400 light:text-indigo-600 cursor-pointer"
                     >
-                      <option value="gt">{locale === "zh-TW" ? "大於 >" : "Gt >"}</option>
-                      <option value="lt">{locale === "zh-TW" ? "小於 <" : "Lt <"}</option>
+                      <option value="gt">{locale === 'zh-TW' ? '大於 >' : 'Gt >'}</option>
+                      <option value="lt">{locale === 'zh-TW' ? '小於 <' : 'Lt <'}</option>
                     </select>
 
                     {/* 比較對象類型 */}
                     <select
                       value={condCompareType}
                       onChange={(e) => {
-                        const val = e.target.value as "indicator" | "value";
-                        updateConditionField(tfIdx, condIdx, "compareType", val);
-                        if (val === "value") {
-                          updateConditionField(tfIdx, condIdx, "compareValue", 0);
+                        const val = e.target.value as 'indicator' | 'value';
+                        updateConditionField(tfIdx, condIdx, 'compareType', val);
+                        if (val === 'value') {
+                          updateConditionField(tfIdx, condIdx, 'compareValue', 0);
                         } else {
-                          updateConditionField(tfIdx, condIdx, "compareIndicatorType", "EMA");
-                          updateConditionField(tfIdx, condIdx, "comparePeriod", 60);
+                          updateConditionField(tfIdx, condIdx, 'compareIndicatorType', 'EMA');
+                          updateConditionField(tfIdx, condIdx, 'comparePeriod', 60);
                         }
                       }}
                       className="bg-zinc-900 light:bg-white border border-zinc-800 light:border-zinc-200 rounded px-1.5 py-1 text-xs text-zinc-300 light:text-zinc-700 cursor-pointer font-medium"
                     >
-                      <option value="indicator">{locale === "zh-TW" ? "指標" : "Indicator"}</option>
-                      <option value="value">{locale === "zh-TW" ? "數值" : "Value"}</option>
+                      <option value="indicator">{locale === 'zh-TW' ? '指標' : 'Indicator'}</option>
+                      <option value="value">{locale === 'zh-TW' ? '數值' : 'Value'}</option>
                     </select>
 
                     {/* 指標 2 / 比較值 */}
                     <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-[180px]">
-                      {condCompareType === "value" ? (
+                      {condCompareType === 'value' ? (
                         <Input
                           type="number"
                           step="any"
                           value={condCompareValue}
-                          placeholder={locale === "zh-TW" ? "數值" : "Value"}
+                          placeholder={locale === 'zh-TW' ? '數值' : 'Value'}
                           onChange={(e) => {
-                            const val = e.target.value === "" ? "" : (parseFloat(e.target.value) || 0);
-                            updateConditionField(tfIdx, condIdx, "compareValue", val);
+                            const val =
+                              e.target.value === '' ? '' : parseFloat(e.target.value) || 0;
+                            updateConditionField(tfIdx, condIdx, 'compareValue', val);
                           }}
                           className="w-20 h-8 text-center bg-zinc-900 light:bg-white border border-zinc-800 light:border-zinc-200 text-zinc-100 light:text-zinc-800 text-xs"
                         />
@@ -264,9 +314,9 @@ export function ScreenerConditionBuilder({
                             value={condCompareIndicatorType}
                             onChange={(e) => {
                               const val = e.target.value as any;
-                              updateConditionField(tfIdx, condIdx, "compareIndicatorType", val);
-                              updateConditionField(tfIdx, condIdx, "ma2Type", undefined);
-                              updateConditionField(tfIdx, condIdx, "ma2Period", undefined);
+                              updateConditionField(tfIdx, condIdx, 'compareIndicatorType', val);
+                              updateConditionField(tfIdx, condIdx, 'ma2Type', undefined);
+                              updateConditionField(tfIdx, condIdx, 'ma2Period', undefined);
                             }}
                             className="bg-zinc-900 light:bg-white border border-zinc-800 light:border-zinc-200 rounded px-1.5 py-1 text-xs text-zinc-200 light:text-zinc-800 cursor-pointer font-semibold"
                           >
@@ -277,58 +327,99 @@ export function ScreenerConditionBuilder({
                           </select>
 
                           {/* MA/EMA/RSI 比較對象週期 */}
-                          {(condCompareIndicatorType === "EMA" || condCompareIndicatorType === "SMA" || condCompareIndicatorType === "RSI") && (
+                          {(condCompareIndicatorType === 'EMA' ||
+                            condCompareIndicatorType === 'SMA' ||
+                            condCompareIndicatorType === 'RSI') && (
                             <Input
                               type="number"
                               value={condComparePeriod}
                               min={1}
-                              placeholder={locale === "zh-TW" ? "週期" : "Len"}
+                              max={500}
+                              placeholder={locale === 'zh-TW' ? '週期' : 'Len'}
                               onChange={(e) => {
-                                const val = e.target.value === "" ? "" : (parseInt(e.target.value) || 0);
-                                updateConditionField(tfIdx, condIdx, "comparePeriod", val);
-                                updateConditionField(tfIdx, condIdx, "ma2Period", val);
+                                const val =
+                                  e.target.value === '' ? '' : parseInt(e.target.value) || 0;
+                                updateConditionField(tfIdx, condIdx, 'comparePeriod', val);
+                                updateConditionField(tfIdx, condIdx, 'ma2Period', val);
                               }}
                               className="w-16 h-8 text-center bg-zinc-900 light:bg-white border border-zinc-800 light:border-zinc-200 text-zinc-100 light:text-zinc-800 text-xs"
                             />
                           )}
 
                           {/* MACD 比較對象參數與屬性 */}
-                          {condCompareIndicatorType === "MACD" && (
+                          {condCompareIndicatorType === 'MACD' && (
                             <div className="flex items-center gap-1">
                               <select
                                 value={condCompareMacdProperty}
-                                onChange={(e) => updateConditionField(tfIdx, condIdx, "compareMacdProperty", e.target.value)}
+                                onChange={(e) =>
+                                  updateConditionField(
+                                    tfIdx,
+                                    condIdx,
+                                    'compareMacdProperty',
+                                    e.target.value,
+                                  )
+                                }
                                 className="bg-zinc-900 light:bg-white border border-zinc-800 light:border-zinc-200 rounded px-1 py-1 text-xs text-zinc-300 cursor-pointer"
                               >
-                                <option value="macd">{locale === "zh-TW" ? "MACD線" : "MACD Line"}</option>
-                                <option value="signal">{locale === "zh-TW" ? "訊號線" : "Signal Line"}</option>
-                                <option value="hist">{locale === "zh-TW" ? "柱體" : "Histogram"}</option>
+                                <option value="macd">
+                                  {locale === 'zh-TW' ? 'MACD線' : 'MACD Line'}
+                                </option>
+                                <option value="signal">
+                                  {locale === 'zh-TW' ? '訊號線' : 'Signal Line'}
+                                </option>
+                                <option value="hist">
+                                  {locale === 'zh-TW' ? '柱體' : 'Histogram'}
+                                </option>
                               </select>
                               <Input
                                 type="number"
                                 value={condCompareMacdFast}
                                 min={1}
+                                max={500}
                                 placeholder="Fast"
-                                title={locale === "zh-TW" ? "快線週期 (Fast)" : "Fast EMA"}
-                                onChange={(e) => updateConditionField(tfIdx, condIdx, "compareMacdFast", e.target.value === "" ? "" : (parseInt(e.target.value) || 0))}
+                                title={locale === 'zh-TW' ? '快線週期 (Fast)' : 'Fast EMA'}
+                                onChange={(e) =>
+                                  updateConditionField(
+                                    tfIdx,
+                                    condIdx,
+                                    'compareMacdFast',
+                                    e.target.value === '' ? '' : parseInt(e.target.value) || 0,
+                                  )
+                                }
                                 className="w-11 h-8 text-center bg-zinc-900 light:bg-white border-zinc-800 text-xs px-1"
                               />
                               <Input
                                 type="number"
                                 value={condCompareMacdSlow}
                                 min={1}
+                                max={500}
                                 placeholder="Slow"
-                                title={locale === "zh-TW" ? "慢線週期 (Slow)" : "Slow EMA"}
-                                onChange={(e) => updateConditionField(tfIdx, condIdx, "compareMacdSlow", e.target.value === "" ? "" : (parseInt(e.target.value) || 0))}
+                                title={locale === 'zh-TW' ? '慢線週期 (Slow)' : 'Slow EMA'}
+                                onChange={(e) =>
+                                  updateConditionField(
+                                    tfIdx,
+                                    condIdx,
+                                    'compareMacdSlow',
+                                    e.target.value === '' ? '' : parseInt(e.target.value) || 0,
+                                  )
+                                }
                                 className="w-11 h-8 text-center bg-zinc-900 light:bg-white border-zinc-800 text-xs px-1"
                               />
                               <Input
                                 type="number"
                                 value={condCompareMacdSignal}
                                 min={1}
+                                max={500}
                                 placeholder="Sig"
-                                title={locale === "zh-TW" ? "訊號線週期 (Signal)" : "Signal EMA"}
-                                onChange={(e) => updateConditionField(tfIdx, condIdx, "compareMacdSignal", e.target.value === "" ? "" : (parseInt(e.target.value) || 0))}
+                                title={locale === 'zh-TW' ? '訊號線週期 (Signal)' : 'Signal EMA'}
+                                onChange={(e) =>
+                                  updateConditionField(
+                                    tfIdx,
+                                    condIdx,
+                                    'compareMacdSignal',
+                                    e.target.value === '' ? '' : parseInt(e.target.value) || 0,
+                                  )
+                                }
                                 className="w-9 h-8 text-center bg-zinc-900 light:bg-white border-zinc-800 text-xs px-1"
                               />
                             </div>
@@ -360,14 +451,19 @@ export function ScreenerConditionBuilder({
         <form onSubmit={handleSaveStrategy} className="flex items-center gap-2 flex-1 max-w-md">
           <Input
             id="stratName"
-            placeholder={locale === "zh-TW" ? "輸入名稱以儲存策略..." : "Enter strategy name..."}
+            placeholder={locale === 'zh-TW' ? '輸入名稱以儲存策略...' : 'Enter strategy name...'}
             value={strategyName}
             onChange={(e) => setStrategyName(e.target.value)}
             className="bg-zinc-950 light:bg-white border-zinc-800 light:border-zinc-200 text-zinc-100 light:text-zinc-800 h-9 text-xs flex-1"
           />
-          <Button type="submit" size="sm" loading={saveLoading} className="cursor-pointer shrink-0 h-9 text-xs">
+          <Button
+            type="submit"
+            size="sm"
+            loading={saveLoading}
+            className="cursor-pointer shrink-0 h-9 text-xs"
+          >
             <Save className="h-3.5 w-3.5 mr-1" />
-            {locale === "zh-TW" ? "儲存設定" : "Save"}
+            {locale === 'zh-TW' ? '儲存設定' : 'Save'}
           </Button>
         </form>
 
@@ -379,7 +475,7 @@ export function ScreenerConditionBuilder({
             onClick={handleReset}
             className="h-9 text-xs cursor-pointer"
           >
-            {locale === "zh-TW" ? "重設篩選" : "Reset"}
+            {locale === 'zh-TW' ? '重設篩選' : 'Reset'}
           </Button>
           <Button
             size="sm"
@@ -388,7 +484,7 @@ export function ScreenerConditionBuilder({
             className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white cursor-pointer font-bold gap-1 h-9 text-xs"
           >
             {!loading && <Play className="h-3.5 w-3.5 fill-white" />}
-            {locale === "zh-TW" ? "開始篩選標的" : "Run Scanner"}
+            {locale === 'zh-TW' ? '開始篩選標的' : 'Run Scanner'}
           </Button>
         </div>
       </CardFooter>

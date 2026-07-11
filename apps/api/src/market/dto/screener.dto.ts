@@ -1,5 +1,16 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested, ArrayMaxSize } from 'class-validator';
+import {
+  IsArray,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+  Max,
+  ValidateNested,
+  ArrayMaxSize,
+} from 'class-validator';
 
 export class MAConditionDto {
   @IsOptional()
@@ -10,21 +21,25 @@ export class MAConditionDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(500, { message: '指標參數上限為 500 / Indicator parameter cannot exceed 500' })
   period?: number;
 
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(500, { message: '指標參數上限為 500 / Indicator parameter cannot exceed 500' })
   macdFast?: number;
 
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(500, { message: '指標參數上限為 500 / Indicator parameter cannot exceed 500' })
   macdSlow?: number;
 
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(500, { message: '指標參數上限為 500 / Indicator parameter cannot exceed 500' })
   macdSignal?: number;
 
   @IsOptional()
@@ -49,21 +64,25 @@ export class MAConditionDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(500, { message: '指標參數上限為 500 / Indicator parameter cannot exceed 500' })
   comparePeriod?: number;
 
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(500, { message: '指標參數上限為 500 / Indicator parameter cannot exceed 500' })
   compareMacdFast?: number;
 
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(500, { message: '指標參數上限為 500 / Indicator parameter cannot exceed 500' })
   compareMacdSlow?: number;
 
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(500, { message: '指標參數上限為 500 / Indicator parameter cannot exceed 500' })
   compareMacdSignal?: number;
 
   @IsOptional()
@@ -84,6 +103,7 @@ export class MAConditionDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(500, { message: '指標參數上限為 500 / Indicator parameter cannot exceed 500' })
   ma1Period?: number;
 
   @IsOptional()
@@ -94,6 +114,7 @@ export class MAConditionDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(500, { message: '指標參數上限為 500 / Indicator parameter cannot exceed 500' })
   ma2Period?: number;
 }
 

@@ -21,15 +21,15 @@ export class MarketCacheService {
 
   private getIntervalTTL(interval: string): number {
     const ttls: Record<string, number> = {
-      '5m': 7200,       // 2h (拉長快取過期時間，避免因佇列排隊處理延遲導致快取消失)
-      '15m': 21600,     // 6h
-      '30m': 43200,     // 12h
-      '1h': 86400,      // 24h (1d)
-      '2h': 172800,     // 2d
-      '4h': 345600,     // 4d
-      '1d': 604800,     // 7d
-      '1w': 2592000,    // 30d
-      '1M': 7776000,    // 90d
+      '5m': 7200, // 2h (拉長快取過期時間，避免因佇列排隊處理延遲導致快取消失)
+      '15m': 21600, // 6h
+      '30m': 43200, // 12h
+      '1h': 86400, // 24h (1d)
+      '2h': 172800, // 2d
+      '4h': 345600, // 4d
+      '1d': 604800, // 7d
+      '1w': 2592000, // 30d
+      '1M': 7776000, // 90d
     };
     return ttls[interval] || 86400; // default 1d
   }
@@ -67,7 +67,7 @@ export class MarketCacheService {
   }
 
   /**
-   * 寫入指定交易對與時間週期之最新 240 根收盤價陣列
+   * 寫入指定交易對與時間週期之最新 500 根收盤價陣列
    */
   async setKlines(symbol: string, interval: string, prices: number[]): Promise<void> {
     const key = `market:klines:${symbol}:${interval}`;

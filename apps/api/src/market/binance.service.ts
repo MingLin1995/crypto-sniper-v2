@@ -89,7 +89,9 @@ export class BinanceService {
     } catch (error: any) {
       // 降級：若 API 呼叫失敗但記憶體已有快取，降級回傳舊快取以防止業務中斷
       if (this.cachedSymbols.length > 0) {
-        this.logger.warn('Failed to fetch new USDT symbols from Binance, falling back to cached list');
+        this.logger.warn(
+          'Failed to fetch new USDT symbols from Binance, falling back to cached list',
+        );
         return this.cachedSymbols;
       }
       this.logger.error('Failed to fetch USDT futures symbols from Binance', error?.stack);
@@ -98,9 +100,9 @@ export class BinanceService {
   }
 
   /**
-   * 拉取指定交易對之歷史 K 線（最新 240 根收盤價，支援 9 個時間週期）
+   * 拉取指定交易對之歷史 K 線（最新 500 根收盤價，支援 9 個時間週期）
    */
-  async getKlines(symbol: string, interval: string, limit = 240): Promise<number[]> {
+  async getKlines(symbol: string, interval: string, limit = 500): Promise<number[]> {
     try {
       const response = await this.axiosInstance.get('/fapi/v1/klines', {
         params: {

@@ -140,14 +140,14 @@ describe('NotificationsService', () => {
       mockPrismaClient.user.findFirst.mockResolvedValue({
         id: 'user-123',
         telegramChatId: null,
-        discordWebhook: 'https://discord.com/api/webhooks/test',
+        discordWebhook: 'https://discord.com/api/webhooks/123456789/test_webhook_token',
         webSubscriptions: [],
       });
       (axios.post as jest.Mock).mockResolvedValue({ data: 'ok' });
 
       await service.sendAlertNotification(mockAlertData);
 
-      expect(axios.post).toHaveBeenCalledWith('https://discord.com/api/webhooks/test', {
+      expect(axios.post).toHaveBeenCalledWith('https://discord.com/api/webhooks/123456789/test_webhook_token', {
         embeds: [
           expect.objectContaining({
             title: '🚨 CryptoSniper 到價通知觸發 🚨',
@@ -160,6 +160,19 @@ describe('NotificationsService', () => {
       });
     });
 
+    it('若用戶設定了非 Discord 官方網址或 SSRF 可疑網址，應拒絕發送', async () => {
+      mockPrismaClient.user.findFirst.mockResolvedValue({
+        id: 'user-123',
+        telegramChatId: null,
+        discordWebhook: 'http://169.254.169.254/latest/meta-data/',
+        webSubscriptions: [],
+      });
+
+      await service.sendAlertNotification(mockAlertData);
+
+      expect(axios.post).not.toHaveBeenCalled();
+    });
+
     it('若用戶註冊了 Web Push 訂閱，應發送 Web Push 通知', async () => {
       mockPrismaClient.user.findFirst.mockResolvedValue({
         id: 'user-123',
@@ -168,7 +181,7 @@ describe('NotificationsService', () => {
         webSubscriptions: [
           {
             id: 'sub-1',
-            endpoint: 'https://push.com/endpoint',
+            endpoint: 'https://updates.push.services.mozilla.com/wpush/v2/endpoint123',
             p256dh: 'p256',
             auth: 'auth_secret',
           },
@@ -180,7 +193,7 @@ describe('NotificationsService', () => {
 
       expect(webpush.sendNotification).toHaveBeenCalledWith(
         {
-          endpoint: 'https://push.com/endpoint',
+          endpoint: 'https://updates.push.services.mozilla.com/wpush/v2/endpoint123',
           keys: {
             p256dh: 'p256',
             auth: 'auth_secret',
@@ -188,6 +201,26 @@ describe('NotificationsService', () => {
         },
         expect.any(String),
       );
+    });
+
+    it('若用戶註冊的 Web Push 端點非受信任網域，應拒絕發送', async () => {
+      mockPrismaClient.user.findFirst.mockResolvedValue({
+        id: 'user-123',
+        telegramChatId: null,
+        discordWebhook: null,
+        webSubscriptions: [
+          {
+            id: 'sub-1',
+            endpoint: 'http://127.0.0.1:8080/push',
+            p256dh: 'p256',
+            auth: 'auth_secret',
+          },
+        ],
+      });
+
+      await service.sendAlertNotification(mockAlertData);
+
+      expect(webpush.sendNotification).not.toHaveBeenCalled();
     });
 
     it('若 Web Push 發送失敗且狀態碼為 410，應自動清除該訂閱資訊', async () => {
@@ -198,7 +231,7 @@ describe('NotificationsService', () => {
         webSubscriptions: [
           {
             id: 'sub-1',
-            endpoint: 'https://push.com/endpoint',
+            endpoint: 'https://updates.push.services.mozilla.com/wpush/v2/endpoint123',
             p256dh: 'p256',
             auth: 'auth_secret',
           },
@@ -219,7 +252,7 @@ describe('NotificationsService', () => {
   describe('webSubscriptions CRUD', () => {
     it('subscribeWebPush 應調用 Prisma client upsert', async () => {
       const mockDto = {
-        endpoint: 'https://push.com/endpoint',
+        endpoint: 'https://updates.push.services.mozilla.com/wpush/v2/endpoint123',
         p256dh: 'p256',
         auth: 'auth_secret',
       };

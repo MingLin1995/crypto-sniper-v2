@@ -107,11 +107,12 @@ export function BacktestResultDashboard({
   const formatIndicatorName = (
     type: string,
     period: any,
-    multiplier: any,
-    macdFast: any,
-    macdSlow: any,
-    macdSignal: any,
-    macdProperty: any,
+    multiplier?: any,
+    macdFast?: any,
+    macdSlow?: any,
+    macdSignal?: any,
+    macdProperty?: any,
+    candleOffset?: any,
   ) => {
     let text = '';
     if (type === 'PRICE') {

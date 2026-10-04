@@ -15,8 +15,8 @@ import {
 export class MAConditionDto {
   @IsOptional()
   @IsString()
-  @IsIn(['SMA', 'EMA', 'RSI', 'MACD'])
-  type?: 'SMA' | 'EMA' | 'RSI' | 'MACD';
+  @IsIn(['SMA', 'EMA', 'RSI', 'MACD', 'PRICE'])
+  type?: 'SMA' | 'EMA' | 'RSI' | 'MACD' | 'PRICE';
 
   @IsOptional()
   @IsInt()
@@ -58,8 +58,8 @@ export class MAConditionDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['SMA', 'EMA', 'RSI', 'MACD'])
-  compareIndicatorType?: 'SMA' | 'EMA' | 'RSI' | 'MACD';
+  @IsIn(['SMA', 'EMA', 'RSI', 'MACD', 'PRICE'])
+  compareIndicatorType?: 'SMA' | 'EMA' | 'RSI' | 'MACD' | 'PRICE';
 
   @IsOptional()
   @IsInt()

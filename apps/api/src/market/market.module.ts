@@ -6,6 +6,7 @@ import { ScreenerService } from './screener.service';
 import { MarketController } from './market.controller';
 import { BinanceWebsocketService } from './binance-websocket.service';
 import { BullModule } from '@nestjs/bullmq';
+import { HistoricalKlineService } from './historical-kline.service';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { BullModule } from '@nestjs/bullmq';
     MarketScheduleService,
     ScreenerService,
     BinanceWebsocketService,
+    HistoricalKlineService,
   ],
   exports: [
     BinanceService,
@@ -27,6 +29,7 @@ import { BullModule } from '@nestjs/bullmq';
     MarketScheduleService,
     ScreenerService,
     BinanceWebsocketService,
+    HistoricalKlineService,
   ],
 })
 export class MarketModule {}

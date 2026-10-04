@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { RedisService } from '../common/redis/redis.service';
+import { OHLCVKline } from './types';
 
 export interface VolumeRanking {
   symbol: string;
@@ -24,14 +25,14 @@ export class MarketCacheService {
       '5m': 7200, // 2h (拉長快取過期時間，避免因佇列排隊處理延遲導致快取消失)
       '15m': 21600, // 6h
       '30m': 43200, // 12h
-      '1h': 86400, // 24h (1d)
+      '1h': 86400, // 1d
       '2h': 172800, // 2d
       '4h': 345600, // 4d
       '1d': 604800, // 7d
       '1w': 2592000, // 30d
       '1M': 7776000, // 90d
     };
-    return ttls[interval] || 86400; // default 1d
+    return ttls[interval] || 3600;
   }
 
   /**
@@ -67,18 +68,18 @@ export class MarketCacheService {
   }
 
   /**
-   * 寫入指定交易對與時間週期之最新 500 根收盤價陣列
+   * 寫入指定交易對與時間週期之最新 500 根 K 線資料
    */
-  async setKlines(symbol: string, interval: string, prices: number[]): Promise<void> {
+  async setKlines(symbol: string, interval: string, prices: OHLCVKline[]): Promise<void> {
     const key = `market:klines:${symbol}:${interval}`;
     const ttl = this.getIntervalTTL(interval);
     await this.client.setex(key, ttl, JSON.stringify(prices));
   }
 
   /**
-   * 取得指定交易對與時間週期之歷史 K 線收盤價陣列
+   * 取得指定交易對與時間週期之歷史 K 線資料
    */
-  async getKlines(symbol: string, interval: string): Promise<number[] | null> {
+  async getKlines(symbol: string, interval: string): Promise<OHLCVKline[] | null> {
     const key = `market:klines:${symbol}:${interval}`;
     const value = await this.client.get(key);
     return value ? JSON.parse(value) : null;

@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
 
@@ -8,14 +7,9 @@ if (!connectionString) {
   throw new Error('DATABASE_URL is not defined');
 }
 
-const pool = new Pool({
+const adapter = new PrismaPg({
   connectionString,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
 });
-
-const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function seedAdminAccounts() {
@@ -120,5 +114,4 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
-    await pool.end();
   });

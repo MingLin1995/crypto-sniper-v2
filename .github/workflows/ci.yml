@@ -97,7 +97,7 @@ jobs:
       - name: 資料庫遷移與初始化 Seed 資料
         working-directory: apps/api
         env:
-          DATABASE_URL: postgresql://dev_user:dev_password@localhost:5432/app_dev?schema=public
+          DATABASE_URL: postgresql://dev_user:dev_password@127.0.0.1:5432/app_dev?schema=public
           ADMIN_EMAIL_1: admin001@example.com
           ADMIN_PASSWORD_1: "000000"
           ADMIN_NICKNAME_1: admin001
@@ -109,8 +109,8 @@ jobs:
       - name: 執行 API E2E 測試
         working-directory: apps/api
         env:
-          DATABASE_URL: postgresql://dev_user:dev_password@localhost:5432/app_dev?schema=public
-          REDIS_HOST: localhost
+          DATABASE_URL: postgresql://dev_user:dev_password@127.0.0.1:5432/app_dev?schema=public
+          REDIS_HOST: 127.0.0.1
           REDIS_PORT: 6379
           JWT_SECRET: dev-jwt-secret-for-ci-at-least-32chars-long
           JWT_REFRESH_SECRET: dev-jwt-refresh-secret-for-ci-at-least-32chars-long
@@ -124,10 +124,10 @@ jobs:
         working-directory: apps/web
         env:
           PORT: 3001
-          API_URL: http://localhost:3000/api
+          API_URL: http://127.0.0.1:3000/api
           CI: true
-          DATABASE_URL: postgresql://dev_user:dev_password@localhost:5432/app_dev?schema=public
-          REDIS_HOST: localhost
+          DATABASE_URL: postgresql://dev_user:dev_password@127.0.0.1:5432/app_dev?schema=public
+          REDIS_HOST: 127.0.0.1
           REDIS_PORT: 6379
           FRONTEND_URL: http://localhost:3001
           JWT_SECRET: dev-jwt-secret-for-ci-at-least-32chars-long

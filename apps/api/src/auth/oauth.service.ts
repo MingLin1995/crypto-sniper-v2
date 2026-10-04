@@ -52,15 +52,42 @@ export class OAuthService {
     return null;
   }
 
+  getDefaultFrontendUrl(): string {
+    const rawFrontendUrl = this.configService.get<string>('FRONTEND_URL');
+    const appDomain =
+      this.configService.get<string>('APP_DOMAIN') ||
+      this.configService.get<string>('WEB_DOMAIN');
+    const isProd = this.configService.get<string>('NODE_ENV') === 'production';
+
+    // 生產環境防禦：若 FRONTEND_URL 未設定或指向 localhost，只要有線上網域立即強制使用線上網域
+    if (isProd && appDomain) {
+      if (!rawFrontendUrl || rawFrontendUrl.includes('localhost') || rawFrontendUrl.includes('127.0.0.1')) {
+        return `https://${appDomain}`;
+      }
+    }
+
+    if (rawFrontendUrl) {
+      return rawFrontendUrl;
+    }
+
+    if (appDomain) {
+      return `https://${appDomain}`;
+    }
+
+    return 'http://localhost:3001';
+  }
+
   getAllowedOrigins(): string[] {
-    const appDomain = this.configService.get<string>('APP_DOMAIN');
-    const defaultFrontendUrl =
-      this.configService.get<string>('FRONTEND_URL') ||
-      (appDomain ? `https://${appDomain}` : 'http://localhost:3001');
+    const defaultFrontendUrl = this.getDefaultFrontendUrl();
+    const appDomain =
+      this.configService.get<string>('APP_DOMAIN') ||
+      this.configService.get<string>('WEB_DOMAIN');
     const allowed = new Set<string>();
+
     try {
       allowed.add(new URL(defaultFrontendUrl).origin);
     } catch {}
+
     if (appDomain) {
       try {
         allowed.add(new URL(`https://${appDomain}`).origin);
@@ -83,21 +110,27 @@ export class OAuthService {
   }
 
   resolveSafeOrigin(referer?: string): string {
-    const appDomain = this.configService.get<string>('APP_DOMAIN');
-    const defaultFrontendUrl =
-      this.configService.get<string>('FRONTEND_URL') ||
-      (appDomain ? `https://${appDomain}` : 'http://localhost:3001');
+    const defaultFrontendUrl = this.getDefaultFrontendUrl();
     if (!referer) return defaultFrontendUrl;
+
     try {
       const refUrl = new URL(referer);
       const refOrigin = `${refUrl.protocol}//${refUrl.host}`;
       const allowedOrigins = this.getAllowedOrigins();
+      const isProd = this.configService.get<string>('NODE_ENV') === 'production';
+
+      // 生產環境防禦：若傳入的 referer 包含 localhost，拒絕使用並安全回退至正式站台
+      if (isProd && (refOrigin.includes('localhost') || refOrigin.includes('127.0.0.1'))) {
+        return defaultFrontendUrl;
+      }
+
       if (allowedOrigins.includes(refOrigin)) {
         return refOrigin;
       }
     } catch {
       // ignore
     }
+
     return defaultFrontendUrl;
   }
 
@@ -297,10 +330,7 @@ export class OAuthService {
     req: Request,
     res: Response,
   ) {
-    const appDomain = this.configService.get<string>('APP_DOMAIN');
-    const defaultFrontendUrl =
-      this.configService.get<string>('FRONTEND_URL') ||
-      (appDomain ? `https://${appDomain}` : 'http://localhost:3001');
+    const defaultFrontendUrl = this.getDefaultFrontendUrl();
     let frontendUrl = defaultFrontendUrl;
 
     if (!code || !state) {

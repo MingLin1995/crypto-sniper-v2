@@ -240,5 +240,19 @@ describe('OAuthService (第三方認證服務)', () => {
       const safe = service.resolveSafeOrigin('https://app.cryptosniper.com/profile');
       expect(safe).toBe('https://app.cryptosniper.com');
     });
+
+    it('在生產環境下，若 FRONTEND_URL 指向 localhost 但設定了 APP_DOMAIN，應強制回傳線上網域', () => {
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === 'NODE_ENV') return 'production';
+        if (key === 'FRONTEND_URL') return 'http://localhost:3001';
+        if (key === 'APP_DOMAIN') return 'crypto-sniper.minglin.net';
+        return null;
+      });
+
+      expect(service.getDefaultFrontendUrl()).toBe('https://crypto-sniper.minglin.net');
+      expect(service.resolveSafeOrigin(undefined)).toBe('https://crypto-sniper.minglin.net');
+      expect(service.resolveSafeOrigin('http://localhost:3001/login')).toBe('https://crypto-sniper.minglin.net');
+      expect(service.resolveSafeOrigin('https://crypto-sniper.minglin.net/login')).toBe('https://crypto-sniper.minglin.net');
+    });
   });
 });

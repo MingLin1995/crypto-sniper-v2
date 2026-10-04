@@ -208,8 +208,8 @@ services:
     labels:
       # 宣告此前端 Web 容器允許被 Traefik 代理轉發
       - 'traefik.enable=true'
-      # [HTTPS 路由匹配] 當請求 Host 符合 APP_DOMAIN 或 ROOT_DOMAIN (主網域或根網域) 時觸發加密路由
-      - 'traefik.http.routers.${PROJECT_NAME}-web.rule=Host(`${APP_DOMAIN}`) || Host(`${ROOT_DOMAIN}`)'
+      # [HTTPS 路由匹配] 當請求 Host 符合 APP_DOMAIN 或 WEB_DOMAIN 時觸發加密路由
+      - 'traefik.http.routers.${PROJECT_NAME}-web.rule=Host(`${APP_DOMAIN:-${WEB_DOMAIN}}`)'
       # [HTTPS 進入點] 綁定至 "websecure" (443 埠) 進入點
       - 'traefik.http.routers.${PROJECT_NAME}-web.entrypoints=websecure'
       # [TLS 解密] 啟用 TLS 解密功能

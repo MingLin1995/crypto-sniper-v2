@@ -233,7 +233,10 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
           API_DOMAIN: ${{ secrets.API_DOMAIN }}
-          WEB_DOMAIN: ${{ secrets.WEB_DOMAIN }}
+          APP_DOMAIN: ${{ secrets.APP_DOMAIN || secrets.WEB_DOMAIN }}
+          WEB_DOMAIN: ${{ secrets.WEB_DOMAIN || secrets.APP_DOMAIN }}
+          ROOT_DOMAIN: ${{ secrets.ROOT_DOMAIN || '' }}
+          MONITOR_DOMAIN: ${{ secrets.MONITOR_DOMAIN || '' }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
           JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN || '30m' }}
@@ -274,7 +277,10 @@ jobs:
           API_IMAGE=${REGISTRY}/cryptosniper-api:latest
           WEB_IMAGE=${REGISTRY}/cryptosniper-web:latest
           API_DOMAIN=${API_DOMAIN}
+          APP_DOMAIN=${APP_DOMAIN}
           WEB_DOMAIN=${WEB_DOMAIN}
+          ROOT_DOMAIN=${ROOT_DOMAIN}
+          MONITOR_DOMAIN=${MONITOR_DOMAIN}
           JWT_SECRET=${JWT_SECRET}
           JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
           JWT_EXPIRES_IN=${JWT_EXPIRES_IN}

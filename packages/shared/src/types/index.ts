@@ -25,7 +25,7 @@ export interface CreatePriceAlertDto {
 }
 
 export interface MACondition {
-  type?: 'SMA' | 'EMA' | 'RSI' | 'MACD';
+  type?: 'SMA' | 'EMA' | 'RSI' | 'MACD' | 'PRICE';
   period?: number | '';
   macdFast?: number | '';
   macdSlow?: number | '';
@@ -35,7 +35,7 @@ export interface MACondition {
   operator: 'gt' | 'lt';
 
   compareType?: 'indicator' | 'value';
-  compareIndicatorType?: 'SMA' | 'EMA' | 'RSI' | 'MACD';
+  compareIndicatorType?: 'SMA' | 'EMA' | 'RSI' | 'MACD' | 'PRICE';
   comparePeriod?: number | '';
   compareMacdFast?: number | '';
   compareMacdSlow?: number | '';

@@ -111,8 +111,12 @@ describe('MarketScheduleService & MarketCacheService', () => {
       expect(mockRedisClient.expire).toHaveBeenCalledWith('market:prices', 30);
     });
 
-    it('setKlines 應依時間週期計算對應 TTL 並存入收盤價 JSON 字串', async () => {
-      const prices = [100, 101, 102];
+    it('setKlines 應依時間週期計算對應 TTL 並存入 K 線資料 JSON 字串', async () => {
+      const prices = [
+        { open: 100, high: 100, low: 100, close: 100, volume: 0, openTime: 0, closeTime: 0 },
+        { open: 101, high: 101, low: 101, close: 101, volume: 0, openTime: 0, closeTime: 0 },
+        { open: 102, high: 102, low: 102, close: 102, volume: 0, openTime: 0, closeTime: 0 }
+      ];
       await cacheService.setKlines('BTCUSDT', '5m', prices);
       expect(mockRedisClient.setex).toHaveBeenCalledWith('market:klines:BTCUSDT:5m', 7200, JSON.stringify(prices));
 
@@ -120,8 +124,12 @@ describe('MarketScheduleService & MarketCacheService', () => {
       expect(mockRedisClient.setex).toHaveBeenCalledWith('market:klines:BTCUSDT:1d', 604800, JSON.stringify(prices));
     });
 
-    it('getKlines 應能從 Redis 取得 K線收盤價陣列', async () => {
-      const prices = [100, 101, 102];
+    it('getKlines 應能從 Redis 取得 K 線資料陣列', async () => {
+      const prices = [
+        { open: 100, high: 100, low: 100, close: 100, volume: 0, openTime: 0, closeTime: 0 },
+        { open: 101, high: 101, low: 101, close: 101, volume: 0, openTime: 0, closeTime: 0 },
+        { open: 102, high: 102, low: 102, close: 102, volume: 0, openTime: 0, closeTime: 0 }
+      ];
       mockRedisClient.get.mockResolvedValue(JSON.stringify(prices));
       const result = await cacheService.getKlines('BTCUSDT', '5m');
       expect(mockRedisClient.get).toHaveBeenCalledWith('market:klines:BTCUSDT:5m');
@@ -156,13 +164,13 @@ describe('MarketScheduleService & MarketCacheService', () => {
 
       mockBinanceService.getUSDTFuturesSymbols.mockResolvedValue(mockSymbols);
       mockRedisClient.get.mockResolvedValue(JSON.stringify(mockRanking));
-      mockBinanceService.getKlines.mockResolvedValue([100, 101, 102]);
+      mockBinanceService.getKlines.mockResolvedValue([
+        { open: 100, high: 100, low: 100, close: 100, volume: 0, openTime: 0, closeTime: 0 },
+        { open: 101, high: 101, low: 101, close: 101, volume: 0, openTime: 0, closeTime: 0 },
+        { open: 102, high: 102, low: 102, close: 102, volume: 0, openTime: 0, closeTime: 0 }
+      ]);
 
-      const dateSpy = jest.spyOn(global, 'Date').mockImplementation(() => {
-        return {
-          getMinutes: () => 5,
-        } as any;
-      });
+      const getMinutesSpy = jest.spyOn(Date.prototype, 'getMinutes').mockReturnValue(5);
 
       await scheduleService.handle5mKlines();
 
@@ -170,13 +178,16 @@ describe('MarketScheduleService & MarketCacheService', () => {
       expect(queueLength).toBeGreaterThanOrEqual(50);
       expect(queueLength).toBeLessThan(60);
 
-      dateSpy.mockRestore();
+      getMinutesSpy.mockRestore();
     });
 
     it('自適應延遲：當 Used Weight 高時，應增加延遲間隔', async () => {
       mockBinanceService.getUSDTFuturesSymbols.mockResolvedValue(['BTCUSDT']);
       mockRedisClient.get.mockResolvedValue(JSON.stringify([{ symbol: 'BTCUSDT', quoteVolume: 100000 }]));
-      mockBinanceService.getKlines.mockResolvedValue([100, 101]);
+      mockBinanceService.getKlines.mockResolvedValue([
+        { open: 100, high: 100, low: 100, close: 100, volume: 0, openTime: 0, closeTime: 0 },
+        { open: 101, high: 101, low: 101, close: 101, volume: 0, openTime: 0, closeTime: 0 }
+      ]);
 
       mockBinanceService.getUsedWeight.mockReturnValue(0);
       await scheduleService.handle5mKlines();
@@ -196,7 +207,9 @@ describe('MarketScheduleService & MarketCacheService', () => {
     it('任務佇列排序：優先執行小時間時框 (優先權排序)', async () => {
       mockBinanceService.getUSDTFuturesSymbols.mockResolvedValue(['BTCUSDT']);
       mockRedisClient.get.mockResolvedValue(JSON.stringify([{ symbol: 'BTCUSDT', quoteVolume: 100000 }]));
-      mockBinanceService.getKlines.mockResolvedValue([100]);
+      mockBinanceService.getKlines.mockResolvedValue([
+        { open: 100, high: 100, low: 100, close: 100, volume: 0, openTime: 0, closeTime: 0 }
+      ]);
 
       // 先放入長時框 1M，再放入短時框 5m，以確保佇列排序正確
       await scheduleService.handle1MKlines();
@@ -225,7 +238,9 @@ describe('MarketScheduleService & MarketCacheService', () => {
       (scheduleService as any).symbolRankMap.set('COLDUSDT', 60);
 
       mockRedisClient.get.mockResolvedValue(JSON.stringify(mockRanking));
-      mockBinanceService.getKlines.mockResolvedValue([100]);
+      mockBinanceService.getKlines.mockResolvedValue([
+        { open: 100, high: 100, low: 100, close: 100, volume: 0, openTime: 0, closeTime: 0 }
+      ]);
 
       // 1. 先加入 COLDUSDT 的 5m 任務 (冷門 5m)
       (scheduleService as any).queue.push({ symbol: 'COLDUSDT', interval: '5m' });

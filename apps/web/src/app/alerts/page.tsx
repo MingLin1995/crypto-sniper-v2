@@ -464,7 +464,7 @@ function AlertsContent() {
       return;
     }
 
-    if (!/^[A-Z0-9]{3,12}USDT$/.test(symbol)) {
+    if (!/^[A-Z0-9]{1,12}USDT$/.test(symbol)) {
       setError(t.invalidSymbolError);
       return;
     }
@@ -545,6 +545,13 @@ function AlertsContent() {
             className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10 text-zinc-200 text-sm"
           >
             {locale === "zh-TW" ? "返回篩選器" : "Back to Screener"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => router.push("/backtest")}
+            className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10 text-zinc-200 text-sm"
+          >
+            {locale === "zh-TW" ? "策略回測" : "Strategy Backtesting"}
           </Button>
           <Button
             variant="outline"

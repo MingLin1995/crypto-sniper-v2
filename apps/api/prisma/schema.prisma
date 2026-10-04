@@ -35,6 +35,7 @@ model User {
   watchlists       WatchlistItem[]
   savedStrategies  SavedStrategy[]
   priceAlerts      PriceAlert[]
+  backtestJobs     BacktestJob[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -173,4 +174,37 @@ model PriceAlert {
 
   @@index([userId])
   @@index([symbol, isActive])
+}
+
+model BacktestJob {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      String    @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED
+  config      Json      // 回測參數配置（含策略、槓桿、SL/TP、時間區間等）
+  result      Json?     // 回測結果（COMPLETED 後寫入績效指標與交易日誌）
+  error       String?   // FAILED 時的錯誤訊息
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, status])
+  @@index([createdAt])
+}
+
+model HistoricalKline {
+  id        String   @id @default(uuid())
+  symbol    String
+  interval  String
+  openTime  BigInt   // Unix Timestamp (ms)
+  open      Decimal  @db.Decimal(20, 8)
+  high      Decimal  @db.Decimal(20, 8)
+  low       Decimal  @db.Decimal(20, 8)
+  close     Decimal  @db.Decimal(20, 8)
+  volume    Decimal  @db.Decimal(30, 8)
+  createdAt DateTime @default(now())
+
+  @@unique([symbol, interval, openTime])
+  @@index([symbol, interval])
 }

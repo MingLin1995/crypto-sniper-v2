@@ -5,7 +5,7 @@ export class CreateAlertDto {
   @ApiProperty({ example: 'BTCUSDT', description: '交易對名稱' })
   @IsString()
   @IsNotEmpty()
-  @Matches(/^[A-Z0-9]{3,12}USDT$/)
+  @Matches(/^[A-Z0-9]{1,12}USDT$/)
   symbol!: string;
 
   @ApiProperty({ example: 'ABOVE', description: '觸發條件 (ABOVE 或 BELOW)', enum: ['ABOVE', 'BELOW'] })

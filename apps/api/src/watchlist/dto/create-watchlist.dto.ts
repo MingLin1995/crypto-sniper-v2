@@ -5,6 +5,6 @@ export class CreateWatchlistDto {
   @ApiProperty({ example: 'BTCUSDT', description: '交易對名稱' })
   @IsString()
   @IsNotEmpty()
-  @Matches(/^[A-Z0-9]{3,12}USDT$/)
+  @Matches(/^[A-Z0-9]{1,12}USDT$/)
   symbol!: string;
 }

@@ -65,6 +65,16 @@ describe('ScreenerService', () => {
       ],
     };
 
+    const mapToOHLCV = (arr: number[]) => arr.map(p => ({
+      open: p,
+      high: p,
+      low: p,
+      close: p,
+      volume: 0,
+      openTime: 0,
+      closeTime: 0
+    }));
+
     it('如果快取覆蓋率小於 10%，應拋出 ServiceUnavailableException (預熱中)', async () => {
       mockMarketCacheService.getScreenerResult.mockResolvedValue(null);
       mockBinanceService.getUSDTFuturesSymbols.mockResolvedValue(['BTCUSDT', 'ETHUSDT', 'SOLUSDT']);
@@ -109,8 +119,8 @@ describe('ScreenerService', () => {
 
       mockMarketCacheService.getKlines
         .mockImplementation(async (symbol: string) => {
-          if (symbol === 'BTCUSDT') return btcKlines;
-          if (symbol === 'ETHUSDT') return ethKlines;
+          if (symbol === 'BTCUSDT') return mapToOHLCV(btcKlines);
+          if (symbol === 'ETHUSDT') return mapToOHLCV(ethKlines);
           return null;
         });
 
@@ -168,8 +178,8 @@ describe('ScreenerService', () => {
       const ethKlines = [38, 36, 34, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10];
 
       mockMarketCacheService.getKlines.mockImplementation(async (symbol: string) => {
-        if (symbol === 'BTCUSDT') return btcKlines;
-        if (symbol === 'ETHUSDT') return ethKlines;
+        if (symbol === 'BTCUSDT') return mapToOHLCV(btcKlines);
+        if (symbol === 'ETHUSDT') return mapToOHLCV(ethKlines);
         return null;
       });
 
@@ -207,8 +217,8 @@ describe('ScreenerService', () => {
       const ethKlines = Array(35).fill(100).map((v, i) => v - i * i * 0.1);
 
       mockMarketCacheService.getKlines.mockImplementation(async (symbol: string) => {
-        if (symbol === 'BTCUSDT') return btcKlines;
-        if (symbol === 'ETHUSDT') return ethKlines;
+        if (symbol === 'BTCUSDT') return mapToOHLCV(btcKlines);
+        if (symbol === 'ETHUSDT') return mapToOHLCV(ethKlines);
         return null;
       });
 

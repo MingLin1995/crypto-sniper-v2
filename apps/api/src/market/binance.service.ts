@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
 import * as https from 'https';
+import { OHLCVKline } from './types';
 
 export interface TickerPrice {
   symbol: string;
@@ -100,26 +101,10 @@ export class BinanceService {
   }
 
   /**
-   * 拉取指定交易對之歷史 K 線（最新 500 根收盤價，支援 9 個時間週期）
+   * 拉取指定交易對之歷史 K 線完整 OHLCV 資料（最新 500 根，支援 9 個時間週期）
    */
-  async getKlines(symbol: string, interval: string, limit = 500): Promise<number[]> {
-    try {
-      const response = await this.axiosInstance.get('/fapi/v1/klines', {
-        params: {
-          symbol,
-          interval,
-          limit,
-        },
-      });
-      const klines = response.data || [];
-      return klines.map((k: any[]) => parseFloat(k[4]));
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to fetch klines for ${symbol} with interval ${interval} from Binance`,
-        error?.stack,
-      );
-      throw error;
-    }
+  async getKlines(symbol: string, interval: string, limit = 500): Promise<OHLCVKline[]> {
+    return this.getKlinesOHLCV(symbol, interval, limit);
   }
 
   /**
@@ -162,4 +147,102 @@ export class BinanceService {
       throw error;
     }
   }
+
+  /**
+   * 拉取指定交易對之歷史 K 線完整 OHLCV 資料
+   */
+  async getKlinesOHLCV(
+    symbol: string,
+    interval: string,
+    limit?: number,
+    startTime?: number,
+    endTime?: number,
+  ): Promise<OHLCVKline[]> {
+    try {
+      const response = await this.axiosInstance.get('/fapi/v1/klines', {
+        params: {
+          symbol,
+          interval,
+          limit,
+          startTime,
+          endTime,
+        },
+      });
+      const klines = response.data || [];
+      return klines.map((k: any[]) => ({
+        openTime: Number(k[0]),
+        open: parseFloat(k[1]),
+        high: parseFloat(k[2]),
+        low: parseFloat(k[3]),
+        close: parseFloat(k[4]),
+        volume: parseFloat(k[5]),
+        closeTime: Number(k[6]),
+      }));
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to fetch klines OHLCV for ${symbol} with interval ${interval} from Binance`,
+        error?.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * 批次拉取歷史 K 線（分頁 Crawler），整合 Rate Limit 暫停保護
+   */
+  async getKlinesOHLCVPaginated(
+    symbol: string,
+    interval: string,
+    startTime: number,
+    endTime: number,
+  ): Promise<OHLCVKline[]> {
+    const allKlines: OHLCVKline[] = [];
+    let currentStartTime = startTime;
+    const limit = 1500;
+
+    while (currentStartTime < endTime) {
+      await this.checkRateLimit();
+
+      const klines = await this.getKlinesOHLCV(
+        symbol,
+        interval,
+        limit,
+        currentStartTime,
+        endTime,
+      );
+
+      if (klines.length === 0) {
+        break;
+      }
+
+      allKlines.push(...klines);
+
+      const lastKline = klines[klines.length - 1];
+
+      // 避免 API 回傳相同資料時陷入死循環
+      if (lastKline.closeTime <= currentStartTime) {
+        break;
+      }
+
+      currentStartTime = lastKline.closeTime + 1;
+
+      if (lastKline.closeTime >= endTime) {
+        break;
+      }
+    }
+
+    return allKlines;
+  }
+
+  /**
+   * 檢查當前 API 權重並在接近上限時自動暫停
+   */
+  private async checkRateLimit(): Promise<void> {
+    if (this.lastUsedWeight > 2000) {
+      this.logger.warn(`API Weight is high (${this.lastUsedWeight}/2400). Pausing for 5 seconds...`);
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  }
 }
+
+

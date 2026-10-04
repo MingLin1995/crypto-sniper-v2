@@ -52,6 +52,44 @@ export class OAuthService {
     return null;
   }
 
+  getAllowedOrigins(): string[] {
+    const defaultFrontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    const allowed = new Set<string>();
+    try {
+      allowed.add(new URL(defaultFrontendUrl).origin);
+    } catch {}
+
+    const corsOrigins = this.configService.get<string>('CORS_ORIGINS');
+    if (corsOrigins) {
+      corsOrigins.split(',').forEach((origin) => {
+        const trimmed = origin.trim();
+        if (trimmed && trimmed !== '*') {
+          try {
+            allowed.add(new URL(trimmed).origin);
+          } catch {}
+        }
+      });
+    }
+
+    return Array.from(allowed);
+  }
+
+  resolveSafeOrigin(referer?: string): string {
+    const defaultFrontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    if (!referer) return defaultFrontendUrl;
+    try {
+      const refUrl = new URL(referer);
+      const refOrigin = `${refUrl.protocol}//${refUrl.host}`;
+      const allowedOrigins = this.getAllowedOrigins();
+      if (allowedOrigins.includes(refOrigin)) {
+        return refOrigin;
+      }
+    } catch {
+      // ignore
+    }
+    return defaultFrontendUrl;
+  }
+
   async handleOAuthLoginOrLink(
     provider: 'google' | 'discord' | 'telegram',
     profile: OAuthUserProfile,
@@ -263,7 +301,7 @@ export class OAuthService {
     }
 
     const stateData = JSON.parse(stateDataStr);
-    frontendUrl = stateData.origin || defaultFrontendUrl;
+    frontendUrl = this.resolveSafeOrigin(stateData?.origin);
     await redis.del(`oauth_state:${state}`);
 
     try {

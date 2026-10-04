@@ -147,12 +147,12 @@ export default function RegisterPage() {
         </CardHeader>
         <CardContent className="grid gap-4">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm text-center">
+            <div data-testid="register-error-message" className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm text-center">
               {error}
             </div>
           )}
           {success && (
-            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-lg text-sm text-center">
+            <div data-testid="register-success-message" className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-lg text-sm text-center">
               {success}
             </div>
           )}
@@ -163,6 +163,7 @@ export default function RegisterPage() {
               <div className="flex gap-2">
                 <Input
                   id="email"
+                  data-testid="register-email-input"
                   type="email"
                   placeholder="name@example.com"
                   value={email}
@@ -172,6 +173,7 @@ export default function RegisterPage() {
                 />
                 <Button
                   type="button"
+                  data-testid="register-send-code-button"
                   variant="outline"
                   disabled={countdown > 0 || sendingCode}
                   onClick={handleSendCode}
@@ -186,6 +188,7 @@ export default function RegisterPage() {
               <Label htmlFor="nickname">{t.nickname}</Label>
               <Input
                 id="nickname"
+                data-testid="register-nickname-input"
                 type="text"
                 placeholder="例如: 交易大師"
                 value={nickname}
@@ -198,6 +201,7 @@ export default function RegisterPage() {
               <Label htmlFor="code">{t.code}</Label>
               <Input
                 id="code"
+                data-testid="register-code-input"
                 type="text"
                 maxLength={6}
                 placeholder={t.enterCode}
@@ -211,6 +215,7 @@ export default function RegisterPage() {
               <Label htmlFor="password">密碼</Label>
               <Input
                 id="password"
+                data-testid="register-password-input"
                 type="password"
                 placeholder="至少 8 碼，需包含英文與數字"
                 value={password}
@@ -219,7 +224,7 @@ export default function RegisterPage() {
               />
             </div>
 
-            <Button type="submit" loading={loading} className="w-full mt-3 cursor-pointer">
+            <Button data-testid="register-submit-button" type="submit" loading={loading} className="w-full mt-3 cursor-pointer">
               {t.registerBtn}
             </Button>
           </form>

@@ -74,25 +74,32 @@ export class NotificationsService implements OnModuleInit {
 
     // === Discord Webhook 通知 ===
     if (user.discordWebhook) {
-      try {
-        await axios.post(user.discordWebhook, {
-          embeds: [
-            {
-              title: '🚨 CryptoSniper 到價通知觸發 🚨',
-              color: 16711680, // 紅色
-              fields: [
-                { name: '交易對', value: symbol, inline: true },
-                { name: '觸發價格', value: triggeredPrice.toString(), inline: true },
-                { name: '條件', value: conditionStr, inline: true },
-                { name: '目標價格', value: targetPrice.toString(), inline: true },
-              ],
-              timestamp: new Date().toISOString(),
-            },
-          ],
-        });
-        this.logger.debug(`Discord notification sent successfully to webhook for user ${userId}`);
-      } catch (err: any) {
-        this.logger.error(`Failed to send Discord webhook to user ${userId}: ${err.message}`);
+      const isDiscordWebhook = /^https:\/\/(canary\.|ptb\.)?discord(app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/.test(
+        user.discordWebhook,
+      );
+      if (!isDiscordWebhook) {
+        this.logger.warn(`Rejected invalid or untrusted Discord webhook URL for user ${userId}: ${user.discordWebhook}`);
+      } else {
+        try {
+          await axios.post(user.discordWebhook, {
+            embeds: [
+              {
+                title: '🚨 CryptoSniper 到價通知觸發 🚨',
+                color: 16711680, // 紅色
+                fields: [
+                  { name: '交易對', value: symbol, inline: true },
+                  { name: '觸發價格', value: triggeredPrice.toString(), inline: true },
+                  { name: '條件', value: conditionStr, inline: true },
+                  { name: '目標價格', value: targetPrice.toString(), inline: true },
+                ],
+                timestamp: new Date().toISOString(),
+              },
+            ],
+          });
+          this.logger.debug(`Discord notification sent successfully to webhook for user ${userId}`);
+        } catch (err: any) {
+          this.logger.error(`Failed to send Discord webhook to user ${userId}: ${err.message}`);
+        }
       }
     }
 
@@ -108,6 +115,14 @@ export class NotificationsService implements OnModuleInit {
       });
 
       for (const sub of user.webSubscriptions) {
+        const isAllowedPushEndpoint = /^https:\/\/(?:[a-zA-Z0-9-]+\.)*(?:push\.services\.mozilla\.com|googleapis\.com|push\.apple\.com|notify\.windows\.com)\//.test(
+          sub.endpoint,
+        );
+        if (!isAllowedPushEndpoint) {
+          this.logger.warn(`Rejected untrusted Web Push endpoint URL: ${sub.endpoint}`);
+          continue;
+        }
+
         try {
           const pushSubscription = {
             endpoint: sub.endpoint,

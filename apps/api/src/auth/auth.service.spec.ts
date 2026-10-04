@@ -185,15 +185,17 @@ describe('AuthService (認證服務)', () => {
   });
 
   describe('resetPassword (驗證並重設密碼)', () => {
-    it('若驗證碼正確且用戶存在，應更新密碼', async () => {
+    it('若驗證碼正確且用戶存在，應更新密碼並撤銷所有既有 Refresh Token', async () => {
       mockUsersService.findByEmail.mockResolvedValueOnce({ id: '1', email: 'test@example.com' });
       mockVerificationCodeService.verifyCode.mockResolvedValueOnce(undefined);
       mockUsersService.update.mockResolvedValueOnce({ id: '1' });
+      mockUsersService.deleteUserRefreshTokens.mockResolvedValueOnce({ count: 2 });
 
       const result = await service.resetPassword('test@example.com', '123456', 'NewPassword123');
       expect(result).toHaveProperty('message', '密碼已成功重設');
       expect(mockVerificationCodeService.verifyCode).toHaveBeenCalledWith('password_reset', 'test@example.com', '123456');
       expect(mockUsersService.update).toHaveBeenCalledWith('1', { password: 'NewPassword123' });
+      expect(mockUsersService.deleteUserRefreshTokens).toHaveBeenCalledWith('1');
     });
 
     it('若驗證碼錯誤或過期，應拋出 BadRequestException 錯誤', async () => {

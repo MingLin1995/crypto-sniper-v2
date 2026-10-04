@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class SubscribeWebPushDto {
@@ -8,6 +8,9 @@ export class SubscribeWebPushDto {
   })
   @IsString()
   @IsNotEmpty()
+  @Matches(/^https:\/\/(?:[a-zA-Z0-9-]+\.)*(?:push\.services\.mozilla\.com|googleapis\.com|push\.apple\.com|notify\.windows\.com)\//, {
+    message: 'Web Push endpoint 必須是合法的瀏覽器推播伺服器網址 (Mozilla, Google, Apple, Microsoft)',
+  })
   endpoint!: string;
 
   @ApiProperty({

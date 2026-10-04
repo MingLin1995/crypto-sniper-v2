@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Clean any trailing /v1 prefix from the environment variable
-const API_URL = (process.env.API_URL || "http://app:3000/api").replace(/\/v1$/, "");
+// Clean any trailing /v1 prefix from the environment variable (defaults to localhost:3000/api for local runs, or app:3000 in Docker)
+const API_URL = (process.env.API_URL || "http://localhost:3000/api").replace(/\/v1$/, "");
 
 // Global map to deduplicate concurrent refresh token requests per session (refresh_token)
 const activeRefreshPromises = new Map<string, Promise<{ setCookies: string[] } | null>>();

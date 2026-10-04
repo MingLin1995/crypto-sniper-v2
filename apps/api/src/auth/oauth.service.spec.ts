@@ -198,4 +198,47 @@ describe('OAuthService (第三方認證服務)', () => {
       await expect(service.unlinkProvider('user-id-123', 'google')).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('resolveSafeOrigin (開放重導向防禦)', () => {
+    it('若 Referer 為允許的 FRONTEND_URL 網域，應回傳該 origin', () => {
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === 'FRONTEND_URL') return 'http://localhost:3001';
+        return null;
+      });
+
+      const safe = service.resolveSafeOrigin('http://localhost:3001/some/path');
+      expect(safe).toBe('http://localhost:3001');
+    });
+
+    it('若 Referer 為外部未授權或惡意網域，應拒絕並安全回退至預設 FRONTEND_URL', () => {
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === 'FRONTEND_URL') return 'http://localhost:3001';
+        return null;
+      });
+
+      const safe = service.resolveSafeOrigin('https://attacker.com/evil');
+      expect(safe).toBe('http://localhost:3001');
+    });
+
+    it('若 Referer 為空或無效字串，應安全回退至預設 FRONTEND_URL', () => {
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === 'FRONTEND_URL') return 'http://localhost:3001';
+        return null;
+      });
+
+      expect(service.resolveSafeOrigin(undefined)).toBe('http://localhost:3001');
+      expect(service.resolveSafeOrigin('not-a-url')).toBe('http://localhost:3001');
+    });
+
+    it('若 Referer 符合 CORS_ORIGINS 白名單之一，應回傳該合法 origin', () => {
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === 'FRONTEND_URL') return 'http://localhost:3001';
+        if (key === 'CORS_ORIGINS') return 'https://app.cryptosniper.com,https://admin.cryptosniper.com';
+        return null;
+      });
+
+      const safe = service.resolveSafeOrigin('https://app.cryptosniper.com/profile');
+      expect(safe).toBe('https://app.cryptosniper.com');
+    });
+  });
 });

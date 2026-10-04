@@ -1,8 +1,8 @@
 # 系統架構與全端資料流向指南
 
-本文檔詳細記錄了 CryptoSniper v2 **9 大核心資料流向 (Data Flows)** 與關鍵架構設計。
+本文檔詳細記錄了 CryptoSniper v2 **10 大核心資料流向 (Data Flows)** 與關鍵架構設計。
 
-這些流向設計涵蓋了 DevOps CI/CD 自動化、邊界安全路由、第三方身分合併事務、JWT 認證與 Session 安全、自適應行情拉取、高併發行情削峰去重、多時框策略篩選引擎、全域可觀測性監控，以及 NestJS 全域請求管線架構。
+這些流向設計涵蓋了 DevOps CI/CD 自動化、邊界安全路由、第三方身分合併事務、JWT 認證與 Session 安全、自適應行情拉取、高併發行情削峰去重、多時框策略篩選引擎、量化回測引擎與非同步任務管線、全域可觀測性監控，以及 NestJS 全域請求管線架構。
 
 ---
 
@@ -19,6 +19,7 @@
 9. [NestJS 全域請求管線架構 (Global Request Pipeline Architecture)](#9-nestjs-全域請求管線架構-global-request-pipeline-architecture)
 10. [資料庫實體關係圖 (Database ER Diagram)](#10-資料庫實體關係圖-database-er-diagram)
 11. [Redis 快取與佇列架構設計 (Redis Architecture & Cache Design)](#11-redis-快取與佇列架構設計-redis-architecture--cache-design)
+12. [量化回測引擎與非同步任務流向 (Backtest Engine & Async Pipeline Flow)](#12-量化回測引擎與非同步任務流向-backtest-engine--async-pipeline-flow)
 
 ---
 
@@ -339,6 +340,7 @@ erDiagram
     User ||--o{ WatchlistItem : "has"
     User ||--o{ SavedStrategy : "has"
     User ||--o{ PriceAlert : "has"
+    User ||--o{ BacktestJob : "has"
 
     User {
         string id PK
@@ -407,6 +409,32 @@ erDiagram
         datetime updatedAt
     }
 
+    BacktestJob {
+        string id PK
+        string userId FK
+        string status "回測狀態 (PENDING, RUNNING, COMPLETED, FAILED)"
+        json config "回測參數配置 (策略、SL/TP、時框、幣種、時間區間)"
+        json result "回測績效與交易明細 (ROI, MDD, Sharpe, PF, trades)"
+        string error "失敗原因"
+        datetime startedAt
+        datetime completedAt
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    HistoricalKline {
+        string id PK
+        string symbol "交易對標記 (例如：BTCUSDT)"
+        string interval "時間週期 (例如：1d, 4h, 15m)"
+        bigint openTime "開盤時間 Unix 毫秒時間戳"
+        decimal open "開盤價"
+        decimal high "最高價"
+        decimal low "最低價"
+        decimal close "收盤價"
+        decimal volume "成交量"
+        datetime createdAt
+    }
+
     SystemConfig {
         string key PK "系統配置鍵 (Key)"
         string value "系統配置值 (Value)"
@@ -447,6 +475,7 @@ erDiagram
 
 1. **多管道通知與訂閱綁定**：每個 User 實體可以直接關聯多個用於瀏覽器桌面推送的 WebSubscription，並透過 `telegramChatId` 與 `discordWebhook` 直接綁定第三方推送管道。
 2. **獨立的系統功能與日誌**：SystemConfig、SystemLog 與 BlacklistedIp 採用獨立實體設計，與核心業務邏輯解耦，確保寫入與維護的效率。
+3. **量化回測與歷史行情儲存**：`BacktestJob` 關聯使用者記錄回測任務、自訂風控參數與績效報告；`HistoricalKline` 具備 `@@unique([symbol, interval, openTime])` 索引，集中持久化歷史行情，供回測引擎以極致速度進行離線模擬撮合。
 
 ---
 
@@ -472,12 +501,100 @@ Redis 7.x 在系統中扮演**高速快取**與**非同步任務佇列 Broker (B
 | `alerts:active_symbols`               | Set              | 存放當前有活躍告警的交易對名稱集合                            | 永久            | WebSocket 收到行情時比對此 Set，僅對有告警的幣種推入佇列。          |
 | `bull:price-check:*`                  | Hash, List, ZSET | BullMQ `price-check` 佇列的運行狀態、Job 排隊資料             | 由 BullMQ 管理  | 包含高頻行情削峰去重（Conflation）的任務排隊狀態。                  |
 | `bull:notification:*`                 | Hash, List, ZSET | BullMQ `notification` 佇列的運行狀態與待發送任務              | 由 BullMQ 管理  | 用於非同步推送 Telegram、Discord 與 Web Push。                      |
+| `bull:backtest:*`                     | Hash, List, ZSET | BullMQ `backtest` 佇列的運行狀態、回測 Job 排隊與進度資料     | 由 BullMQ 管理  | 非同步承載巨量 K 線多幣種策略撮合運算，不阻塞 API 事件迴圈。        |
 
 ### 故障降級與高可用防禦：
 
 1. **IP 黑名單降級機制**：若 Redis 斷線，IpBlacklistService 會自動捕獲錯誤並**降級改為查詢 PostgreSQL 資料庫**，確保安全防禦不中斷。
 2. **快取重建機制**：當 Redis 中 `security:blacklist:initialized` 鍵不存在時，系統會自動重新自資料庫同步完整黑名單至 Redis Set，防範記憶體淘汰引發的漏防漏洞。
 3. **交易對清單降級**：`BinanceService` 的交易對清單具備 1 小時 in-memory 快取，API 調用失敗時降級回傳舊資料，防止 Screener 與告警功能全面中斷。
+
+---
+
+## 12. 量化回測引擎與非同步任務流向 (Backtest Engine & Async Pipeline Flow)
+
+為了在真實市場環境下驗證技術指標組合與風控策略的有效性，CryptoSniper v2 設計了量化回測引擎，注重避免未來函數 (Zero Look-Ahead Bias)。系統將長週期的運算與 HTTP 請求解耦，透過 BullMQ 非同步背景任務佇列執行。
+
+### 回測資料與任務流向圖：
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 使用者 (Web Client)
+    participant Web as Next.js (/backtest)
+    participant API as NestJS BacktestController
+    participant DB as PostgreSQL (Prisma)
+    participant Queue as BullMQ (backtest.queue)
+    participant Worker as BullMQ BacktestProcessor
+    participant Binance as 幣安 REST API (BinanceService)
+    participant Engine as BacktestEngine 核心撮合
+
+    User->>Web: 設定策略、幣種、時間區間、槓桿與風控 (SL/TP)
+    Web->>API: POST /api/backtest/run (BacktestRequestDto)
+    API->>DB: 建立 BacktestJob 紀錄 (狀態: PENDING)
+    API->>Queue: backtestQueue.add({ jobId, userId, config })
+    API-->>Web: 回傳 { jobId, status: "PENDING" }
+    Web->>API: 輪詢進度 GET /api/backtest/jobs/:id
+
+    Note over Queue,Worker: 非同步背景消費
+    Queue->>Worker: 提取任務執行 (process)
+    Worker->>DB: 更新 BacktestJob 狀態為 RUNNING
+
+    loop 針對回測涉及之幣種與時框 (例如 BTCUSDT 1d & 4h)
+        Worker->>DB: 檢查 HistoricalKline 歷史 K 線覆蓋區間
+        alt 歷史 K 線不完整或缺失
+            Worker->>Binance: getKlinesRange (分頁遞迴拉取 1000 根 / 次)
+            Binance-->>Worker: 回傳原始 K 線數據
+            Worker->>DB: 批次寫入 HistoricalKline (避免重複)
+        else 歷史 K 線完整
+            Worker->>DB: 直接讀取快取之歷史 K 線
+        end
+    end
+
+    Worker->>Engine: 載入歷史數據與策略配置啟動回測
+    Note over Engine: 1. 跨時框向前填充對齊 (alignMultiTimeframe)<br/>2. 嚴格杜絕未來函數：大時框僅取已閉合 K 棒<br/>3. 次根 K 棒開盤價撮合 (Bar i+1 Open)
+    loop 逐根 K 棒模擬迭代 (Bar-by-Bar)
+        alt 已持有部位
+            Engine->>Engine: ExitEvaluator 評估 (固定停損/停利/反向平倉/自訂條件)
+            opt 觸發出場
+                Engine->>Engine: 於當前 Bar 平倉，扣除手續費與滑價，結算損益
+            end
+        else 未持有部位
+            Engine->>Engine: 評估進場指標 (Bar i 收盤確立訊號)
+            opt 觸發進場訊號
+                Engine->>Engine: 鎖定於 Bar i+1 開盤價進場<br/>依 1% 資金風險公式計算動態部位價值
+            end
+        end
+    end
+
+    Engine->>Worker: 回傳交易日誌與權益曲線 (Equity Curve)
+    Worker->>Worker: 計算績效指標 (ROI, MDD, WinRate, Sharpe, Calmar, PF)
+    Worker->>DB: 更新 BacktestJob (狀態: COMPLETED, result: 績效資料)
+    Web->>API: 輪詢取得 COMPLETED 結果
+    API-->>Web: 回傳完整回測報告與每筆交易明細
+    Web->>User: 渲染 TradingView 權益曲線與績效指標看板
+```
+
+### 核心量化架構設計要點：
+
+1. **嚴格無未來函數 (Zero Look-Ahead Bias)**：
+   - 傳統回測最常見的作弊陷阱是在 Bar $i$ 計算指標時使用了尚未走完的收盤價，或在 Bar $i$ 出現訊號時直接以 Bar $i$ 的收盤價或極值成交。
+   - 本引擎嚴格規定：**訊號在 Bar $i$ 收盤時確立，撮合引擎強制於 Bar $i+1$ 的開盤價 (Open) 執行**。
+   - 所有指標計算嚴格基於已閉合 K 棒，進出場皆在次根 K 棒開盤價撮合，確保實際即時交易時能夠 100% 重現回測結果。
+2. **跨時框向前填充 (Multi-Timeframe Forward Fill)**：
+   - 當策略同時採用大時框濾網（例如 1D EMA100）與小時框進場（例如 4H 或 15m EMA 金叉）時，小時框必須對齊大時框狀態。
+   - 引擎採用**時間戳向前填充 (Forward Fill)**：在主時框（如 4H）某時間點 $T$，僅讀取在大時框上**開盤時間小於等於 $T - \text{大時框週期}$ 且已完全收盤**的指標數值，防止未來大時框數據逆流至小時框。
+3. **動態風險部位管理 (Fixed 1% Risk Sizing)**：
+   - 為了防範單筆交易劇烈回撤引發爆倉，引擎內建單筆固定風險模型：
+     $$\text{Position Value} = \frac{\text{Equity} \times 1\%}{|\text{Stop Loss \%}|}$$
+   - 不論使用者設定 3% 還是 10% 的停損距離，該筆交易觸發停損時的實際虧損金額皆精準鎖定在總資金的 1% 左右，槓桿僅用於調節保證金佔用，實現機構級資金管理。
+4. **真實摩擦成本模擬 (Friction & Slippage)**：
+   - 每筆交易雙向（開倉與平倉）各計入 **0.05% 幣安合約 Taker 手續費** 與 **0.02%~0.05% 市價滑價**。
+   - 實證測試表明，此項設置能真實揭露 15m 高頻交易因頻繁交易被手續費嚴重磨損的殘酷真相，避免使用者陷入無摩擦回測的虛假正收益幻覺中。
+5. **雙軌風控出場機制 (`ExitEvaluator`)**：
+   - **固定停損 (Fixed SL) / 固定停利 (Fixed TP)**：價格觸及閾值立刻離場保本或鎖利。
+   - **反向平倉 (Signal Reverse Exit)**：若持有多單時市場出現空方訊號，立即平倉多單，無需等待停利。
+   - **自訂指標平倉條件**：支援依據 `EMA`, `SMA`, `RSI`, `MACD`, `PRICE` 組合自訂出場邏輯。
 
 ---
 
@@ -497,3 +614,4 @@ Redis 7.x 在系統中扮演**高速快取**與**非同步任務佇列 Broker (B
 7. **雙 Token 認證與 Session 劫持防禦**：Access Token (30min) + Refresh Token (7d) 架構搭配 HttpOnly Secure Cookie 傳輸、Token Rotation（每次刷新舊 Token 廢棄）、User-Agent 比對偵測 Session 劫持，以及 CSPRNG 驗證碼防暴力破解機制。
 8. **策略篩選引擎效能優化**：SHA-256 配置 Hash 快取去重、行情預熱偵測（10% 覆蓋率門檻）、20 並發批次控制、K 線回退即時拉取，確保在 700+ 交易對 × 9 時框的規模下依然秒級回應。
 9. **NestJS 七層全域管線**：IP 黑名單 → 速率限制 → JWT 認證 → RBAC 授權 → DTO 白名單驗證 → 業務邏輯 → 日誌/指標/回應格式化，每層獨立可配置，搭配 `__systemLogged` 標記防止日誌重複寫入。
+10. **量化回測引擎與撮合機制**：針對量化交易常見的未來函數問題，採次根 K 棒開盤價 (Bar $i+1$ Open) 撮合、跨時框向前填充 (Forward Fill) 對齊、雙向手續費與滑價磨損計入，配合 BullMQ 非同步任務佇列與風險部位動態換算，提供更貼近真實市場的回測評估。

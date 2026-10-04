@@ -7,7 +7,7 @@ trigger: always_on
 ## Prisma Usage
 
 - NEVER use raw `delete()` for User entities.
-- Always use soft-delete via `deletedAt`.
+- Always use soft-delete via `deletedAt` for User. Non-user transactional logs and job entities (such as BacktestJob, RefreshToken, WatchlistItem, etc.) are allowed to use raw `delete()`.
 
 ## Migration Policy
 

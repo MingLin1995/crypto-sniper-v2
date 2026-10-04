@@ -90,6 +90,7 @@ function ScreenerContent() {
   const [strategies, setStrategies] = useState<SavedStrategy[]>([]);
   const [strategyName, setStrategyName] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
+  const [editingStrategyId, setEditingStrategyId] = useState<string | null>(null);
 
   // 分類與拖曳狀態
   const [customCategories, setCustomCategories] = useState<string[]>([]);
@@ -358,6 +359,8 @@ function ScreenerContent() {
   const handleReset = () => {
     setTimeframes([]);
     handleScreen([]);
+    setStrategyName('');
+    setEditingStrategyId(null);
   };
 
   // 分類與拖曳排序處理函式
@@ -592,9 +595,9 @@ function ScreenerContent() {
     }
   };
 
-  // 3. 儲存當前策略
-  const handleSaveStrategy = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // 3. 儲存與更新當前策略
+  const handleSaveStrategy = async (e?: React.FormEvent, forceNew = false) => {
+    if (e) e.preventDefault();
     const trimmedName = strategyName.trim();
     if (!trimmedName) return;
 
@@ -618,18 +621,38 @@ function ScreenerContent() {
       const sanitizedTimeframes = sanitizeTimeframes(timeframes);
       const userStrategies = strategies.filter((s) => s.name !== '__categories__');
 
-      const res = await fetch('/api/strategies', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: trimmedName,
-          config: {
-            timeframes: sanitizedTimeframes,
-            category: locale === 'zh-TW' ? '未分類' : 'Uncategorized',
-            sortOrder: userStrategies.length,
-          },
-        }),
-      });
+      let res;
+      if (editingStrategyId && !forceNew) {
+        const existing = strategies.find(s => s.id === editingStrategyId);
+        const category = existing?.config?.category || (locale === 'zh-TW' ? '未分類' : 'Uncategorized');
+        const sortOrder = existing?.config?.sortOrder ?? userStrategies.length;
+
+        res = await fetch(`/api/strategies/${editingStrategyId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: trimmedName,
+            config: {
+              timeframes: sanitizedTimeframes,
+              category,
+              sortOrder,
+            },
+          }),
+        });
+      } else {
+        res = await fetch('/api/strategies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: trimmedName,
+            config: {
+              timeframes: sanitizedTimeframes,
+              category: locale === 'zh-TW' ? '未分類' : 'Uncategorized',
+              sortOrder: userStrategies.length,
+            },
+          }),
+        });
+      }
 
       const data = await res.json();
       if (!res.ok) {
@@ -637,12 +660,17 @@ function ScreenerContent() {
       }
 
       setStrategyName('');
+      setEditingStrategyId(null);
       fetchStrategies();
     } catch (err: any) {
       setError(err.message);
     } finally {
       setSaveLoading(false);
     }
+  };
+
+  const handleSaveAsNew = () => {
+    handleSaveStrategy(undefined, true);
   };
 
   // 4. 刪除策略
@@ -670,6 +698,9 @@ function ScreenerContent() {
   const handleLoadStrategy = (strategy: SavedStrategy) => {
     if (strategy.config && strategy.config.timeframes) {
       setTimeframes(strategy.config.timeframes);
+      setStrategyName(strategy.name);
+      setEditingStrategyId(strategy.id);
+      setError(null);
     }
   };
 
@@ -743,15 +774,22 @@ function ScreenerContent() {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent flex items-center gap-2">
             <Sparkles className="h-7 w-7 text-indigo-400 animate-pulse" />
-            {locale === 'zh-TW' ? '多時框均線篩選器' : 'Multi-Timeframe MA Screener'}
+            {locale === 'zh-TW' ? '多時框策略篩選器' : 'Multi-Timeframe Strategy Screener'}
           </h1>
           <p className="text-sm text-zinc-400 mt-1">
             {locale === 'zh-TW'
-              ? '自訂多時框 EMA/SMA 複合交叉條件，一鍵篩選全市場 USDT 永續合約標的。'
-              : 'Set multi-timeframe EMA/SMA crossing conditions to scan the market.'}
+              ? '自訂多時框策略，一鍵篩選幣安 USDT 永續合約標的。'
+              : 'Customize multi-timeframe strategies to scan Binance USDT perpetual contract pairs in one click.'}
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => router.push('/backtest')}
+            className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10 text-zinc-200"
+          >
+            {locale === 'zh-TW' ? '策略回測' : 'Strategy Backtesting'}
+          </Button>
           <Button
             variant="outline"
             onClick={() => router.push('/alerts')}
@@ -796,6 +834,8 @@ function ScreenerContent() {
             loading={loading}
             saveLoading={saveLoading}
             locale={locale}
+            editingStrategyId={editingStrategyId}
+            handleSaveAsNew={handleSaveAsNew}
           />
 
           <StrategyManager

@@ -9,7 +9,8 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/profile") ||
     pathname.startsWith("/screener") ||
     pathname.startsWith("/watchlist") ||
-    pathname.startsWith("/alerts");
+    pathname.startsWith("/alerts") ||
+    pathname.startsWith("/backtest");
 
   const refreshToken = request.cookies.get("refresh_token")?.value;
 

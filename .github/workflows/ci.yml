@@ -51,9 +51,100 @@ jobs:
           reporter: jest-junit
           fail-on-error: true # 若有任何測試失敗，此 Step 也會判定為失敗，確保 CI 正常擋下錯誤
 
+      - name: 執行 Web 純邏輯單元測試 (Tier 1)
+        working-directory: apps/web
+        run: bun test src
+
+  test-e2e:
+    name: 執行端對端合約測試 (Playwright Tier 3)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dev_user
+          POSTGRES_PASSWORD: dev_password
+          POSTGRES_DB: app_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 檢出專案程式碼
+        uses: actions/checkout@v4
+
+      - name: 安裝 Bun 環境
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.3
+
+      - name: 安裝 Monorepo 依賴套件
+        run: bun install --frozen-lockfile
+
+      - name: 資料庫遷移與初始化 Seed 資料
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://dev_user:dev_password@127.0.0.1:5432/app_dev?schema=public
+          ADMIN_EMAIL_1: admin001@example.com
+          ADMIN_PASSWORD_1: "000000"
+          ADMIN_NICKNAME_1: admin001
+        run: |
+          bunx prisma generate
+          bunx prisma migrate deploy
+          bun run prisma/seed.ts
+
+      - name: 執行 API E2E 測試
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://dev_user:dev_password@127.0.0.1:5432/app_dev?schema=public
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+          JWT_SECRET: dev-jwt-secret-for-ci-at-least-32chars-long
+          JWT_REFRESH_SECRET: dev-jwt-refresh-secret-for-ci-at-least-32chars-long
+        run: bun run test:e2e
+
+      - name: 安裝 Playwright 瀏覽器核心 (Chromium)
+        working-directory: apps/web
+        run: bunx playwright install --with-deps chromium
+
+      - name: 執行 Web Playwright E2E 合約測試
+        working-directory: apps/web
+        env:
+          PORT: 3001
+          API_URL: http://127.0.0.1:3000/api
+          CI: true
+          DATABASE_URL: postgresql://dev_user:dev_password@127.0.0.1:5432/app_dev?schema=public
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+          FRONTEND_URL: http://localhost:3001
+          JWT_SECRET: dev-jwt-secret-for-ci-at-least-32chars-long
+          JWT_REFRESH_SECRET: dev-jwt-refresh-secret-for-ci-at-least-32chars-long
+        run: bun run test:e2e
+
+      - name: 上傳 Playwright 測試報告 (僅失敗或需追蹤時)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
   deploy:
     name: 建置 Docker 映像檔並部署至 AWS EC2
-    needs: test
+    needs: [test, test-e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
 
@@ -103,7 +194,7 @@ jobs:
       - name: 取得 GitHub Runner 公網 IP
         run: |
           for i in {1..3}; do
-            ip=$(curl -s --connect-timeout 5 https://checkip.amazonaws.com || curl -s --connect-timeout 5 https://ifconfig.me || curl -s --connect-timeout 5 https://api.ipify.org)
+            ip=$(curl -s --connect-timeout 5 https://checkip.amazonaws.com)
             ip=$(echo "$ip" | tr -d '\r' | tr -d '\n' | tr -d ' ')
             if [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               echo "RUNNER_IP=$ip" >> $GITHUB_ENV
@@ -127,61 +218,88 @@ jobs:
 
       - name: 建立與配置生產環境 .env 檔案
         env:
-          ALL_SECRETS: ${{ toJson(secrets) }}
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          APP_NAME: ${{ secrets.APP_NAME || 'crypto-sniper-v2' }}
+          PROJECT_NAME: ${{ secrets.PROJECT_NAME || 'crypto-sniper-v2' }}
+          PORT: '3000'
+          APP_PORT: '3000'
+          ENABLE_CORS: 'false'
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL || 'http://localhost:3001' }}
+          LOG_ALL_REQUESTS: 'false'
+          REDIS_HOST: 'redis'
+          REDIS_PORT: '6379'
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD || '' }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          API_DOMAIN: ${{ secrets.API_DOMAIN }}
+          WEB_DOMAIN: ${{ secrets.WEB_DOMAIN }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN || '30m' }}
+          JWT_REFRESH_EXPIRES_IN: ${{ secrets.JWT_REFRESH_EXPIRES_IN || '7d' }}
+          ADMIN_EMAIL_1: ${{ secrets.ADMIN_EMAIL_1 }}
+          ADMIN_NICKNAME_1: ${{ secrets.ADMIN_NICKNAME_1 }}
+          ADMIN_PASSWORD_1: ${{ secrets.ADMIN_PASSWORD_1 }}
+          ADMIN_EMAIL_2: ${{ secrets.ADMIN_EMAIL_2 }}
+          ADMIN_NICKNAME_2: ${{ secrets.ADMIN_NICKNAME_2 }}
+          ADMIN_PASSWORD_2: ${{ secrets.ADMIN_PASSWORD_2 }}
+          ADMIN_EMAIL_3: ${{ secrets.ADMIN_EMAIL_3 }}
+          ADMIN_NICKNAME_3: ${{ secrets.ADMIN_NICKNAME_3 }}
+          ADMIN_PASSWORD_3: ${{ secrets.ADMIN_PASSWORD_3 }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          WEB_PUSH_PUBLIC_KEY: ${{ secrets.WEB_PUSH_PUBLIC_KEY }}
+          WEB_PUSH_PRIVATE_KEY: ${{ secrets.WEB_PUSH_PRIVATE_KEY }}
         run: |
-          node -e '
-            const fs = require("fs");
-            const secrets = JSON.parse(process.env.ALL_SECRETS || "{}");
-            
-            // 基礎非敏感系統預設配置 (可被 GitHub Secrets 覆蓋)
-            const baseConfig = {
-              APP_NAME: "crypto-sniper-v2",
-              PROJECT_NAME: "crypto-sniper-v2",
-              PORT: "3000",
-              APP_PORT: "3000",
-              ENABLE_CORS: "false",
-              FRONTEND_URL: "http://localhost:3001",
-              LOG_ALL_REQUESTS: "false",
-              REDIS_HOST: "redis",
-              REDIS_PORT: "6379"
-            };
-
-            // 合併 baseConfig 與 GitHub Secrets
-            const mergedEnv = { ...baseConfig, ...secrets };
-
-            // 動態生成部署專用變數
-            if (mergedEnv.POSTGRES_USER && mergedEnv.POSTGRES_PASSWORD && mergedEnv.POSTGRES_DB) {
-              mergedEnv.DATABASE_URL = `postgresql://${mergedEnv.POSTGRES_USER}:${mergedEnv.POSTGRES_PASSWORD}@db:5432/${mergedEnv.POSTGRES_DB}?schema=public`;
-            }
-            if (process.env.REGISTRY) {
-              mergedEnv.API_IMAGE = `${process.env.REGISTRY}/cryptosniper-api:latest`;
-              mergedEnv.WEB_IMAGE = `${process.env.REGISTRY}/cryptosniper-web:latest`;
-            }
-
-            // 排除基礎設施與部署無關的 Secrets
-            const excludeKeys = [
-              "AWS_ACCESS_KEY_ID",
-              "AWS_SECRET_ACCESS_KEY",
-              "AWS_REGION",
-              "AWS_SG_ID",
-              "EC2_HOST",
-              "EC2_USERNAME",
-              "EC2_SSH_KEY",
-              "CF_ORIGIN_CERT",
-              "CF_ORIGIN_KEY",
-              "github_token"
-            ];
-
-            let envOutput = "";
-            for (const [key, value] of Object.entries(mergedEnv)) {
-              if (excludeKeys.includes(key)) continue;
-              if (value !== undefined && value !== null && value !== "") {
-                envOutput += `${key}=${value}\n`;
-              }
-            }
-            fs.writeFileSync(".env", envOutput.trim() + "\n");
-          '
+          cat << EOF > .env
+          APP_NAME=${APP_NAME}
+          PROJECT_NAME=${PROJECT_NAME}
+          PORT=${PORT}
+          APP_PORT=${APP_PORT}
+          ENABLE_CORS=${ENABLE_CORS}
+          FRONTEND_URL=${FRONTEND_URL}
+          LOG_ALL_REQUESTS=${LOG_ALL_REQUESTS}
+          REDIS_HOST=${REDIS_HOST}
+          REDIS_PORT=${REDIS_PORT}
+          POSTGRES_USER=${POSTGRES_USER}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          POSTGRES_DB=${POSTGRES_DB}
+          DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+          API_IMAGE=${REGISTRY}/cryptosniper-api:latest
+          WEB_IMAGE=${REGISTRY}/cryptosniper-web:latest
+          API_DOMAIN=${API_DOMAIN}
+          WEB_DOMAIN=${WEB_DOMAIN}
+          JWT_SECRET=${JWT_SECRET}
+          JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+          JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+          JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN}
+          ADMIN_EMAIL_1=${ADMIN_EMAIL_1}
+          ADMIN_NICKNAME_1=${ADMIN_NICKNAME_1}
+          ADMIN_PASSWORD_1=${ADMIN_PASSWORD_1}
+          ADMIN_EMAIL_2=${ADMIN_EMAIL_2}
+          ADMIN_NICKNAME_2=${ADMIN_NICKNAME_2}
+          ADMIN_PASSWORD_2=${ADMIN_PASSWORD_2}
+          ADMIN_EMAIL_3=${ADMIN_EMAIL_3}
+          ADMIN_NICKNAME_3=${ADMIN_NICKNAME_3}
+          ADMIN_PASSWORD_3=${ADMIN_PASSWORD_3}
+          SMTP_HOST=${SMTP_HOST}
+          SMTP_PORT=${SMTP_PORT}
+          SMTP_USER=${SMTP_USER}
+          SMTP_PASS=${SMTP_PASS}
+          GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+          GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+          DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+          WEB_PUSH_PUBLIC_KEY=${WEB_PUSH_PUBLIC_KEY}
+          WEB_PUSH_PRIVATE_KEY=${WEB_PUSH_PRIVATE_KEY}
+          EOF
+          # 移除空值設定行以保持乾淨
+          sed -i '/=$/d' .env
 
       - name: 建立 Traefik SSL 憑證與動態設定
         env:

@@ -10,7 +10,40 @@
 name: ${PROJECT_NAME:-app}-prod
 
 services:
-  # [邊界網關] 負責 HTTPS SSL 終止與子網域動態路由 (需對接 docker socket 與 SSL 憑證)
+  # [安全代理] 限制 Traefik 僅能透過安全白名單存取 Docker Daemon API，杜絕 Socket 直連洩漏與容器逃逸
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: ${PROJECT_NAME:-app}-socket-proxy-prod
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1
+      - NETWORKS=1
+      - SERVICES=1
+      - TASKS=1
+      - EVENTS=1
+      - INFO=1
+      - PING=1
+      - VERSION=1
+      - POST=0
+      - DELETE=0
+      - EXEC=0
+      - SECRETS=0
+      - VOLUMES=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket-proxy-net
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+
+  # [邊界網關] 負責 HTTPS SSL 終止與子網域動態路由 (透過 socket-proxy 安全取得容器標籤)
   traefik:
     image: traefik:v3.6
     container_name: ${PROJECT_NAME:-app}-traefik-prod
@@ -23,6 +56,8 @@ services:
       - '--api.dashboard=false'
       # 啟用 Docker 作為設定來源 (Provider)，自動監聽容器啟動/停止事件以動態調整路由表
       - '--providers.docker=true'
+      # 指定透過安全 Socket Proxy 存取 Docker API，避免 Traefik 容器直接掛載宿主機 Docker Socket
+      - '--providers.docker.endpoint=tcp://docker-socket-proxy:2375'
       # 預設不代理任何 Docker 容器，僅對帶有 traefik.enable=true 標籤的容器開啟路由 (零信任白名單)
       - '--providers.docker.exposedbydefault=false'
       # 指定 Traefik 與後端容器進行代理轉發時，專屬使用的外部 Docker 網路名稱
@@ -36,12 +71,14 @@ services:
     ports:
       - '443:443'
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
       - ./traefik/certs:/etc/traefik/certs:ro
+    depends_on:
+      - docker-socket-proxy
     networks:
       - traefik-public
       - app-network-prod
+      - socket-proxy-net
     logging:
       driver: 'json-file'
       options:
@@ -259,6 +296,11 @@ networks:
   app-network-prod:
     name: ${PROJECT_NAME:-app}_network_prod
     driver: bridge
+  # 內部專用安全網路：僅供 Traefik 與 Docker Socket Proxy 溝通，隔絕其餘應用容器
+  socket-proxy-net:
+    name: ${PROJECT_NAME:-app}_socket_proxy_net
+    internal: true
   # 外部邊界網路：供 Traefik 代理對外流量 (由 CI/CD 腳本自動檢查建立)
   traefik-public:
     external: true
+

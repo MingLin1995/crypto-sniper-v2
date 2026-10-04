@@ -447,7 +447,10 @@ function ProfileContent() {
           <Button variant="outline" onClick={() => router.push("/screener")} className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10">
             {locale === "zh-TW" ? "返回篩選器" : "Back to Screener"}
           </Button>
-          <Button variant="outline" onClick={handleLogout} className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 cursor-pointer">
+          <Button variant="outline" onClick={() => router.push("/backtest")} className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10">
+            {locale === "zh-TW" ? "策略回測" : "Strategy Backtesting"}
+          </Button>
+          <Button data-testid="profile-logout-btn" variant="outline" onClick={handleLogout} className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 cursor-pointer">
             {t.logoutBtn}
           </Button>
         </div>
@@ -468,7 +471,7 @@ function ProfileContent() {
       {/* Row 1: Profile Info + Account Security (2-column) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Profile Info Card */}
-        <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up hover-premium">
+        <Card data-testid="profile-info-card" className="border-indigo-500/15 glass-indigo animate-fade-in-up hover-premium">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-400">

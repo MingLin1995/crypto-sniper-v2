@@ -47,8 +47,8 @@ describe('BinanceService (幣安行情服務)', () => {
     });
   });
 
-  describe('getKlines (獲取歷史 K 線收盤價)', () => {
-    it('應能成功獲取 K 線並回傳數值型態的收盤價陣列', async () => {
+  describe('getKlines (獲取歷史 K 線完整 OHLCV 資料)', () => {
+    it('應能成功獲取 K 線並回傳完整欄位的 K 線資料陣列', async () => {
       const mockKlines = [
         [1625097600000, '34000.00', '35000.00', '33000.00', '34500.50', '1000.00', 1625101199999, '34500000.00', 500, '500.00', '17250000.00', '0'],
         [1625101200000, '34500.50', '36000.00', '34000.00', '35200.75', '1200.00', 1625104799999, '42240900.00', 600, '600.00', '21120450.00', '0'],
@@ -64,9 +64,30 @@ describe('BinanceService (幣安行情服務)', () => {
           symbol: 'BTCUSDT',
           interval: '1h',
           limit: 2,
+          startTime: undefined,
+          endTime: undefined,
         },
       });
-      expect(result).toEqual([34500.5, 35200.75]);
+      expect(result).toEqual([
+        {
+          openTime: 1625097600000,
+          open: 34000,
+          high: 35000,
+          low: 33000,
+          close: 34500.5,
+          volume: 1000,
+          closeTime: 1625101199999
+        },
+        {
+          openTime: 1625101200000,
+          open: 34500.5,
+          high: 36000,
+          low: 34000,
+          close: 35200.75,
+          volume: 1200,
+          closeTime: 1625104799999
+        }
+      ]);
     });
 
     it('當請求失敗時，應拋出錯誤', async () => {
@@ -158,6 +179,89 @@ describe('BinanceService (幣安行情服務)', () => {
 
       await expect(interceptor.rejected(mockError)).rejects.toEqual(mockError);
       expect(service.getUsedWeight()).toBe(250);
+    });
+  });
+
+  describe('getKlinesOHLCV (獲取歷史 K 線完整 OHLCV 資料)', () => {
+    it('應能成功獲取 K 線並回傳包含完整 OHLCV 欄位且數值型態正確的物件陣列', async () => {
+      const mockKlines = [
+        [1625097600000, '34000.00', '35000.00', '33000.00', '34500.50', '1000.00', 1625101199999, '34500000.00', 500, '500.00', '17250000.00', '0'],
+      ];
+      const getSpy = jest.spyOn(service['axiosInstance'], 'get').mockResolvedValueOnce({
+        data: mockKlines,
+        headers: {},
+      });
+
+      const result = await service.getKlinesOHLCV('BTCUSDT', '1h', 1, 1625097600000, 1625101199999);
+      expect(getSpy).toHaveBeenCalledWith('/fapi/v1/klines', {
+        params: {
+          symbol: 'BTCUSDT',
+          interval: '1h',
+          limit: 1,
+          startTime: 1625097600000,
+          endTime: 1625101199999,
+        },
+      });
+      expect(result).toEqual([
+        {
+          openTime: 1625097600000,
+          open: 34000.00,
+          high: 35000.00,
+          low: 33000.00,
+          close: 34500.50,
+          volume: 1000.00,
+          closeTime: 1625101199999,
+        },
+      ]);
+    });
+  });
+
+  describe('getKlinesOHLCVPaginated (分頁歷史 K 線爬蟲)', () => {
+    it('應能按分頁循環獲取所有歷史 K 線直至結束時間', async () => {
+      const kline1 = [1625097600000, '34000.00', '35000.00', '33000.00', '34500.50', '1000.00', 1625101199999, '34500000.00', 500, '500.00', '17250000.00', '0'];
+      const kline2 = [1625101200000, '34500.50', '36000.00', '34000.00', '35200.75', '1200.00', 1625104799999, '42240900.00', 600, '600.00', '21120450.00', '0'];
+
+      const getSpy = jest.spyOn(service['axiosInstance'], 'get')
+        .mockResolvedValueOnce({
+          data: [kline1],
+          headers: {},
+        })
+        .mockResolvedValueOnce({
+          data: [kline2],
+          headers: {},
+        });
+
+      const result = await service.getKlinesOHLCVPaginated('BTCUSDT', '1h', 1625097600000, 1625104799999);
+      expect(getSpy).toHaveBeenCalledTimes(2);
+      expect(result.length).toBe(2);
+      expect(result[0].openTime).toBe(1625097600000);
+      expect(result[1].openTime).toBe(1625101200000);
+    });
+
+    it('若 API 回傳空陣列應立即中斷循環', async () => {
+      const getSpy = jest.spyOn(service['axiosInstance'], 'get').mockResolvedValueOnce({
+        data: [],
+        headers: {},
+      });
+
+      const result = await service.getKlinesOHLCVPaginated('BTCUSDT', '1h', 1625097600000, 1625104799999);
+      expect(getSpy).toHaveBeenCalledTimes(1);
+      expect(result).toEqual([]);
+    });
+
+    it('當權重過高時應觸發 rate limit 暫停保護', async () => {
+      service['lastUsedWeight'] = 2100;
+      const checkRateLimitSpy = jest.spyOn(service as any, 'checkRateLimit');
+      
+      jest.spyOn(service['axiosInstance'], 'get').mockResolvedValueOnce({
+        data: [],
+        headers: {},
+      });
+
+      checkRateLimitSpy.mockImplementationOnce(async () => {});
+
+      await service.getKlinesOHLCVPaginated('BTCUSDT', '1h', 1625097600000, 1625104799999);
+      expect(checkRateLimitSpy).toHaveBeenCalled();
     });
   });
 });

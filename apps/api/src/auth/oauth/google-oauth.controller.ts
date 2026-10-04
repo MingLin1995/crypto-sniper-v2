@@ -42,9 +42,12 @@ export class GoogleOAuthController {
     await this.redisService.getClient().set(`oauth_state:${state}`, JSON.stringify(stateData), 'EX', 300);
 
     const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
-    const callbackUrl = this.configService.get<string>('GOOGLE_CALLBACK_URL');
+    const apiDomain = this.configService.get<string>('API_DOMAIN');
+    const callbackUrl =
+      this.configService.get<string>('GOOGLE_CALLBACK_URL') ||
+      (apiDomain ? `https://${apiDomain}/api/auth/google/callback` : 'http://localhost:3000/api/auth/google/callback');
     const redirectUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(
-      callbackUrl || '',
+      callbackUrl,
     )}&response_type=code&scope=openid%20profile%20email&state=${state}&prompt=select_account`;
 
     res.redirect(redirectUrl);

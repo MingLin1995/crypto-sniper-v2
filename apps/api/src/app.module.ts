@@ -26,6 +26,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { AlertsModule } from './alerts/alerts.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MetricsModule } from './common/metrics/metrics.module';
+import { BacktestModule } from './backtest/backtest.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { MetricsModule } from './common/metrics/metrics.module';
     AlertsModule,
     NotificationsModule,
     MetricsModule,
+    BacktestModule,
   ],
   controllers: [AppController],
   providers: [

@@ -118,21 +118,62 @@ html.light .glow-bg {
 }
 
 html.light .border-indigo-500\/20, 
-html.light .border-indigo-500\/15 {
-  border-color: rgba(99, 102, 241, 0.3) !important;
+html.light .border-indigo-500\/15,
+html.light .border-indigo-500\/10 {
+  border-color: rgba(99, 102, 241, 0.25) !important;
 }
 
-html.light .bg-zinc-900\/50 {
-  background-color: rgba(255, 255, 255, 0.9) !important;
+html.light .bg-zinc-900,
+html.light .bg-zinc-900\/50,
+html.light .bg-zinc-900\/40,
+html.light .bg-zinc-900\/30,
+html.light .bg-zinc-900\/20,
+html.light .bg-zinc-950\/60,
+html.light .bg-zinc-950\/50,
+html.light .bg-zinc-950\/40,
+html.light .bg-zinc-950\/30,
+html.light .bg-zinc-950\/20 {
+  background-color: rgba(255, 255, 255, 0.85) !important;
   color: #0f172a !important;
+}
+
+html.light select,
+html.light option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.light input[type="date"],
+html.light input[type="number"],
+html.light input[type="text"],
+html.light input[type="password"],
+html.light input[type="email"] {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: rgba(99, 102, 241, 0.25) !important;
+}
+
+html.light .bg-red-950\/20,
+html.light .bg-red-950\/40 {
+  background-color: rgba(254, 242, 242, 0.85) !important;
+  border-color: rgba(252, 165, 165, 0.5) !important;
+}
+
+html.light .bg-purple-950\/20,
+html.light .bg-purple-950\/40 {
+  background-color: rgba(250, 245, 255, 0.85) !important;
+  border-color: rgba(216, 180, 254, 0.5) !important;
+}
+
+html.light .bg-indigo-950\/20,
+html.light .bg-indigo-950\/30,
+html.light .bg-indigo-950\/40 {
+  background-color: rgba(238, 242, 255, 0.85) !important;
+  border-color: rgba(199, 210, 254, 0.6) !important;
 }
 
 html.light .border-zinc-800 {
   border-color: rgba(226, 232, 240, 0.8) !important;
-}
-
-html.light .bg-zinc-950\/40 {
-  background-color: rgba(248, 250, 252, 0.5) !important;
 }
 
 html.light .border-zinc-800\/50 {
@@ -182,10 +223,6 @@ html.light .glass {
   background: rgba(255, 255, 255, 0.75) !important;
   border-color: rgba(0, 0, 0, 0.06) !important;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04) !important;
-}
-
-html.light .bg-zinc-950\/60 {
-  background-color: transparent !important;
 }
 
 /* Sleek custom scrollbars */

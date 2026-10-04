@@ -447,6 +447,9 @@ function ProfileContent() {
           <Button variant="outline" onClick={() => router.push("/screener")} className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10">
             {locale === "zh-TW" ? "返回篩選器" : "Back to Screener"}
           </Button>
+          <Button variant="outline" onClick={() => router.push("/backtest")} className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10">
+            {locale === "zh-TW" ? "策略回測" : "Strategy Backtesting"}
+          </Button>
           <Button variant="outline" onClick={handleLogout} className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 cursor-pointer">
             {t.logoutBtn}
           </Button>

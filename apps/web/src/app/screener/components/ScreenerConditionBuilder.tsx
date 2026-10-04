@@ -64,7 +64,7 @@ export function ScreenerConditionBuilder({
             <Sliders className="h-5 w-5 text-indigo-400" />
             {locale === 'zh-TW' ? '篩選條件設定' : 'Criteria Settings'}
           </CardTitle>
-          <Button size="sm" onClick={addTimeframeBlock} className="cursor-pointer gap-1">
+          <Button data-testid="screener-add-timeframe-btn" size="sm" onClick={addTimeframeBlock} className="cursor-pointer gap-1">
             <Plus className="h-4 w-4" />
             {locale === 'zh-TW' ? '新增時框區塊' : 'Add Timeframe'}
           </Button>
@@ -398,6 +398,7 @@ export function ScreenerConditionBuilder({
           <form onSubmit={handleSaveStrategy} className="flex items-center gap-2 flex-1 min-w-[240px]">
             <Input
               id="stratName"
+              data-testid="screener-strat-name-input"
               placeholder={locale === 'zh-TW' ? '輸入名稱以儲存策略...' : 'Enter strategy name...'}
               value={strategyName}
               onChange={(e) => setStrategyName(e.target.value)}
@@ -405,6 +406,7 @@ export function ScreenerConditionBuilder({
             />
             <Button
               type="submit"
+              data-testid="screener-save-strat-btn"
               size="sm"
               loading={saveLoading}
               className="cursor-pointer shrink-0 h-9 text-xs"
@@ -435,6 +437,7 @@ export function ScreenerConditionBuilder({
           <Button
             variant="outline"
             size="sm"
+            data-testid="screener-reset-btn"
             onClick={handleReset}
             className="h-9 text-xs cursor-pointer"
           >
@@ -444,6 +447,7 @@ export function ScreenerConditionBuilder({
           </Button>
           <Button
             size="sm"
+            data-testid="screener-run-scanner-btn"
             onClick={() => handleScreen()}
             loading={loading}
             className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white cursor-pointer font-bold gap-1 h-9 text-xs"

@@ -280,6 +280,7 @@ export function BacktestConfigForm({
             </CardTitle>
           </div>
           <Button
+            data-testid="backtest-start-btn"
             onClick={onStartBacktest}
             disabled={!selectedStrategyId || selectedSymbols.length === 0 || isDateRangeTooLong}
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-5 py-2 h-9 rounded-lg shadow-lg shadow-indigo-600/20 disabled:opacity-50"
@@ -298,6 +299,7 @@ export function BacktestConfigForm({
               {locale === 'zh-TW' ? '選擇已儲存之篩選策略' : 'Select Saved Strategy'}
             </label>
             <select
+              data-testid="backtest-strategy-select"
               value={selectedStrategyId}
               onChange={(e) => handleStrategyChange(e.target.value)}
               className="w-full h-9 bg-zinc-900 border border-zinc-800 rounded-lg px-3 text-zinc-100 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
@@ -342,6 +344,7 @@ export function BacktestConfigForm({
 
             <Input
               type="text"
+              data-testid="backtest-symbol-input"
               value={symbolText}
               onChange={(e) => setSymbolText(e.target.value)}
               onKeyDown={handleSymbolInputKeyDown}

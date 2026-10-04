@@ -617,6 +617,7 @@ function AlertsContent() {
         <div className="lg:col-span-3 flex flex-row lg:flex-col gap-2 overflow-x-auto pb-2 lg:pb-0">
           <button
             onClick={() => setActiveTab("active")}
+            data-testid="alerts-active-tab"
             className={`w-full text-left px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200 shrink-0 cursor-pointer ${
               activeTab === "active"
                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
@@ -627,6 +628,7 @@ function AlertsContent() {
           </button>
           <button
             onClick={() => setActiveTab("history")}
+            data-testid="alerts-history-tab"
             className={`w-full text-left px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200 shrink-0 cursor-pointer ${
               activeTab === "history"
                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
@@ -637,6 +639,7 @@ function AlertsContent() {
           </button>
           <button
             onClick={() => setActiveTab("channels")}
+            data-testid="alerts-channels-tab"
             className={`w-full text-left px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200 shrink-0 cursor-pointer ${
               activeTab === "channels"
                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
@@ -660,6 +663,7 @@ function AlertsContent() {
                   </CardDescription>
                 </div>
                 <Button
+                  data-testid="alerts-create-btn"
                   onClick={handleOpenCreateModal}
                   className="cursor-pointer bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shrink-0 flex items-center gap-1"
                 >
@@ -770,7 +774,7 @@ function AlertsContent() {
 
           {/* TAB 2: Trigger History */}
           {activeTab === "history" && (
-            <Card className="border-indigo-500/15 glass-indigo animate-fade-in-up hover-premium">
+            <Card data-testid="alerts-history-card" className="border-indigo-500/15 glass-indigo animate-fade-in-up hover-premium">
               <CardHeader className="pb-4 border-b border-indigo-500/10">
                 <CardTitle className="text-lg">📜 {t.alertHistoryTab}</CardTitle>
                 <CardDescription className="text-xs text-zinc-400 mt-1">

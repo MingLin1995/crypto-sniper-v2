@@ -28,15 +28,19 @@ crypto-sniper-v2/
 │   │   │   ├── main.ts            # API Entry point
 │   │   │   ├── app.module.ts      # Root module
 │   │   │   ├── auth/              # Authentication logic (JWT strategies, guards)
-│   │   │   └── users/             # User management (CRUD, soft delete)
+│   │   │   ├── users/             # User management (CRUD, soft delete)
+│   │   │   ├── market/            # Market data ingestion & screener engine
+│   │   │   ├── alerts/            # Price alerts matching & multi-channel push
+│   │   │   └── backtest/          # Quantitative backtest engine & BullMQ queue
 │   │   └── prisma/
 │   │       ├── schema.prisma      # Database schema
 │   │       └── seed.ts            # Database seeder
 │   └── web/                       # Next.js Frontend App Router
 │       └── src/
-│           └── app/               # App Router pages and layouts
+│           └── app/               # Pages: /screener, /backtest, /alerts, /watchlist, /profile
 ├── packages/
 │   └── shared/                    # Shared TypeScript models and DTO validations
+├── docs/                          # Comprehensive architectural and operational documentation
 ├── .env.example                   # Environment variable template
 ├── docker-compose.dev.yml         # Dev containers (db, redis, app/api, web)
 ├── docker-compose.prod.yml        # Prod containers configuration

@@ -26,6 +26,13 @@ CryptoSniper v2 是一款基於 Monorepo 架構設計的企業級加密貨幣即
 - **極限容量保護**：生產環境實施「內外雙層限制法則」，設定 Redis 記憶體淘汰機制 (`--maxmemory 28mb` & `volatile-lru`)，配合 Docker 外層限制，防止分頁換出（Swap）拖垮 EC2 I/O。
 - **故障自動降級**：若 Redis 連線中斷，黑名單過濾將自動降級改為查詢 PostgreSQL 資料庫，確保防禦不中斷。
 
+### 4. 量化回測引擎與撮合機制
+
+- **撮合機制與時間對齊**：指標計算基於已收盤 K 棒，進出場訊號在當根 K 棒收盤確立，撮合引擎於次根 K 棒開盤價 (Open) 執行，避免數據滲漏與虛假收益。
+- **跨時框向前填充 (Forward Fill)**：在大時框（如 1D）與主時框（如 4H/15m）對齊時，使用當時已確認閉合之大時框數值進行填充，防範未來行情穿越。
+- **風控與資金部位管理**：內建固定風險模型（如 1% 總資金風險換算動態下單價值），支援固定停損 (SL)、固定停利 (TP)、反向平倉 (Signal Reverse Exit) 與自訂技術指標平倉條件。
+- **BullMQ 非同步任務管線**：長週期與多幣種回測由背景 BullMQ Worker 執行並動態回傳進度百分比，前端即時更新權益曲線 (Equity Curve) 與 TradingView 圖表。
+
 ---
 
 ## 系統架構與資料流向
@@ -106,6 +113,13 @@ CryptoSniper v2 是一款基於 Monorepo 架構設計的企業級加密貨幣即
 
 ---
 
+## 策略與進出場模式指南
+
+詳細的策略篩選語法（4 大核心指標 `EMA`、`SMA`、`RSI`、`MACD`）以及風控出場機制（固定停損、固定停利、反向平倉、自訂平倉條件與單筆 1% 資金風險部位換算），請參考：
+**[策略篩選與進出場模式指南](./docs/STRATEGY_AND_EXIT_GUIDE.md)**
+
+---
+
 ## 技術棧一覽
 
 | 類別              | 技術                      | 說明                                                      |
@@ -129,10 +143,16 @@ CryptoSniper v2 是一款基於 Monorepo 架構設計的企業級加密貨幣即
 crypto-sniper-v2/
 ├── apps/
 │   ├── api/                    # NestJS 11.x 後端 API 服務 (內部埠口 3000)
-│   │   ├── src/                # 業務邏輯 (Auth, Users, Tasks, Logs)
+│   │   ├── src/
+│   │   │   ├── auth/           # 認證與授權 (JWT、Passport、OAuth)
+│   │   │   ├── users/          # 使用者管理 (CRUD、軟刪除)
+│   │   │   ├── market/         # 行情模組 (Binance REST/WS、指標計算、Screener 篩選)
+│   │   │   ├── alerts/         # 到價告警比對與多管道通知 (TG, DC, Web Push)
+│   │   │   ├── backtest/       # 量化回測引擎 (撮合、風控、多時框對齊、BullMQ 佇列)
+│   │   │   └── common/         # 共用 Guard、Interceptor、Filter、Logger
 │   │   └── prisma/             # Prisma Schema 與 Seed 資料
 │   └── web/                    # Next.js 14.x App Router 前端介面 (內部埠口 3001)
-│       └── src/                # 前端頁面與組件
+│       └── src/app/            # 前端頁面 (screener, backtest, alerts, watchlist, profile)
 ├── packages/
 │   └── shared/                 # 前後端共享之型別定義與 DTO 規範 (workspace:*)
 ├── prometheus/                 # Prometheus 設定檔
@@ -202,16 +222,18 @@ docker compose -f docker-compose.dev.yml exec app bun run prisma:seed
 所有的詳細架構設計與踩坑指引，均已彙整於 `docs/` 目錄中：
 
 1. **[系統架構與全端資料流向指南 (docs/SYSTEM_ARCHITECTURE_AND_DATA_FLOWS.md)](./docs/SYSTEM_ARCHITECTURE_AND_DATA_FLOWS.md)**
-   - 詳細分析了系統的 9 大核心資料流向、資料庫實體關係圖 (ERD)、Redis Key 空間設計，以及 NestJS 七層防禦管線架構。
-2. **[雲端基礎設施配置與 EC2 部署指南 (docs/CLOUD_INFRASTRUCTURE_SETUP.md)](./docs/CLOUD_INFRASTRUCTURE_SETUP.md)**
+   - 詳細分析了系統的 10 大核心資料流向、量化回測引擎與非同步任務管線、資料庫實體關係圖 (ERD)、Redis Key 空間設計，以及 NestJS 七層防禦管線架構。
+2. **[策略篩選與進出場模式完整指南 (docs/STRATEGY_AND_EXIT_GUIDE.md)](./docs/STRATEGY_AND_EXIT_GUIDE.md)**
+   - 記錄了純粹 4 大核心技術指標 (`EMA`, `SMA`, `RSI`, `MACD`)、多時框策略、雙軌風控出場機制（SL/TP、反向平倉、自訂平倉）、單筆 1% 風險部位換算公式，以及三大經回測驗證策略之量化分析。
+3. **[雲端基礎設施配置與 EC2 部署指南 (docs/CLOUD_INFRASTRUCTURE_SETUP.md)](./docs/CLOUD_INFRASTRUCTURE_SETUP.md)**
    - 記錄了 AWS ECR 私有庫建立、Cloudflare DNS 與 SSL Full (Strict) 原生憑證掛載、Docker Log Rotation 日誌旋轉策略、Prometheus 容量保護，以及動態 SSH 白名單機制。
-3. **[CryptoSniper v2 踩坑指南 (docs/GUIDE_TO_PITFALLS.md)](./docs/GUIDE_TO_PITFALLS.md)**
-   - 收錄了 17 個開發與運維過程中真實發生的「血淚踩坑案例」，涵蓋 Prisma client 擴充、半開連線看門狗、Discord 限流規避、Cloudflare 雙層子網域證書握手失敗、以及 Redis Swap 懲罰等技術細節。
-4. **[補充技術設計細節 (docs/SUPPLEMENTARY_TECHNICAL_DETAILS.md)](./docs/SUPPLEMENTARY_TECHNICAL_DETAILS.md)**
-   - 收錄了 Monorepo 工作空間架構、OAuth Email 衝突處理策略、Telegram Widget 簽名驗證、OAuth 解綁安全、WebSocket 重連防事件洩漏與定時清理排程等 6 個特色設計細節。
-5. **[第三方 API 金鑰配置說明 (docs/API_KEYS_SETUP.md)](./docs/API_KEYS_SETUP.md)**
+4. **[CryptoSniper v2 踩坑指南 (docs/GUIDE_TO_PITFALLS.md)](./docs/GUIDE_TO_PITFALLS.md)**
+   - 收錄了 19 個開發與運維過程中真實發生的「血淚踩坑案例」，涵蓋 Prisma client 擴充、半開連線看門狗、Discord 限流規避、Cloudflare 雙層子網域證書握手失敗、Redis Swap 懲罰、以及量化回測未來函數規避與跨時框對齊陷阱。
+5. **[補充技術設計細節 (docs/SUPPLEMENTARY_TECHNICAL_DETAILS.md)](./docs/SUPPLEMENTARY_TECHNICAL_DETAILS.md)**
+   - 收錄了 Monorepo 工作空間架構、OAuth Email 衝突處理策略、Telegram Widget 簽名驗證、OAuth 解綁安全、WebSocket 重連防事件洩漏與定時清理排程等特色設計細節。
+6. **[第三方 API 金鑰配置說明 (docs/API_KEYS_SETUP.md)](./docs/API_KEYS_SETUP.md)**
    - 包含 Binance API、Telegram Bot API、Discord Webhook 以及 PWA Web Push 憑證的申請與本地/雲端配置說明。
-6. **[新專案設定與部署指南 (docs/PROJECT_SETUP.md)](./docs/PROJECT_SETUP.md)**
+7. **[新專案設定與部署指南 (docs/PROJECT_SETUP.md)](./docs/PROJECT_SETUP.md)**
    - 提供更詳細的本地開發細節、Prisma 各式 CLI 操作命令指引，以及常用 NestJS 指令。
 
 ---

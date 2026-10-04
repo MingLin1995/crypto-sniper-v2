@@ -4,7 +4,7 @@ FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 
 COPY package.json bun.lock* ./
-RUN bun install --frozen-lockfile
+RUN bun install
 
 COPY . .
 RUN bunx prisma generate
@@ -23,13 +23,13 @@ RUN addgroup -g 1001 -S nodejs && \
 RUN apk add --no-cache netcat-openbsd
 
 COPY --chown=nestjs:nodejs package.json bun.lock* ./
-RUN bun install --frozen-lockfile --production
+RUN bun install --production
 
 COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nestjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nestjs:nodejs /app/prisma.config.ts ./
-
-RUN bunx prisma generate
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 
 # 複製 entrypoint script
 COPY --chown=nestjs:nodejs docker-entrypoint.sh /usr/local/bin/

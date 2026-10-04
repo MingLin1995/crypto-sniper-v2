@@ -209,6 +209,9 @@ export class AuthService {
 
     await this.usersService.update(user.id, { password: passwordInput });
 
+    // 重設密碼後，強制撤銷該使用者所有的 Refresh Token 與既有登入 Session
+    await this.usersService.deleteUserRefreshTokens(user.id);
+
     return { message: '密碼已成功重設' };
   }
 }

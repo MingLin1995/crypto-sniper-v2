@@ -59,6 +59,9 @@ export class UpdateUserDto {
     example: 'https://discord.com/api/webhooks/...',
     required: false,
   })
+  @Matches(/^https:\/\/(canary\.|ptb\.)?discord(app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/, {
+    message: 'discordWebhook 必須是合法的 Discord Webhook 網址',
+  })
   @IsString()
   @IsOptional()
   discordWebhook?: string | null;

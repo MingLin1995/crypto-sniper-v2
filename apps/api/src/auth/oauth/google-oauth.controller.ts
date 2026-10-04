@@ -27,20 +27,9 @@ export class GoogleOAuthController {
   ) {
     const state = crypto.randomUUID();
     const referer = req.headers.referer;
-    let origin = '';
-    if (referer) {
-      try {
-        const refUrl = new URL(referer);
-        origin = `${refUrl.protocol}//${refUrl.host}`;
-      } catch (e) {
-        // ignore
-      }
-    }
+    const origin = this.oauthService.resolveSafeOrigin(referer);
 
-    const stateData: any = { action };
-    if (origin) {
-      stateData.origin = origin;
-    }
+    const stateData: any = { action, origin };
 
     if (action === 'link') {
       const userId = this.oauthService.getUserIdFromRequest(req);

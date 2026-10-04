@@ -146,12 +146,12 @@ function LoginContent() {
       <CardContent className="grid gap-4">
         {/* Error & Success Messages */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm text-center">
+          <div data-testid="login-error-message" className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm text-center">
             {error}
           </div>
         )}
         {success && (
-          <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-lg text-sm text-center">
+          <div data-testid="login-success-message" className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-lg text-sm text-center">
             {success}
           </div>
         )}
@@ -161,6 +161,7 @@ function LoginContent() {
             <Label htmlFor="email">{t.email}</Label>
             <Input
               id="email"
+              data-testid="login-email-input"
               type="email"
               placeholder="name@example.com"
               value={email}
@@ -180,13 +181,14 @@ function LoginContent() {
             </div>
             <Input
               id="password"
+              data-testid="login-password-input"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
-          <Button type="submit" loading={loading} className="w-full mt-2 cursor-pointer">
+          <Button data-testid="login-submit-button" type="submit" loading={loading} className="w-full mt-2 cursor-pointer">
             {t.loginBtn}
           </Button>
         </form>

@@ -51,9 +51,98 @@ jobs:
           reporter: jest-junit
           fail-on-error: true # 若有任何測試失敗，此 Step 也會判定為失敗，確保 CI 正常擋下錯誤
 
+      - name: 執行 Web 純邏輯單元測試 (Tier 1)
+        working-directory: apps/web
+        run: bun test src
+
+  test-e2e:
+    name: 執行端對端合約測試 (Playwright Tier 3)
+    runs-on: ubuntu-latest
+    steps:
+      - name: 檢出專案程式碼
+        uses: actions/checkout@v4
+
+      - name: 安裝 Bun 環境
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.3
+
+      - name: 安裝 Monorepo 依賴套件
+        run: bun install --frozen-lockfile
+
+      - name: 啟動測試用 PostgreSQL 與 Redis 服務
+        run: |
+          docker compose -f docker-compose.dev.yml up -d db redis
+          echo "等待 PostgreSQL 與 Redis 就緒..."
+          until docker compose -f docker-compose.dev.yml exec -T db pg_isready -U dev_user -d app_dev; do sleep 1; done
+          until docker compose -f docker-compose.dev.yml exec -T redis redis-cli ping | grep PONG; do sleep 1; done
+
+      - name: 資料庫遷移與初始化 Seed 資料
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://dev_user:dev_password@localhost:5432/app_dev?schema=public
+          ADMIN_EMAIL_1: admin001@example.com
+          ADMIN_PASSWORD_1: "000000"
+          ADMIN_NICKNAME_1: admin001
+        run: |
+          bunx prisma generate
+          bunx prisma migrate deploy
+          bun run prisma/seed.ts
+
+      - name: 執行 API E2E 測試
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://dev_user:dev_password@localhost:5432/app_dev?schema=public
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: dev-jwt-secret-for-ci-at-least-32chars-long
+          JWT_REFRESH_SECRET: dev-jwt-refresh-secret-for-ci-at-least-32chars-long
+        run: bun run test:e2e
+
+      - name: 背景啟動 NestJS API 服務
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://dev_user:dev_password@localhost:5432/app_dev?schema=public
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          PORT: 3000
+          FRONTEND_URL: http://localhost:3001
+          JWT_SECRET: dev-jwt-secret-for-ci-at-least-32chars-long
+          JWT_REFRESH_SECRET: dev-jwt-refresh-secret-for-ci-at-least-32chars-long
+        run: |
+          bun run start:dev &
+          echo "等待 NestJS API (http://localhost:3000/) 就緒..."
+          for i in {1..30}; do
+            if curl -s http://localhost:3000/ | grep -q "API 連線正常"; then
+              echo "NestJS API 服務已就緒！"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: 安裝 Playwright 瀏覽器核心 (Chromium)
+        working-directory: apps/web
+        run: bunx playwright install --with-deps chromium
+
+      - name: 執行 Web Playwright E2E 合約測試
+        working-directory: apps/web
+        env:
+          PORT: 3001
+          API_URL: http://localhost:3000/api
+          CI: true
+        run: bun run test:e2e
+
+      - name: 上傳 Playwright 測試報告 (僅失敗或需追蹤時)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
   deploy:
     name: 建置 Docker 映像檔並部署至 AWS EC2
-    needs: test
+    needs: [test, test-e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
 

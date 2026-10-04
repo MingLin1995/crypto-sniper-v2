@@ -42,10 +42,18 @@ export default defineConfig({
       dependencies: ['setup'],
     },
   ],
-  webServer: {
-    command: 'bun run dev',
-    url: BASE_URL,
-    reuseExistingServer: true,
-    timeout: 60 * 1000,
-  },
+  webServer: [
+    {
+      command: 'bun --cwd ../api run start:dev',
+      url: 'http://localhost:3000/',
+      reuseExistingServer: true,
+      timeout: 60 * 1000,
+    },
+    {
+      command: 'bun run dev',
+      url: BASE_URL,
+      reuseExistingServer: true,
+      timeout: 60 * 1000,
+    },
+  ],
 });

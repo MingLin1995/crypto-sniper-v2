@@ -58,6 +58,30 @@ jobs:
   test-e2e:
     name: 執行端對端合約測試 (Playwright Tier 3)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dev_user
+          POSTGRES_PASSWORD: dev_password
+          POSTGRES_DB: app_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: 檢出專案程式碼
         uses: actions/checkout@v4
@@ -69,13 +93,6 @@ jobs:
 
       - name: 安裝 Monorepo 依賴套件
         run: bun install --frozen-lockfile
-
-      - name: 啟動測試用 PostgreSQL 與 Redis 服務
-        run: |
-          docker compose -f docker-compose.dev.yml up -d db redis
-          echo "等待 PostgreSQL 與 Redis 就緒..."
-          until docker compose -f docker-compose.dev.yml exec -T db pg_isready -U dev_user -d app_dev; do sleep 1; done
-          until docker compose -f docker-compose.dev.yml exec -T redis redis-cli ping | grep PONG; do sleep 1; done
 
       - name: 資料庫遷移與初始化 Seed 資料
         working-directory: apps/api
@@ -99,27 +116,6 @@ jobs:
           JWT_REFRESH_SECRET: dev-jwt-refresh-secret-for-ci-at-least-32chars-long
         run: bun run test:e2e
 
-      - name: 背景啟動 NestJS API 服務
-        working-directory: apps/api
-        env:
-          DATABASE_URL: postgresql://dev_user:dev_password@localhost:5432/app_dev?schema=public
-          REDIS_HOST: localhost
-          REDIS_PORT: 6379
-          PORT: 3000
-          FRONTEND_URL: http://localhost:3001
-          JWT_SECRET: dev-jwt-secret-for-ci-at-least-32chars-long
-          JWT_REFRESH_SECRET: dev-jwt-refresh-secret-for-ci-at-least-32chars-long
-        run: |
-          bun run start:dev &
-          echo "等待 NestJS API (http://localhost:3000/) 就緒..."
-          for i in {1..30}; do
-            if curl -s http://localhost:3000/ | grep -q "API 連線正常"; then
-              echo "NestJS API 服務已就緒！"
-              break
-            fi
-            sleep 2
-          done
-
       - name: 安裝 Playwright 瀏覽器核心 (Chromium)
         working-directory: apps/web
         run: bunx playwright install --with-deps chromium
@@ -130,6 +126,12 @@ jobs:
           PORT: 3001
           API_URL: http://localhost:3000/api
           CI: true
+          DATABASE_URL: postgresql://dev_user:dev_password@localhost:5432/app_dev?schema=public
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          FRONTEND_URL: http://localhost:3001
+          JWT_SECRET: dev-jwt-secret-for-ci-at-least-32chars-long
+          JWT_REFRESH_SECRET: dev-jwt-refresh-secret-for-ci-at-least-32chars-long
         run: bun run test:e2e
 
       - name: 上傳 Playwright 測試報告 (僅失敗或需追蹤時)

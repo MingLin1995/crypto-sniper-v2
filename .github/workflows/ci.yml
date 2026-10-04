@@ -224,7 +224,9 @@ jobs:
           PORT: '3000'
           APP_PORT: '3000'
           ENABLE_CORS: 'false'
-          FRONTEND_URL: ${{ secrets.FRONTEND_URL || 'http://localhost:3001' }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL || (secrets.APP_DOMAIN && format('https://{0}', secrets.APP_DOMAIN)) || (secrets.WEB_DOMAIN && format('https://{0}', secrets.WEB_DOMAIN)) || 'http://localhost:3001' }}
+          CORS_ORIGINS: ${{ secrets.CORS_ORIGINS || (secrets.APP_DOMAIN && format('https://{0}', secrets.APP_DOMAIN)) || 'http://localhost:3001' }}
+          COOKIE_DOMAIN: ${{ secrets.COOKIE_DOMAIN || '' }}
           LOG_ALL_REQUESTS: 'false'
           REDIS_HOST: 'redis'
           REDIS_PORT: '6379'
@@ -264,8 +266,9 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_BOT_USERNAME: ${{ secrets.TELEGRAM_BOT_USERNAME || 'CryptoSniper_MLvip_Bot' }}
           TELEGRAM_WEBHOOK_URL: ${{ secrets.TELEGRAM_WEBHOOK_URL || '' }}
-          WEB_PUSH_PUBLIC_KEY: ${{ secrets.WEB_PUSH_PUBLIC_KEY }}
-          WEB_PUSH_PRIVATE_KEY: ${{ secrets.WEB_PUSH_PRIVATE_KEY }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY || secrets.WEB_PUSH_PUBLIC_KEY || '' }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY || secrets.WEB_PUSH_PRIVATE_KEY || '' }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT || 'mailto:admin@example.com' }}
         run: |
           cat << EOF > .env
           APP_NAME=${APP_NAME}
@@ -274,6 +277,8 @@ jobs:
           APP_PORT=${APP_PORT}
           ENABLE_CORS=${ENABLE_CORS}
           FRONTEND_URL=${FRONTEND_URL}
+          CORS_ORIGINS=${CORS_ORIGINS}
+          COOKIE_DOMAIN=${COOKIE_DOMAIN}
           LOG_ALL_REQUESTS=${LOG_ALL_REQUESTS}
           REDIS_HOST=${REDIS_HOST}
           REDIS_PORT=${REDIS_PORT}
@@ -316,8 +321,11 @@ jobs:
           TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
           NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
           TELEGRAM_WEBHOOK_URL=${TELEGRAM_WEBHOOK_URL}
-          WEB_PUSH_PUBLIC_KEY=${WEB_PUSH_PUBLIC_KEY}
-          WEB_PUSH_PRIVATE_KEY=${WEB_PUSH_PRIVATE_KEY}
+          VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+          VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+          VAPID_SUBJECT=${VAPID_SUBJECT}
+          WEB_PUSH_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+          WEB_PUSH_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
           EOF
           # 移除空值設定行以保持乾淨
           sed -i '/=$/d' .env

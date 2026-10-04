@@ -53,11 +53,19 @@ export class OAuthService {
   }
 
   getAllowedOrigins(): string[] {
-    const defaultFrontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    const appDomain = this.configService.get<string>('APP_DOMAIN');
+    const defaultFrontendUrl =
+      this.configService.get<string>('FRONTEND_URL') ||
+      (appDomain ? `https://${appDomain}` : 'http://localhost:3001');
     const allowed = new Set<string>();
     try {
       allowed.add(new URL(defaultFrontendUrl).origin);
     } catch {}
+    if (appDomain) {
+      try {
+        allowed.add(new URL(`https://${appDomain}`).origin);
+      } catch {}
+    }
 
     const corsOrigins = this.configService.get<string>('CORS_ORIGINS');
     if (corsOrigins) {
@@ -75,7 +83,10 @@ export class OAuthService {
   }
 
   resolveSafeOrigin(referer?: string): string {
-    const defaultFrontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    const appDomain = this.configService.get<string>('APP_DOMAIN');
+    const defaultFrontendUrl =
+      this.configService.get<string>('FRONTEND_URL') ||
+      (appDomain ? `https://${appDomain}` : 'http://localhost:3001');
     if (!referer) return defaultFrontendUrl;
     try {
       const refUrl = new URL(referer);
@@ -286,7 +297,10 @@ export class OAuthService {
     req: Request,
     res: Response,
   ) {
-    const defaultFrontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    const appDomain = this.configService.get<string>('APP_DOMAIN');
+    const defaultFrontendUrl =
+      this.configService.get<string>('FRONTEND_URL') ||
+      (appDomain ? `https://${appDomain}` : 'http://localhost:3001');
     let frontendUrl = defaultFrontendUrl;
 
     if (!code || !state) {
@@ -306,13 +320,18 @@ export class OAuthService {
 
     try {
       let profile: GoogleUserProfile | DiscordUserProfile;
+      const apiDomain = this.configService.get<string>('API_DOMAIN');
       if (provider === 'google') {
+        const googleCallbackUrl =
+          this.configService.get<string>('GOOGLE_CALLBACK_URL') ||
+          (apiDomain ? `https://${apiDomain}/api/auth/google/callback` : 'http://localhost:3000/api/auth/google/callback');
+
         const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
           client_id: this.configService.get<string>('GOOGLE_CLIENT_ID'),
           client_secret: this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
           code,
           grant_type: 'authorization_code',
-          redirect_uri: this.configService.get<string>('GOOGLE_CALLBACK_URL'),
+          redirect_uri: googleCallbackUrl,
         });
 
         const accessToken = tokenResponse.data.access_token;
@@ -321,12 +340,16 @@ export class OAuthService {
         });
         profile = userinfoResponse.data as GoogleUserProfile;
       } else {
+        const discordCallbackUrl =
+          this.configService.get<string>('DISCORD_CALLBACK_URL') ||
+          (apiDomain ? `https://${apiDomain}/api/auth/discord/callback` : 'http://localhost:3000/api/auth/discord/callback');
+
         const params = new URLSearchParams();
         params.append('client_id', this.configService.get<string>('DISCORD_CLIENT_ID') || '');
         params.append('client_secret', this.configService.get<string>('DISCORD_CLIENT_SECRET') || '');
         params.append('grant_type', 'authorization_code');
         params.append('code', code);
-        params.append('redirect_uri', this.configService.get<string>('DISCORD_CALLBACK_URL') || '');
+        params.append('redirect_uri', discordCallbackUrl);
 
         const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', params.toString(), {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

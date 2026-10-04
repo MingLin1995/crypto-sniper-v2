@@ -21,6 +21,9 @@ Thumbs.db
 # Tests
 /coverage
 /.nyc_output
+**/playwright-report/
+**/test-results/
+**/playwright/.auth/
 
 # IDEs and editors
 /.idea

@@ -3,6 +3,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { EmailVerificationService } from './email-verification.service';
 import { ConfigService } from '@nestjs/config';
+import { TurnstileGuard } from '../common/security/turnstile/turnstile.guard';
 
 describe('AuthController (認證控制器)', () => {
   let controller: AuthController;
@@ -50,8 +51,17 @@ describe('AuthController (認證控制器)', () => {
             get: jest.fn().mockReturnValue('development'),
           },
         },
+        {
+          provide: TurnstileGuard,
+          useValue: {
+            canActivate: jest.fn().mockReturnValue(true),
+          },
+        },
       ],
-    }).compile();
+    })
+      .overrideGuard(TurnstileGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<AuthController>(AuthController);
     authService = module.get(AuthService);

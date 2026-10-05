@@ -12,6 +12,7 @@ import { AuthService } from './auth.service';
 import { EmailVerificationService } from './email-verification.service';
 import { Public } from '../common/decorators/public.decorator';
 import { RefreshTokenGuard } from './refresh-token.guard';
+import { TurnstileGuard } from '../common/security/turnstile/turnstile.guard';
 import { LoginDto, RegisterDto, AuthResponseDto, LogoutResponseDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
 import { SendVerificationEmailDto } from './dto/email-verification.dto';
 import { Throttle } from '@nestjs/throttler';
@@ -65,6 +66,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(TurnstileGuard)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   @ApiOperation({ summary: '登入' })

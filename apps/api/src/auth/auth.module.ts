@@ -16,6 +16,7 @@ import { TelegramBotService } from './telegram-bot.service';
 import { UsersModule } from '../users/users.module';
 import { JWT_CONFIG } from '../common/config/jwt.config';
 import { VerificationCodeModule } from './verification-code.module';
+import { TurnstileModule } from '../common/security/turnstile/turnstile.module';
 import type { StringValue } from 'ms';
 
 @Module({
@@ -32,6 +33,7 @@ import type { StringValue } from 'ms';
     }),
     UsersModule,
     VerificationCodeModule,
+    TurnstileModule,
   ],
   controllers: [
     AuthController,

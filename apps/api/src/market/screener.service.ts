@@ -42,11 +42,16 @@ export class ScreenerService {
         }
 
         // 3. 行情預熱偵測：優先採樣 24h 交易量排行前列的熱門標的進行快取檢驗。
-        // 避免因字首字母排序（如 1000xxx 開頭冷門幣種）尚未排入前批排程而誤判系統預熱中。
+        // 若排行快取暫時為空，優先以主流標的為錨點候選清單，避免因字首字母排序（如 1000xxx 開頭冷門幣種）誤判系統預熱中。
         const ranking = (await this.marketCacheService.getVolumeRanking()) || [];
-        const candidateSymbols = ranking.length > 0
-          ? ranking.map((r) => r.symbol)
-          : symbols;
+        const fallbackAnchors = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT'];
+        const candidateSymbols =
+          ranking.length > 0
+            ? ranking.map((r) => r.symbol)
+            : [
+                ...symbols.filter((s) => fallbackAnchors.includes(s)),
+                ...symbols.filter((s) => !fallbackAnchors.includes(s)),
+              ];
 
         for (const tf of dto.timeframes) {
           const sampleCheckCount = Math.min(20, candidateSymbols.length);
@@ -54,9 +59,21 @@ export class ScreenerService {
           const caches = await Promise.all(
             sampleSymbols.map((s) => this.marketCacheService.getKlines(s, tf.interval)),
           );
-          const cachedCount = caches.filter((c) => c && c.length > 0).length;
-          
-          // 若採樣標的之快取全部皆缺失 (系統剛啟動且熱門標的尚未載入)，拋出預熱異常
+          let cachedCount = caches.filter((c) => c && c.length > 0).length;
+
+          // 若採樣標的之快取全部皆缺失，嘗試即時為前 3 檔核心標的拉取補齊
+          if (cachedCount === 0) {
+            const bootstrapCount = Math.min(3, sampleSymbols.length);
+            const bootstrapped = await Promise.all(
+              sampleSymbols.slice(0, bootstrapCount).map(async (s) => {
+                const klines = await this.getKlinesWithFallback(s, tf.interval);
+                return klines && klines.length > 0;
+              }),
+            );
+            cachedCount = bootstrapped.filter(Boolean).length;
+          }
+
+          // 若連即時拉取皆完全無資料 (如幣安 API 斷線或未就緒)，才拋出預熱異常
           if (cachedCount === 0) {
             throw new ServiceUnavailableException(`行情資料 (${tf.interval}) 預熱中，請稍後再試`);
           }
@@ -169,11 +186,14 @@ export class ScreenerService {
    * 將篩選配置結構化排序後雜湊，生成唯一的快取 Key
    */
   private hashConfig(dto: ScreenerRequestDto): string {
-    const normalized = dto.timeframes.map((tf) => ({
-      interval: tf.interval,
-      conditions: tf.conditions.map((c) => normalizeCondition(c))
-        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
-    })).sort((a, b) => a.interval.localeCompare(b.interval));
+    const normalized = dto.timeframes
+      .map((tf) => ({
+        interval: tf.interval,
+        conditions: tf.conditions
+          .map((c) => normalizeCondition(c))
+          .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+      }))
+      .sort((a, b) => a.interval.localeCompare(b.interval));
 
     const jsonStr = JSON.stringify(normalized);
     return crypto.createHash('sha256').update(jsonStr).digest('hex');

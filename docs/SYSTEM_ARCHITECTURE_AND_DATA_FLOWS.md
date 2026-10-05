@@ -252,7 +252,7 @@ flowchart TD
 ### 核心設計要點：
 
 1. **配置 Hash 去重快取**：將篩選條件（時框、MA 類型、週期、運算子）結構化排序後以 `SHA-256` 雜湊，相同配置的請求直接命中 Redis 快取（TTL: 60s），大幅減少重複計算。
-2. **行情預熱偵測 (Cache Warmup Detection)**：系統啟動後前幾分鐘 K 線快取尚未完備。Screener 在執行篩選前，先取樣 20 個交易對檢查快取覆蓋率，若低於 10%（任一時框），直接回傳 `503 Service Unavailable` 並附帶「行情資料預熱中」的友善提示，避免在資料不完整時產出錯誤的篩選結果。
+2. **行情預熱偵測 (Cache Warmup Detection)**：系統啟動後前幾分鐘 K 線快取尚未完備。Screener 在執行篩選前，優先依 24h 交易量排行前列與前 5 大主流錨點標的（BTC, ETH, SOL, BNB, XRP）檢查快取覆蓋率，若快取完全缺失，自動以 `getKlinesWithFallback` 觸發即時拉取補齊，僅在外部 API 完全無回應時才回傳 `503 Service Unavailable`，避免在系統剛啟動或冷門幣排序時誤判卡死。
 3. **併發批次控制**：對 700+ 交易對的篩選以 20 個為一批次執行 `Promise.all`，防止同時發起數百個 Redis 查詢造成 Redis 連線池耗盡。
 4. **K 線回退 (Fallback)**：若 Redis 中某交易對的 K 線快取已過期，Screener 會即時調用幣安 `GET /fapi/v1/klines` API 並回寫快取，確保篩選不因快取缺失而漏掉任何標的。
 5. **交易對清單降級策略**：`BinanceService.getUSDTFuturesSymbols()` 自帶 1 小時的 in-memory 快取。當幣安 API 調用失敗時，降級回傳舊快取資料，避免全系統連鎖中斷。

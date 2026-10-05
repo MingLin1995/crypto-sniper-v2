@@ -117,7 +117,7 @@ services:
         limits:
           memory: 128M
 
-  # [快取與佇列] 不開放 6379 Port；內外雙層限制 (內部 28M 觸發 LRU 淘汰，外部限制 40M)
+  # [快取與佇列] 不開放 6379 Port；內外雙層限制 (內部 36M 觸發 LRU 淘汰，外部限制 48M)
   redis:
     image: redis:7-alpine
     container_name: ${PROJECT_NAME:-app}-redis-prod
@@ -134,12 +134,12 @@ services:
       options:
         max-size: '10m'
         max-file: '3'
-    # Redis 啟動命令：內部硬性限制 28MB 觸發 LRU 淘汰機制，保留空間給 OS 網路 Buffer，避免觸發 Swap
-    command: redis-server --maxmemory 28mb --maxmemory-policy volatile-lru
+    # Redis 啟動命令：內部限制 36MB 搭配緊湊資料序列化，保留空間給 OS 網路 Buffer，避免觸發 Swap
+    command: redis-server --maxmemory 36mb --maxmemory-policy volatile-lru
     deploy:
       resources:
         limits:
-          memory: 40M
+          memory: 48M
 
   # [後端 API] 讀取 ECR 映像檔；透過 Traefik Labels 綁定 API_DOMAIN，並無本地原始碼掛載
   app:

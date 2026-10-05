@@ -111,17 +111,19 @@ describe('MarketScheduleService & MarketCacheService', () => {
       expect(mockRedisClient.expire).toHaveBeenCalledWith('market:prices', 30);
     });
 
-    it('setKlines 應依時間週期計算對應 TTL 並存入 K 線資料 JSON 字串', async () => {
+    it('setKlines 應依時間週期計算對應 TTL 並存入緊湊格式 K 線資料 JSON 字串', async () => {
       const prices = [
         { open: 100, high: 100, low: 100, close: 100, volume: 0, openTime: 0, closeTime: 0 },
         { open: 101, high: 101, low: 101, close: 101, volume: 0, openTime: 0, closeTime: 0 },
         { open: 102, high: 102, low: 102, close: 102, volume: 0, openTime: 0, closeTime: 0 }
       ];
+      const expectedCompact = prices.map(k => [k.openTime, k.open, k.high, k.low, k.close, k.volume, k.closeTime]);
+
       await cacheService.setKlines('BTCUSDT', '5m', prices);
-      expect(mockRedisClient.setex).toHaveBeenCalledWith('market:klines:BTCUSDT:5m', 7200, JSON.stringify(prices));
+      expect(mockRedisClient.setex).toHaveBeenCalledWith('market:klines:BTCUSDT:5m', 7200, JSON.stringify(expectedCompact));
 
       await cacheService.setKlines('BTCUSDT', '1d', prices);
-      expect(mockRedisClient.setex).toHaveBeenCalledWith('market:klines:BTCUSDT:1d', 604800, JSON.stringify(prices));
+      expect(mockRedisClient.setex).toHaveBeenCalledWith('market:klines:BTCUSDT:1d', 604800, JSON.stringify(expectedCompact));
     });
 
     it('getKlines 應能從 Redis 取得 K 線資料陣列', async () => {

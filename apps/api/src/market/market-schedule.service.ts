@@ -41,13 +41,13 @@ export class MarketScheduleService implements OnModuleInit {
       const ranking = await this.updatePricesAndRanking();
       const symbols = await this.binanceService.getUSDTFuturesSymbols();
 
-      // 啟動時預熱常用時框的 K 線快取
+      // 啟動時預熱常用核心時框的熱門標的 K 線快取 (優先預熱前 50 檔熱門標的，避免任務過多或記憶體超限)
       if (ranking.length > 0 && symbols.length > 0) {
-        this.logger.log('Warming up K-line caches on startup...');
-        const warmupIntervals = ['5m', '15m', '30m', '1h', '2h', '4h', '1d', '1w', '1M'];
+        this.logger.log('Warming up K-line caches on startup (Hot 50 symbols)...');
+        const warmupIntervals = ['15m', '1h', '4h', '1d', '5m'];
         for (const interval of warmupIntervals) {
-          // 傳入快取的 symbols 與 ranking，且設定 startProcessor = false，防範啟動時的競態條件
-          await this.enqueueKlinesForInterval(interval, false, symbols, ranking);
+          // 傳入快取的 symbols 與 ranking，且設定 startProcessor = false，防範啟動時的競態條件；hotOnly = true
+          await this.enqueueKlinesForInterval(interval, false, symbols, ranking, true);
         }
         // 統一在全部任務皆已入列並排好順序後，才一次性啟動處理器，確保完全遵守優先權排序
         this.processQueue();
@@ -191,6 +191,7 @@ export class MarketScheduleService implements OnModuleInit {
     startProcessor = true,
     cachedSymbols?: string[],
     cachedRanking?: VolumeRanking[],
+    hotOnly = false,
   ) {
     try {
       const symbols = cachedSymbols || (await this.binanceService.getUSDTFuturesSymbols());
@@ -225,7 +226,10 @@ export class MarketScheduleService implements OnModuleInit {
       let targetSymbols: string[] = [];
 
       // 實作熱度分流策略，冷門交易對依分鐘進行模除分流，以降低單次排程之 API 負載
-      if (interval === '5m') {
+      if (hotOnly) {
+        // 僅針對熱門標的更新 (啟動預熱專用，避免寫入過多 Key 導致 Redis LRU 淘汰)
+        targetSymbols = hotSymbols;
+      } else if (interval === '5m') {
         const groupIdx = Math.floor(new Date().getMinutes() / 5) % 3;
         const coldToUpdate = coldSymbols.filter((_, idx) => idx % 3 === groupIdx);
         targetSymbols = [...hotSymbols, ...coldToUpdate];
@@ -237,9 +241,25 @@ export class MarketScheduleService implements OnModuleInit {
         const groupIdx = Math.floor(new Date().getMinutes() / 30) % 2;
         const coldToUpdate = coldSymbols.filter((_, idx) => idx % 2 === groupIdx);
         targetSymbols = [...hotSymbols, ...coldToUpdate];
+      } else if (interval === '1h' || interval === '2h') {
+        // 1h/2h: 熱門交易對每次更新，冷門交易對依小時模除分流 (4 組分流)
+        const currentHour = new Date().getHours();
+        const coldToUpdate = coldSymbols.filter((_, idx) => idx % 4 === currentHour % 4);
+        targetSymbols = [...hotSymbols, ...coldToUpdate];
+      } else if (interval === '4h') {
+        // 4h: 冷門交易對依 4 小時區間模除分流 (3 組分流)
+        const groupIdx = Math.floor(new Date().getHours() / 4) % 3;
+        const coldToUpdate = coldSymbols.filter((_, idx) => idx % 3 === groupIdx);
+        targetSymbols = [...hotSymbols, ...coldToUpdate];
+      } else if (interval === '1d') {
+        // 1d: 冷門交易對依日期奇偶分流 (2 組分流)
+        const groupIdx = new Date().getDate() % 2;
+        const coldToUpdate = coldSymbols.filter((_, idx) => idx % 2 === groupIdx);
+        targetSymbols = [...hotSymbols, ...coldToUpdate];
       } else {
-        // 大於 30m 的長時框，每次排程皆更新所有交易對
-        targetSymbols = symbols;
+        // 1w, 1M: 長週期更新熱門標的與首批冷門標的
+        const coldToUpdate = coldSymbols.filter((_, idx) => idx % 3 === 0);
+        targetSymbols = [...hotSymbols, ...coldToUpdate];
       }
 
       // 將任務加到佇列中，避免重複

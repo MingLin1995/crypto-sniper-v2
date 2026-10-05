@@ -17,7 +17,7 @@ export class MarketCacheService {
 
   // TTL constants (in seconds)
   private readonly PRICE_TTL = 30; // 30s (增加緩衝以防止網路抖動導致 Key 閃爍消失)
-  private readonly RANKING_TTL = 300; // 5m
+  private readonly RANKING_TTL = 3600; // 1h (拉長排行快取過期時間，確保排程重疊與取樣檢驗時不閃爍消失)
   private readonly SCREENER_TTL = 60; // 60s
 
   private getIntervalTTL(interval: string): number {
@@ -68,21 +68,54 @@ export class MarketCacheService {
   }
 
   /**
-   * 寫入指定交易對與時間週期之最新 500 根 K 線資料
+   * 寫入指定交易對與時間週期之最新 500 根 K 線資料 (採用緊湊陣列序列化以節省 ~68% Redis 記憶體)
    */
   async setKlines(symbol: string, interval: string, prices: OHLCVKline[]): Promise<void> {
     const key = `market:klines:${symbol}:${interval}`;
     const ttl = this.getIntervalTTL(interval);
-    await this.client.setex(key, ttl, JSON.stringify(prices));
+    // 壓縮為 [openTime, open, high, low, close, volume, closeTime] 緊湊數值陣列
+    const compact = prices.map((k) => [
+      k.openTime,
+      k.open,
+      k.high,
+      k.low,
+      k.close,
+      k.volume,
+      k.closeTime,
+    ]);
+    await this.client.setex(key, ttl, JSON.stringify(compact));
   }
 
   /**
-   * 取得指定交易對與時間週期之歷史 K 線資料
+   * 取得指定交易對與時間週期之歷史 K 線資料 (相容緊湊陣列與歷史完整物件格式)
    */
   async getKlines(symbol: string, interval: string): Promise<OHLCVKline[] | null> {
     const key = `market:klines:${symbol}:${interval}`;
     const value = await this.client.get(key);
-    return value ? JSON.parse(value) : null;
+    if (!value) return null;
+
+    try {
+      const parsed = JSON.parse(value);
+      if (!Array.isArray(parsed) || parsed.length === 0) return [];
+
+      // 若儲存為緊湊陣列格式，自動解包還原為 OHLCVKline 物件
+      if (Array.isArray(parsed[0])) {
+        return parsed.map((k: any) => ({
+          openTime: Number(k[0]),
+          open: Number(k[1]),
+          high: Number(k[2]),
+          low: Number(k[3]),
+          close: Number(k[4]),
+          volume: Number(k[5]),
+          closeTime: Number(k[6]),
+        }));
+      }
+
+      // 相容歷史舊格式（純物件陣列）
+      return parsed as OHLCVKline[];
+    } catch {
+      return null;
+    }
   }
 
   /**

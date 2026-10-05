@@ -16,6 +16,9 @@ declare global {
           theme?: "light" | "dark" | "auto";
           size?: "normal" | "flexible" | "compact";
           action?: string;
+          retry?: "auto" | "never";
+          "retry-interval"?: number;
+          "refresh-expired"?: "auto" | "manual" | "never";
         }
       ) => string;
       reset: (widgetId?: string) => void;
@@ -65,6 +68,17 @@ export const Turnstile = forwardRef<TurnstileRef, TurnstileProps>(
       },
     }));
 
+    const onSuccessRef = useRef(onSuccess);
+    const onErrorRef = useRef(onError);
+    const onExpireRef = useRef(onExpire);
+    const renderedKeyRef = useRef<string | null>(null);
+
+    useEffect(() => {
+      onSuccessRef.current = onSuccess;
+      onErrorRef.current = onError;
+      onExpireRef.current = onExpire;
+    });
+
     useEffect(() => {
       if (!siteKey) return;
 
@@ -73,10 +87,19 @@ export const Turnstile = forwardRef<TurnstileRef, TurnstileProps>(
       const renderWidget = () => {
         if (!isMounted || !containerRef.current || !window.turnstile) return;
 
+        // 若當前已存在相同 siteKey 的 Widget，避免重複建立導致重新整理或閃爍
+        if (widgetIdRef.current && renderedKeyRef.current === siteKey) {
+          return;
+        }
+
         try {
           if (widgetIdRef.current) {
             window.turnstile.remove(widgetIdRef.current);
             widgetIdRef.current = null;
+          }
+
+          if (containerRef.current) {
+            containerRef.current.innerHTML = "";
           }
 
           const id = window.turnstile.render(containerRef.current, {
@@ -84,22 +107,27 @@ export const Turnstile = forwardRef<TurnstileRef, TurnstileProps>(
             theme,
             callback: (token: string) => {
               if (isMounted) {
-                onSuccess(token);
+                onSuccessRef.current?.(token);
               }
             },
             "error-callback": (errorCode?: string) => {
               if (isMounted) {
-                onError?.(errorCode);
+                console.warn("[Turnstile] Cloudflare 驗證端點狀態碼:", errorCode);
+                onErrorRef.current?.(errorCode);
               }
             },
             "expired-callback": () => {
               if (isMounted) {
-                onExpire?.();
+                onExpireRef.current?.();
               }
             },
+            retry: "auto",
+            "retry-interval": 4000,
+            "refresh-expired": "auto",
           });
 
           widgetIdRef.current = id;
+          renderedKeyRef.current = siteKey;
         } catch (e) {
           console.error("[Turnstile] 渲染 Widget 失敗:", e);
         }
@@ -126,6 +154,16 @@ export const Turnstile = forwardRef<TurnstileRef, TurnstileProps>(
           if (prevCallback) prevCallback();
           renderWidget();
         };
+
+        // 輪詢保護：防範腳本在回呼掛載前已非同步載入完成
+        const checkInterval = setInterval(() => {
+          if (window.turnstile) {
+            clearInterval(checkInterval);
+            renderWidget();
+          }
+        }, 100);
+
+        setTimeout(() => clearInterval(checkInterval), 6000);
       }
 
       return () => {
@@ -135,9 +173,10 @@ export const Turnstile = forwardRef<TurnstileRef, TurnstileProps>(
             window.turnstile.remove(widgetIdRef.current);
           } catch {}
           widgetIdRef.current = null;
+          renderedKeyRef.current = null;
         }
       };
-    }, [siteKey, theme, onSuccess, onError, onExpire]);
+    }, [siteKey, theme]);
 
     if (!siteKey) {
       return null;

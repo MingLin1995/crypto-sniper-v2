@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,20 @@ function LoginContent() {
   }, []);
 
   const isTurnstileRequired = turnstileConfig.enabled && Boolean(turnstileConfig.siteKey);
+
+  const handleTurnstileSuccess = useCallback((token: string) => {
+    setTurnstileToken(token);
+    setError(null);
+  }, []);
+
+  const handleTurnstileError = useCallback((errorCode?: string) => {
+    console.warn("[Login] Turnstile 驗證事件異常:", errorCode);
+    setTurnstileToken(null);
+  }, []);
+
+  const handleTurnstileExpire = useCallback(() => {
+    setTurnstileToken(null);
+  }, []);
 
   // Bot username from env or fallback
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "CryptoSniper_MLvip_Bot";
@@ -231,17 +245,9 @@ function LoginContent() {
             <Turnstile
               ref={turnstileRef}
               siteKey={turnstileConfig.siteKey}
-              onSuccess={(token) => {
-                setTurnstileToken(token);
-                setError(null);
-              }}
-              onError={() => {
-                setTurnstileToken(null);
-                setError("安全防護驗證異常，請重新嘗試");
-              }}
-              onExpire={() => {
-                setTurnstileToken(null);
-              }}
+              onSuccess={handleTurnstileSuccess}
+              onError={handleTurnstileError}
+              onExpire={handleTurnstileExpire}
             />
           )}
 

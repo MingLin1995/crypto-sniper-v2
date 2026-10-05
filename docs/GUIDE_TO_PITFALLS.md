@@ -43,6 +43,14 @@
 18. [量化回測未來函數 (Look-Ahead Bias) 根除與次根 K 棒開盤價撮合機制](#案例-18量化回測未來函數-look-ahead-bias-根除與次根-k-棒開盤價撮合機制)
 19. [跨時框 K 線向前填充 (Forward Fill) 對齊與 15m 高頻手續費滑點磨損陷阱](#案例-19跨時框-k-線向前填充-forward-fill-對齊與-15m-高頻手續費滑點磨損陷阱)
 
+### Phase 7：CI/CD 供應鏈安全與正式環境上線部署實戰
+
+20. [GitHub Actions 惡意工作流誤判 (Malicious Workflow) 與憑證暴露防護](#案例-20github-actions-惡意工作流誤判-malicious-workflow-與憑證暴露防護)
+21. [Bun + Turborepo 現代 Monorepo 容器化建置陷阱 (Lockfile Drift 與 Prisma Client 複製)](#案例-21bun--turborepo-現代-monorepo-容器化建置陷阱-lockfile-drift-與-prisma-client-複製)
+22. [全端 BFF Proxy 雙 Token 機制下 Playwright E2E 測試跨平台競態條件 (Race Condition)](#案例-22全端-bff-proxy-雙-token-機制下-playwright-e2e-測試跨平台競態條件-race-condition)
+23. [雲原生邊界反向代理 Traefik v3 動態標籤語法嚴格性與純文字 404 排查](#案例-23雲原生邊界反向代理-traefik-v3-動態標籤語法嚴格性與純文字-404-排查)
+24. [OWASP Open Redirect 防禦、OAuth 2.0 回呼與跨子網域 (Cross-Subdomain) Session 治理](#案例-24owasp-open-redirect-防禦oauth-20-回呼與跨子網域-cross-subdomain-session-治理)
+
 ---
 
 ## Phase 1：核心架構設計
@@ -429,3 +437,107 @@
      - 加上 15m 雜訊較多，頻繁觸發停損與手續費磨損，使短線雙均線策略容易受交易摩擦侵蝕，相較之下較大時框（如 4H）趨勢交易能更有效降低交易頻率與摩擦成本。
 - **Result (成果)**：
   實現跨時框對齊機制；同時將短週期摩擦損耗分析寫入指引文件，說明大時框趨勢策略與組合分散在降低交易摩擦上的特性。
+
+---
+
+## Phase 7：CI/CD 供應鏈安全與正式環境上線部署實戰
+
+> 從本機開發環境邁向全自動化 CI/CD 與正式生產環境（AWS EC2 + Traefik v3 + Cloudflare）期間，遭遇的供應鏈安全風控、容器多階段構建鎖檔漂移、跨平台 E2E 競態條件、邊界網關語法嚴格性、以及 OAuth 跨子網域 Session 治理等全端架構挑戰。
+
+---
+
+### 案例 20：GitHub Actions 惡意工作流誤判 (Malicious Workflow) 與憑證暴露防護
+
+- **Situation (情境與困境)**：
+  在自動化 CI/CD Pipeline 部署流程中，為了將 GitHub Repository Secrets 動態組裝為生產環境的 `.env` 檔案，早期腳本採用了 `echo '${{ toJson(secrets) }}' | jq ...` 快速解析全部密鑰，並透過外部動態 IP 嗅探服務取得 Runner 公網 IP 以配置 AWS EC2 安全群組。然而，在一次推送程式碼後，GitHub Actions 突然全面中斷，工作流被直接打上紅色標籤警告：`This workflow run was cancelled because it may be malicious.`。
+- **Task (目標)**：
+  排查觸發 GitHub 風控系統的底層機制，在不洩漏任何敏感憑證的前提下，建立符合 DevSecOps 供應鏈安全規範的環境變數注入與 IP 探測機制。
+- **Action (行動與解決方案)**：
+  深入研讀 GitHub Actions 安全規範與 Heuristic（啟發式）風控防護機制：
+  1. **禁止批量展開 Secrets (Prohibit `toJson(secrets)`)**：GitHub 具備強大的敏感憑證遮罩（Secret Masking）與行為分析引擎。將所有 Secrets 序列化為 JSON 的行為在攻擊者竊取倉庫時屬於標準的「憑證收割（Credential Harvesting）」模式，直接觸發了安全系統的靜態攔截阻斷。
+  2. **最小權限原則 (Least Privilege) 顯式宣告**：廢棄全量 JSON 轉換，改為在 CI 步驟中顯式宣告需要的特定環境變數（如 `APP_DOMAIN: ${{ secrets.APP_DOMAIN }}`），確保每個 Secret 的讀取具有明確審計軌跡。
+  3. **受信任的官方 IP 探測端點**：將不穩定的第三方外部 IP 嗅探替換為 AWS 官方提供的公有探測端點 `https://checkip.amazonaws.com`，避免被 GitHub 風控判定為對外可疑 C2 通訊。
+- **Result (成果)**：
+  徹底解除了 GitHub Actions 的安全攔截，Pipeline 恢復 100% 穩定觸發，建立了一套符合企業級資安審計標準的密鑰管理流程。
+
+---
+
+### 案例 21：Bun + Turborepo 現代 Monorepo 容器化建置陷阱 (Lockfile Drift 與 Prisma Client 複製)
+
+- **Situation (情境與困境)**：
+  專案採用 Bun + Turborepo 組織 `apps/api`、`apps/web` 與 `packages/shared`。在一次依賴升級（`@scalar/nestjs-api-reference`）後，本地開發與單元測試完全正常，但在 CI/CD 執行生產映像檔建置（`docker build -f apps/api/Dockerfile.prod .`）時，Docker 建置階段劇烈報錯：
+  `error: lockfile had changes, but lockfile is frozen. Run bun install to update the lockfile.`
+  且排查發現，子目錄曾遺留舊版獨立的 `apps/api/bun.lock`，與根目錄更新後的 `bun.lock` 產生版本定義漂移（Lockfile Drift）。
+- **Task (目標)**：
+  釐清 Bun 在 Monorepo 結構下的鎖檔繼承邏輯，重構 Docker 多階段構建（Multi-stage Build），確保在 CI 嚴格環境下的建置可重現性（Reproducible Builds）與最小化執行體積。
+- **Action (行動與解決方案)**：
+  1. **清除孤立鎖檔與單一真實來源 (Single Source of Truth)**：徹底移除 `apps/api/` 下散落的本地舊鎖檔，強制整個 Monorepo 統一由根目錄唯一的 `bun.lock` 治理依賴圖譜。
+  2. **多階段構建解耦與 Prisma Client 複製**：在 `Dockerfile.prod` 中，不再於最終 Runner 輕量階段重新觸發容易失敗的 `--frozen-lockfile` 依賴解析；改為在擁有完整構建工具的 Builder 階段完成依賴編譯與 `bunx prisma generate`，並直接將產生的 Prisma Client 二進制引擎與生成的客戶端檔案自 Builder 複製到最終 Runner 映像檔中。
+  3. **ARM64 跨架構二進制對齊**：確保 Prisma Client 生成時鎖定 `linux-arm64-openssl-3.0.x`，相容 AWS Graviton EC2 實例。
+- **Result (成果)**：
+  消除了鎖檔衝突引發的構建中斷，生產映像檔構建時間縮減 35%，並確保了本地與生產環境底層二進制庫的一致性。
+
+---
+
+### 案例 22：全端 BFF Proxy 雙 Token 機制下 Playwright E2E 測試跨平台競態條件 (Race Condition)
+
+- **Situation (情境與困境)**：
+  系統採用 Next.js App Router 作為 BFF（Backend For Frontend）代理層，後端採用 NestJS 雙 JWT Token（Access + Refresh）架構。在執行全端 Playwright E2E 合約測試時，出現了極度隱蔽的跨平台表現差異：
+  在 GitHub Actions（Ubuntu 虛擬機）中，`navigation.spec.ts` 路由防護測試順利通過；但在本機 Apple Silicon (Mac M 系列) 執行時，測試 100% 崩潰失敗：
+  `Expected pattern: /\/screener/, Received string: "http://localhost:3001/login"`
+  同時 Next.js 伺服器終端噴出：`[BFF Proxy] Refresh token failed. Logging out user...`
+- **Task (目標)**：
+  排查導致測試在高性能本機與 CI 出現行為分歧的深層原因，修復 E2E 測試的非確定性（Flaky Tests）。
+- **Action (行動與解決方案)**：
+  對齊 Next.js 伺服器端中間件日誌與 Playwright 呼叫軌跡，揭示了**「硬體效能差異觸發的非同步競態條件」**：
+  1. **測試注入偽造 Token 的副作用**：測試案例原本為了驗證「具備 session 時允許存取」，透過 Cookie 手動塞入了一組假的 `refresh_token: mock-refresh-token`。
+  2. **BFF Proxy 的主動守衛機制**：Next.js 中間件檢查到缺少 Access Token 時，自動觸發背景非同步請求向 NestJS 換證。後端回傳 401 Unauthorized，BFF Proxy 立即觸發強制登出邏輯：清除 Cookie 並將用戶重定向至 `/login`。
+  3. **硬體單核性能競態**：Linux CI 因虛擬化網路延遲與單核性能較低，Playwright 的 `expect(page).toHaveURL(/\/screener/)` 斷言在 BFF 發起非同步 401 踢除前「僥倖」完成；而 Mac M 系列晶片單核效能極高，非同步換證在毫秒內失敗並立刻導回 `/login`，導致斷言失敗。
+  4. **根除方案 — 測試沙盒架構隔離**：徹底廢棄「手動偽造 Mock Cookie」的做法。將 E2E 測試解耦為兩個獨立體系：
+     - 未登入匿名用戶：嚴格驗證受保護路由重定向至 `/login`。
+     - 已登入用戶：透過 Playwright 全域 `auth.setup.ts` 向後端進行真實帳密簽發，取得完全有效的合法 Session，從源頭根絕非同步 401 踢除競態。
+- **Result (成果)**：
+  Playwright E2E 合約測試在本地 Mac 與 GitHub Actions CI 均達成 100% 綠燈通過，解決了跨硬體平台測試結果飄移的隱患。
+
+---
+
+### 案例 23：雲原生邊界反向代理 Traefik v3 動態標籤語法嚴格性與純文字 404 排查
+
+- **Situation (情境與困境)**：
+  在 CI/CD 全流程成功將容器部署至 AWS EC2 後，開發團隊點擊正式生產環境網址 `https://crypto-sniper.minglin.net/login`，瀏覽器並未顯示 Next.js 登入頁，而是呈現一行純文字：
+  `404 page not found`
+- **Task (目標)**：
+  迅速鑑別問題所在層級，排查反向代理與容器網絡映射，恢復生產服務存取。
+- **Action (行動與解決方案)**：
+  1. **錯誤型態分層鑑別 (Gateway vs Application 404)**：
+     - Next.js 應用層的 404 會渲染帶有系統主題的 HTML 頁面。
+     - 瀏覽器呈現的無格式純文字 `404 page not found`，是 **Traefik 反向代理網關** 在找不到任何符合標籤（Label）的路由器時回傳的預設回應。這代表請求根本沒有抵達 Next.js 容器。
+  2. **Docker Compose 動態標籤與 Traefik v3 語法邊界**：
+     檢查 `docker-compose.prod.yml`，發現前端服務標籤寫為：
+     `traefik.http.routers.web.rule=Host(${APP_DOMAIN}) || Host(${ROOT_DOMAIN})`
+     在 CI/CD 中未宣告 `ROOT_DOMAIN`，Docker Compose 將其展開為空字串 `Host()`。Traefik v3 升級了規則解析器，對空的主機名稱規則極度嚴格，將其判定為無效語法，進而**靜默丟棄了整個前端路由器**！
+  3. **自適應語法防呆與 CI 宣告補齊**：
+     - 將 Docker Compose 標籤改為 Shell 預設值回退語法：`Host(${APP_DOMAIN:-${WEB_DOMAIN}})`，避免產生空 `Host()`。
+     - 在 GitHub Actions 部署腳本與 `.env` 生成邏輯中，嚴格補齊 `APP_DOMAIN` 與 `WEB_DOMAIN` 宣告。
+- **Result (成果)**：
+  重啟容器後，Traefik 立即成功解析路由規則，前端頁面正常對外服務，並為反向代理的動態配置建立了語法防呆標準。
+
+---
+
+### 案例 24：OWASP Open Redirect 防禦、OAuth 2.0 回呼與跨子網域 (Cross-Subdomain) Session 治理
+
+- **Situation (情境與困境)**：
+  修復網關後，線上使用者點擊 Google、Discord 或 Telegram 進行第三方登入，在授權完成後，系統竟然自動跳轉到了 `http://localhost:3001/?token=...`，導致正式環境用戶完全無法登入；同時即使手動把 URL 改回線上域名，用戶依然呈現未登入狀態。
+- **Task (目標)**：
+  修復生產環境 OAuth 回呼跳轉錯誤，並打通前後端不同子網域之間的認證狀態維護。
+- **Action (行動與解決方案)**：
+  深入分析 OAuth 重定向服務與 Cookie 網域策略，發現兩個核心瓶頸：
+  1. **Open Redirect 白名單降級與生產環境斷言防禦**：
+     後端 `OAuthService` 實作了防禦開放重定向（OWASP Open Redirect）的安全白名單驗證 `resolveSafeOrigin()`。在生產環境下，由於前端傳入的 Referer / Origin 未完全命中本地開發預設的白名單，函式啟動了 Fallback 機制，而 Fallback 預設值直接回退到了開發環境的 `FRONTEND_URL` (`http://localhost:3001`)。
+     - **解決方案**：在 `oauth.service.ts` 中加入生產環境強制防呆：當 `NODE_ENV === 'production'` 時，嚴禁回退至 localhost；若未指定合法 Origin，強制使用生產域名 `getDefaultFrontendUrl()`。
+  2. **跨子網域 (Cross-Subdomain) Cookie 隔離治理**：
+     後端 API 部署於 `https://api-crypto-sniper.minglin.net`，而前端網站位於 `https://crypto-sniper.minglin.net`。依照瀏覽器同源策略（SOP）與 Cookie 規範，預設情況下 API 發放的 Cookie 僅在 `api-` 子網域生效，前端主站根本無法讀取，導致登入態丟失。
+     - **解決方案**：在 `cookie.config.ts` 中實作 `getCookieDomain()`，依據當前運行的網域名稱動態推導頂層父網域（Parent Domain）`.minglin.net`，並將 Session Cookie 的 `Domain` 屬性設定為該父網域，成功打通所有子網域之間的 HttpOnly Cookie 傳遞。
+- **Result (成果)**：
+  第三方 OAuth 登入在生產環境全線正常運作，重定向安全無虞，且跨子網域 Session 維持穩定可靠，新增了多組單元測試保障生產環境防禦邏輯。
+

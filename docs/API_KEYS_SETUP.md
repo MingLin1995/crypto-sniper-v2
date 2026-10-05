@@ -188,3 +188,42 @@ SMTP_USER=你的Gmail信箱 (例如 your-email@gmail.com)
 SMTP_PASS=你的16位應用程式密碼 (不含空白，例如 abcdefghijklmnop)
 ```
 
+---
+
+## 6. Cloudflare Turnstile 設定 (人機安全防護)
+
+Cloudflare Turnstile 用於登入前的智慧型人機安全防護，可有效防止惡意腳本、自動化暴力破解與撞庫攻擊。
+
+### 申請與設定步驟：
+
+1. **進入 Cloudflare 控制台**
+   - 瀏覽 [Cloudflare Dashboard](https://dash.cloudflare.com/)。
+   - 在左側選單選擇 **Turnstile**。
+
+2. **建立站點 (Add site)**
+   - 點擊 **「Add site」**。
+   - **Site name**：輸入名稱（例如 `CryptoSniper v2`）。
+   - **Domain**：輸入應用程式網域（例如 `example.com`；本機開發請填入 `localhost`）。
+   - **Widget Mode**：推薦選擇 **「Managed」** (智慧評估，低風險無感通過) 或 **「Non-interactive」**。
+   - 點擊 **「Create」**。
+
+3. **取得金鑰並填入設定**
+   - 建立後即可取得 **Site Key** (公鑰) 與 **Secret Key** (私鑰)。
+
+### 官方測試金鑰 (本機開發可直接使用)：
+- **永遠通過 (Always Pass)**：
+  - Site Key: `1x00000000000000000000AA`
+  - Secret Key: `1x0000000000000000000000000000000AA`
+- **永遠阻擋 (Always Block)**：
+  - Site Key: `2x00000000000000000000AB`
+  - Secret Key: `2x0000000000000000000000000000000AA`
+
+### `.env` 與 GitHub Actions Secrets 設定項目：
+
+```env
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=你的SiteKey (例如 1x00000000000000000000AA)
+TURNSTILE_SECRET_KEY=你的SecretKey (例如 1x0000000000000000000000000000000AA)
+TURNSTILE_ENABLED=true
+```
+
+

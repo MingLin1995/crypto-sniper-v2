@@ -114,6 +114,7 @@ jobs:
           REDIS_PORT: 6379
           JWT_SECRET: dev-jwt-secret-for-ci-at-least-32chars-long
           JWT_REFRESH_SECRET: dev-jwt-refresh-secret-for-ci-at-least-32chars-long
+          TURNSTILE_ENABLED: 'false'
         run: bun run test:e2e
 
       - name: 安裝 Playwright 瀏覽器核心 (Chromium)
@@ -132,6 +133,7 @@ jobs:
           FRONTEND_URL: http://localhost:3001
           JWT_SECRET: dev-jwt-secret-for-ci-at-least-32chars-long
           JWT_REFRESH_SECRET: dev-jwt-refresh-secret-for-ci-at-least-32chars-long
+          TURNSTILE_ENABLED: 'false'
         run: bun run test:e2e
 
       - name: 上傳 Playwright 測試報告 (僅失敗或需追蹤時)
@@ -187,6 +189,8 @@ jobs:
           file: ./apps/web/Dockerfile.prod
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY || secrets.TURNSTILE_SITE_KEY || '' }}
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/cryptosniper-web:latest
             ${{ steps.login-ecr.outputs.registry }}/cryptosniper-web:${{ github.sha }}
@@ -269,6 +273,9 @@ jobs:
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY || secrets.WEB_PUSH_PUBLIC_KEY || '' }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY || secrets.WEB_PUSH_PRIVATE_KEY || '' }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT || 'mailto:admin@example.com' }}
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY || secrets.TURNSTILE_SITE_KEY || '' }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY || '' }}
+          TURNSTILE_ENABLED: ${{ secrets.TURNSTILE_ENABLED || 'true' }}
         run: |
           cat << EOF > .env
           APP_NAME=${APP_NAME}
@@ -326,6 +333,9 @@ jobs:
           VAPID_SUBJECT=${VAPID_SUBJECT}
           WEB_PUSH_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
           WEB_PUSH_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+          TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY}
+          TURNSTILE_ENABLED=${TURNSTILE_ENABLED}
           EOF
           # 移除空值設定行以保持乾淨
           sed -i '/=$/d' .env

@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength, IsNotEmpty, Matches } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsString, MinLength, IsNotEmpty, Matches, IsOptional } from 'class-validator';
 import { PASSWORD_REGEX, PASSWORD_VALIDATION_MESSAGE } from '../../common/constants/regex.constants';
 
 export class RegisterDto {
@@ -62,6 +62,14 @@ export class LoginDto {
   @IsString()
   @IsNotEmpty()
   password!: string;
+
+  @ApiPropertyOptional({
+    description: 'Cloudflare Turnstile 驗證 Token',
+    example: '0.xxxxxx',
+  })
+  @IsOptional()
+  @IsString()
+  turnstileToken?: string;
 }
 
 export class AuthResponseDto {

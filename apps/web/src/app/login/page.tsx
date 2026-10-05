@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useApp } from "@/components/AppProviders";
 import { translations } from "@/lib/i18n";
 import { ThemeLanguageSelector } from "@/components/ThemeLanguageSelector";
+import { Turnstile, TurnstileRef } from "@/components/ui/Turnstile";
 
 declare global {
   interface Window {
@@ -26,9 +27,13 @@ function LoginContent() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const turnstileRef = useRef<TurnstileRef>(null);
+
+  const isTurnstileConfigured = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
   // Bot username from env or fallback
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "CryptoSniper_MLvip_Bot";
@@ -81,6 +86,11 @@ function LoginContent() {
       return;
     }
 
+    if (isTurnstileConfigured && !turnstileToken) {
+      setError("請先完成安全驗證");
+      return;
+    }
+
     setError(null);
     setLoading(true);
 
@@ -88,7 +98,7 @@ function LoginContent() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, turnstileToken }),
       });
 
       const data = await res.json();
@@ -102,6 +112,8 @@ function LoginContent() {
       }, 1000);
     } catch (err: any) {
       setError(err.message);
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
     } finally {
       setLoading(false);
     }
@@ -188,7 +200,31 @@ function LoginContent() {
               required
             />
           </div>
-          <Button data-testid="login-submit-button" type="submit" loading={loading} className="w-full mt-2 cursor-pointer">
+
+          {isTurnstileConfigured && (
+            <Turnstile
+              ref={turnstileRef}
+              onSuccess={(token) => {
+                setTurnstileToken(token);
+                setError(null);
+              }}
+              onError={() => {
+                setTurnstileToken(null);
+                setError("安全防護驗證異常，請重新嘗試");
+              }}
+              onExpire={() => {
+                setTurnstileToken(null);
+              }}
+            />
+          )}
+
+          <Button
+            data-testid="login-submit-button"
+            type="submit"
+            loading={loading}
+            disabled={loading || (isTurnstileConfigured && !turnstileToken)}
+            className="w-full mt-2 cursor-pointer"
+          >
             {t.loginBtn}
           </Button>
         </form>

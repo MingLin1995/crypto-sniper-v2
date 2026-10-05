@@ -33,10 +33,36 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const turnstileRef = useRef<TurnstileRef>(null);
 
-  const isTurnstileConfigured = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
+  // 動態獲取後端 Turnstile 啟用狀態與公鑰，避免容器建置期與執行期金鑰脫節
+  const [turnstileConfig, setTurnstileConfig] = useState<{
+    enabled: boolean;
+    siteKey: string;
+  }>({
+    enabled: Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY),
+    siteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "",
+  });
+
+  useEffect(() => {
+    fetch("/api/auth/turnstile-config")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((resData) => {
+        const cfg = resData?.data;
+        if (cfg && typeof cfg.enabled === "boolean") {
+          setTurnstileConfig({
+            enabled: cfg.enabled && Boolean(cfg.siteKey),
+            siteKey: cfg.siteKey || "",
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const isTurnstileRequired = turnstileConfig.enabled && Boolean(turnstileConfig.siteKey);
 
   // Bot username from env or fallback
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "CryptoSniper_MLvip_Bot";
+
+  const targetFrom = searchParams.get("from") || "/screener";
 
   useEffect(() => {
     // Handle error/success messages passed via query parameters (e.g. from OAuth redirects)
@@ -47,10 +73,10 @@ function LoginContent() {
     } else if (status === "success") {
       setSuccess(t.loginSuccess);
       setTimeout(() => {
-        router.push("/screener");
+        router.push(targetFrom);
       }, 1500);
     }
-  }, [searchParams, router, t]);
+  }, [searchParams, router, t, targetFrom]);
 
   // Load Telegram Widget dynamically
   useEffect(() => {
@@ -86,7 +112,7 @@ function LoginContent() {
       return;
     }
 
-    if (isTurnstileConfigured && !turnstileToken) {
+    if (isTurnstileRequired && !turnstileToken) {
       setError("請先完成安全驗證");
       return;
     }
@@ -108,7 +134,7 @@ function LoginContent() {
 
       setSuccess(t.loginSuccess);
       setTimeout(() => {
-        router.push("/screener");
+        router.push(targetFrom);
       }, 1000);
     } catch (err: any) {
       setError(err.message);
@@ -201,9 +227,10 @@ function LoginContent() {
             />
           </div>
 
-          {isTurnstileConfigured && (
+          {isTurnstileRequired && (
             <Turnstile
               ref={turnstileRef}
+              siteKey={turnstileConfig.siteKey}
               onSuccess={(token) => {
                 setTurnstileToken(token);
                 setError(null);
@@ -222,7 +249,7 @@ function LoginContent() {
             data-testid="login-submit-button"
             type="submit"
             loading={loading}
-            disabled={loading || (isTurnstileConfigured && !turnstileToken)}
+            disabled={loading || (isTurnstileRequired && !turnstileToken)}
             className="w-full mt-2 cursor-pointer"
           >
             {t.loginBtn}

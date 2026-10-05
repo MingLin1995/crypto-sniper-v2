@@ -24,6 +24,7 @@ describe('TurnstileGuard', () => {
         {
           provide: TurnstileService,
           useValue: {
+            isConfigured: jest.fn().mockReturnValue(true),
             verify: jest.fn(),
           },
         },
@@ -32,6 +33,20 @@ describe('TurnstileGuard', () => {
 
     guard = module.get<TurnstileGuard>(TurnstileGuard);
     turnstileService = module.get(TurnstileService);
+  });
+
+  it('當 Turnstile 未配置私鑰時，應直接允許通過且不呼叫驗證', async () => {
+    turnstileService.isConfigured.mockReturnValue(false);
+
+    const context = createMockContext({
+      headers: {},
+      body: {},
+      ip: '127.0.0.1',
+    });
+
+    const result = await guard.canActivate(context);
+    expect(result).toBe(true);
+    expect(turnstileService.verify).not.toHaveBeenCalled();
   });
 
   it('當驗證成功時，應允許通過 (回傳 true)', async () => {

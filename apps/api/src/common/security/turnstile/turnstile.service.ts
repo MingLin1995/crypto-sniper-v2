@@ -16,31 +16,42 @@ export class TurnstileService {
   constructor(private readonly configService: ConfigService) {}
 
   /**
+   * 檢查 Turnstile 是否已完整配置私鑰並啟用
+   */
+  isConfigured(): boolean {
+    const isEnabled = this.configService.get<string>('TURNSTILE_ENABLED');
+    const secretKey = this.configService.get<string>('TURNSTILE_SECRET_KEY');
+    if (isEnabled === 'false') {
+      return false;
+    }
+    return Boolean(secretKey && secretKey.trim().length > 0);
+  }
+
+  /**
+   * 取得公鑰 (Site Key)
+   */
+  getSiteKey(): string {
+    return (
+      this.configService.get<string>('NEXT_PUBLIC_TURNSTILE_SITE_KEY') ||
+      this.configService.get<string>('TURNSTILE_SITE_KEY') ||
+      ''
+    );
+  }
+
+  /**
    * 驗證 Cloudflare Turnstile Token
    * @param token 用戶端產生的 turnstile token (cf-turnstile-response)
    * @param remoteIp 客戶端 IP 位址 (選填)
    */
   async verify(token?: string, remoteIp?: string): Promise<TurnstileVerificationResult> {
-    const isEnabled = this.configService.get<string>('TURNSTILE_ENABLED');
-    const secretKey = this.configService.get<string>('TURNSTILE_SECRET_KEY');
-    const isProd = this.configService.get<string>('NODE_ENV') === 'production';
-
-    // 1. 若環境設定明確停用 Turnstile (例如在 CI 或本機測試)，直接放行
-    if (isEnabled === 'false') {
+    // 1. 若環境未啟用或未配置 Secret Key，自動旁路放行以防系統被鎖死
+    if (!this.isConfigured()) {
       return { success: true };
     }
 
-    // 2. 若未配置 Secret Key：在非生產環境給予警告並放行；在生產環境則記錄錯誤並拒絕
-    if (!secretKey) {
-      if (!isProd) {
-        this.logger.warn('未設定 TURNSTILE_SECRET_KEY，非生產環境預設旁路放行 Turnstile');
-        return { success: true };
-      }
-      this.logger.error('生產環境中缺少 TURNSTILE_SECRET_KEY 設定！');
-      return { success: false, errorCodes: ['missing-secret-key'] };
-    }
+    const secretKey = this.configService.get<string>('TURNSTILE_SECRET_KEY')!;
 
-    // 3. 檢查 Token 是否存在
+    // 2. 檢查 Token 是否存在
     if (!token || token.trim() === '') {
       return { success: false, errorCodes: ['missing-input-response'] };
     }

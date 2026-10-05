@@ -41,18 +41,23 @@ export class ScreenerService {
           throw new ServiceUnavailableException('目前無法取得交易對資料');
         }
 
-        // 3. 行情預熱偵測：檢索所有配置的時間週期之 K 線快取。
-        // 若任何一個時框的快取覆蓋率小於 10% 且至少有 5 個交易對時，判定系統該時框處於行情預熱狀態。
+        // 3. 行情預熱偵測：優先採樣 24h 交易量排行前列的熱門標的進行快取檢驗。
+        // 避免因字首字母排序（如 1000xxx 開頭冷門幣種）尚未排入前批排程而誤判系統預熱中。
+        const ranking = (await this.marketCacheService.getVolumeRanking()) || [];
+        const candidateSymbols = ranking.length > 0
+          ? ranking.map((r) => r.symbol)
+          : symbols;
+
         for (const tf of dto.timeframes) {
-          const sampleCheckCount = Math.min(20, symbols.length);
-          const sampleSymbols = symbols.slice(0, sampleCheckCount);
+          const sampleCheckCount = Math.min(20, candidateSymbols.length);
+          const sampleSymbols = candidateSymbols.slice(0, sampleCheckCount);
           const caches = await Promise.all(
             sampleSymbols.map((s) => this.marketCacheService.getKlines(s, tf.interval)),
           );
           const cachedCount = caches.filter((c) => c && c.length > 0).length;
           
-          // 若取樣中快取命中率小於 10%，拋出預熱異常
-          if (cachedCount === 0 || cachedCount / sampleCheckCount < 0.1) {
+          // 若採樣標的之快取全部皆缺失 (系統剛啟動且熱門標的尚未載入)，拋出預熱異常
+          if (cachedCount === 0) {
             throw new ServiceUnavailableException(`行情資料 (${tf.interval}) 預熱中，請稍後再試`);
           }
         }
@@ -66,9 +71,9 @@ export class ScreenerService {
     }
 
     // 6. 補齊最新價格與 24h 成交量資訊
-    const ranking = (await this.marketCacheService.getVolumeRanking()) || [];
+    const currentRanking = (await this.marketCacheService.getVolumeRanking()) || [];
     const volumeMap = new Map<string, number>();
-    ranking.forEach((r) => volumeMap.set(r.symbol, r.quoteVolume));
+    currentRanking.forEach((r) => volumeMap.set(r.symbol, r.quoteVolume));
 
     const priceMap = await this.marketCacheService.getPrices(matchingSymbols);
 

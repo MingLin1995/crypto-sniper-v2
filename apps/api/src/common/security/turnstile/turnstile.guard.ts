@@ -11,6 +11,11 @@ export class TurnstileGuard implements CanActivate {
   constructor(private readonly turnstileService: TurnstileService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // 若未配置私鑰或未啟用，自動放行以保證系統可用性
+    if (!this.turnstileService.isConfigured()) {
+      return true;
+    }
+
     const request = context.switchToHttp().getRequest();
 
     // 支援從 Header 或 Body 取得 Turnstile Token

@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   UseGuards,
   Request,
@@ -13,6 +14,7 @@ import { EmailVerificationService } from './email-verification.service';
 import { Public } from '../common/decorators/public.decorator';
 import { RefreshTokenGuard } from './refresh-token.guard';
 import { TurnstileGuard } from '../common/security/turnstile/turnstile.guard';
+import { TurnstileService } from '../common/security/turnstile/turnstile.service';
 import { LoginDto, RegisterDto, AuthResponseDto, LogoutResponseDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
 import { SendVerificationEmailDto } from './dto/email-verification.dto';
 import { Throttle } from '@nestjs/throttler';
@@ -27,6 +29,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly emailVerificationService: EmailVerificationService,
     private readonly configService: ConfigService,
+    private readonly turnstileService: TurnstileService,
   ) { }
 
   private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
@@ -41,6 +44,16 @@ export class AuthController {
     const { maxAge: _rtMaxAge, ...rtOptions } = REFRESH_TOKEN_COOKIE_OPTIONS(isProd);
     res.clearCookie('access_token', atOptions);
     res.clearCookie('refresh_token', rtOptions);
+  }
+
+  @Public()
+  @Get('turnstile-config')
+  @ApiOperation({ summary: '取得 Turnstile 配置狀態與公鑰' })
+  getTurnstileConfig() {
+    return {
+      enabled: this.turnstileService.isConfigured(),
+      siteKey: this.turnstileService.getSiteKey(),
+    };
   }
 
   @Public()

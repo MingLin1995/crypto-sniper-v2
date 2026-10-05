@@ -40,29 +40,16 @@ describe('TurnstileService', () => {
       expect(result.success).toBe(true);
     });
 
-    it('未設置 Secret Key 時，非生產環境應預設放行', async () => {
+    it('未設置 Secret Key 時，應自動優雅旁路放行以避免系統鎖死', async () => {
       configService.get.mockImplementation((key: string) => {
         if (key === 'TURNSTILE_ENABLED') return 'true';
         if (key === 'TURNSTILE_SECRET_KEY') return undefined;
-        if (key === 'NODE_ENV') return 'development';
         return undefined;
       });
 
       const result = await service.verify('any-token');
       expect(result.success).toBe(true);
-    });
-
-    it('未設置 Secret Key 時，生產環境應拒絕並回傳 missing-secret-key', async () => {
-      configService.get.mockImplementation((key: string) => {
-        if (key === 'TURNSTILE_ENABLED') return 'true';
-        if (key === 'TURNSTILE_SECRET_KEY') return undefined;
-        if (key === 'NODE_ENV') return 'production';
-        return undefined;
-      });
-
-      const result = await service.verify('any-token');
-      expect(result.success).toBe(false);
-      expect(result.errorCodes).toContain('missing-secret-key');
+      expect(service.isConfigured()).toBe(false);
     });
 
     it('已啟用但未提供 Token 時，應回傳 missing-input-response', async () => {

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/components/AppProviders';
 import { ThemeLanguageSelector } from '@/components/ThemeLanguageSelector';
@@ -104,6 +105,7 @@ function ScreenerContent() {
   const [isWarmingUp, setIsWarmingUp] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState<string>('BTCUSDT');
   const [watchlistItems, setWatchlistItems] = useState<any[]>([]);
+  const [isGuest, setIsGuest] = useState(false);
 
   const handleSelectSymbol = (symbol: string) => {
     setSelectedSymbol(symbol);
@@ -163,6 +165,7 @@ function ScreenerContent() {
     try {
       const res = await fetch('/api/strategies');
       if (res.ok) {
+        setIsGuest(false);
         const data = await res.json();
         const list: SavedStrategy[] = data.data || [];
         setStrategies(list);
@@ -182,7 +185,9 @@ function ScreenerContent() {
           );
         }
       } else if (res.status === 401) {
-        router.push('/login');
+        // 訪客模式：未登入時不強制跳轉，保留頁面自由體驗
+        setIsGuest(true);
+        setStrategies([]);
       }
     } catch (err) {
       console.error('Failed to fetch strategies', err);
@@ -203,6 +208,18 @@ function ScreenerContent() {
   };
 
   const handleToggleWatchlist = async (symbol: string) => {
+    if (isGuest) {
+      if (
+        confirm(
+          locale === 'zh-TW'
+            ? '請先登入即可將標的加入自選清單！是否前往登入？'
+            : 'Please sign in to add symbols to your watchlist. Go to sign in?',
+        )
+      ) {
+        router.push('/login?from=/screener');
+      }
+      return;
+    }
     const isWatchlisted = watchlistSymbols.includes(symbol);
     try {
       if (isWatchlisted) {
@@ -211,6 +228,10 @@ function ScreenerContent() {
         });
         if (res.ok) {
           setWatchlistItems((prev) => prev.filter((item) => item.symbol !== symbol));
+        } else if (res.status === 401) {
+          setIsGuest(true);
+          router.push('/login?from=/screener');
+          return;
         } else {
           const data = await res.json();
           throw new Error(data.message || '取消追蹤失敗');
@@ -230,6 +251,10 @@ function ScreenerContent() {
             createdAt: new Date().toISOString(),
           };
           setWatchlistItems((prev) => [newItem, ...prev]);
+        } else if (res.status === 401) {
+          setIsGuest(true);
+          router.push('/login?from=/screener');
+          return;
         } else {
           const data = await res.json();
           throw new Error(data.message || '加入追蹤失敗');
@@ -598,6 +623,18 @@ function ScreenerContent() {
   // 3. 儲存與更新當前策略
   const handleSaveStrategy = async (e?: React.FormEvent, forceNew = false) => {
     if (e) e.preventDefault();
+    if (isGuest) {
+      if (
+        confirm(
+          locale === 'zh-TW'
+            ? '請先登入即可儲存個人專屬篩選策略！是否前往登入？'
+            : 'Please sign in to save custom strategies. Go to sign in?',
+        )
+      ) {
+        router.push('/login?from=/screener');
+      }
+      return;
+    }
     const trimmedName = strategyName.trim();
     if (!trimmedName) return;
 
@@ -771,16 +808,27 @@ function ScreenerContent() {
     <div className="w-full max-w-7xl space-y-6">
       {/* 頂部標題 */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between pb-4 border-b border-indigo-500/10 gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent flex items-center gap-2">
-            <Sparkles className="h-7 w-7 text-indigo-400 animate-pulse" />
-            {locale === 'zh-TW' ? '多時框策略篩選器' : 'Multi-Timeframe Strategy Screener'}
-          </h1>
-          <p className="text-sm text-zinc-400 mt-1">
-            {locale === 'zh-TW'
-              ? '自訂多時框策略，一鍵篩選幣安 USDT 永續合約標的。'
-              : 'Customize multi-timeframe strategies to scan Binance USDT perpetual contract pairs in one click.'}
-          </p>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="flex items-center gap-2 group shrink-0"
+            title={locale === 'zh-TW' ? '返回首頁' : 'Back to Home'}
+          >
+            <div className="bg-indigo-600/10 p-2 rounded-xl border border-indigo-500/20 group-hover:scale-105 transition-all shadow-md shadow-indigo-500/10">
+              <img src="/icon.png" alt="Logo" className="w-8 h-8 object-contain rounded-md" />
+            </div>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent flex items-center gap-2">
+              <Sparkles className="h-7 w-7 text-indigo-400 animate-pulse" />
+              {locale === 'zh-TW' ? '多時框策略篩選器' : 'Multi-Timeframe Strategy Screener'}
+            </h1>
+            <p className="text-sm text-zinc-400 mt-1">
+              {locale === 'zh-TW'
+                ? '自訂多時框策略，一鍵篩選幣安 USDT 永續合約標的。'
+                : 'Customize multi-timeframe strategies to scan Binance USDT perpetual contract pairs in one click.'}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -797,15 +845,44 @@ function ScreenerContent() {
           >
             {locale === 'zh-TW' ? '到價通知設定' : 'Price Notifications'}
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => router.push('/profile')}
-            className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10 text-zinc-200"
-          >
-            {locale === 'zh-TW' ? '個人帳號設定' : 'Account Settings'}
-          </Button>
+          {isGuest ? (
+            <Button
+              onClick={() => router.push('/login?from=/screener')}
+              className="cursor-pointer bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium shadow-md shadow-indigo-500/20"
+            >
+              {locale === 'zh-TW' ? '登入 / 註冊' : 'Sign In / Register'}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => router.push('/profile')}
+              className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10 text-zinc-200"
+            >
+              {locale === 'zh-TW' ? '個人帳號設定' : 'Account Settings'}
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* 訪客模式提示橫幅 */}
+      {isGuest && (
+        <div className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-4 py-2.5 rounded-xl text-xs sm:text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-base">💡</span>
+            <span>
+              {locale === 'zh-TW'
+                ? '目前為訪客預覽模式，您可以自由篩選行情與分析標的。如需儲存自訂策略或追蹤自選清單，歡迎登入帳號。'
+                : 'Guest preview mode: Explore live market screening freely. Sign in to save custom strategies and watchlists.'}
+            </span>
+          </div>
+          <Link
+            href="/login?from=/screener"
+            className="shrink-0 text-xs font-semibold text-indigo-400 hover:text-indigo-300 underline underline-offset-4"
+          >
+            {locale === 'zh-TW' ? '立即登入 →' : 'Sign In Now →'}
+          </Link>
+        </div>
+      )}
 
       {/* 錯誤/警告提示 */}
       {error && (

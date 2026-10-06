@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { useApp } from "./AppProviders";
 
 export function ThemeLanguageSelector() {
@@ -8,6 +9,26 @@ export function ThemeLanguageSelector() {
 
   return (
     <div className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-zinc-900/60 light:bg-white/60 backdrop-blur-md border border-zinc-800 light:border-zinc-200 px-3 py-1.5 rounded-full shadow-lg transition-all duration-300">
+      {/* Home / Logo Link */}
+      <Link
+        href="/"
+        className="flex items-center gap-1.5 px-2 py-1 rounded-full text-zinc-300 light:text-zinc-700 hover:text-indigo-400 light:hover:text-indigo-600 hover:bg-zinc-800/50 light:hover:bg-zinc-100 transition-all cursor-pointer group"
+        title={locale === "zh-TW" ? "回到首頁" : "Back to Home"}
+        aria-label="Home"
+      >
+        <img
+          src="/icon.png"
+          alt="Logo"
+          className="w-4 h-4 object-contain rounded group-hover:scale-110 transition-transform"
+        />
+        <span className="text-xs font-semibold hidden sm:inline">
+          {locale === "zh-TW" ? "首頁" : "Home"}
+        </span>
+      </Link>
+
+      {/* Divider */}
+      <div className="w-[1px] h-4 bg-zinc-800 light:bg-zinc-200" />
+
       {/* Language Toggle Button */}
       <button
         onClick={() => setLocale(locale === "zh-TW" ? "en-US" : "zh-TW")}

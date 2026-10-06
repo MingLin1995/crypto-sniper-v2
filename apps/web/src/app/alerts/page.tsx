@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -531,12 +532,23 @@ function AlertsContent() {
     <div className="w-full max-w-7xl space-y-6">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between pb-4 border-b border-indigo-500/10 gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent flex items-center gap-2.5">
-            <Bell className="h-7 w-7 text-indigo-400 animate-bounce" />
-            {t.alertsTitle}
-          </h1>
-          <p className="text-sm text-zinc-400 mt-1">{t.alertsDesc}</p>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="flex items-center gap-2 group shrink-0"
+            title={locale === "zh-TW" ? "返回首頁" : "Back to Home"}
+          >
+            <div className="bg-indigo-600/10 p-2 rounded-xl border border-indigo-500/20 group-hover:scale-105 transition-all shadow-md shadow-indigo-500/10">
+              <img src="/icon.png" alt="Logo" className="w-8 h-8 object-contain rounded-md" />
+            </div>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent flex items-center gap-2.5">
+              <Bell className="h-7 w-7 text-indigo-400 animate-bounce" />
+              {t.alertsTitle}
+            </h1>
+            <p className="text-sm text-zinc-400 mt-1">{t.alertsDesc}</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Button

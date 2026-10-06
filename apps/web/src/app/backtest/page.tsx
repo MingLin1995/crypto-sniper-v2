@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useApp } from '@/components/AppProviders';
@@ -18,9 +19,77 @@ interface WatchlistItem {
   symbol: string;
 }
 
+const GUEST_DEFAULT_STRATEGIES: SavedStrategy[] = [
+  {
+    id: 'preset-ema-trend',
+    name: 'EMA 雙均線波段趨勢策略 (EMA 25 > EMA 60)',
+    config: {
+      timeframes: [
+        {
+          interval: '1h',
+          conditions: [
+            {
+              type: 'EMA',
+              period: 25,
+              operator: 'gt',
+              compareType: 'indicator',
+              compareIndicatorType: 'EMA',
+              comparePeriod: 60,
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    id: 'preset-rsi-oversold',
+    name: 'RSI 超賣反彈短線策略 (15m RSI < 30)',
+    config: {
+      timeframes: [
+        {
+          interval: '15m',
+          conditions: [
+            {
+              type: 'RSI',
+              period: 14,
+              operator: 'lt',
+              compareType: 'value',
+              compareValue: 30,
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    id: 'preset-macd-breakout',
+    name: 'MACD 零軸突破順勢策略 (4h MACD > 0)',
+    config: {
+      timeframes: [
+        {
+          interval: '4h',
+          conditions: [
+            {
+              type: 'MACD',
+              macdFast: 12,
+              macdSlow: 26,
+              macdSignal: 9,
+              operator: 'gt',
+              compareType: 'value',
+              compareValue: 0,
+            },
+          ],
+        },
+      ],
+    },
+  },
+];
+
 export default function BacktestPage() {
   const router = useRouter();
   const { locale } = useApp();
+
+  const [isGuest, setIsGuest] = useState(false);
 
   // 頁面狀態：CONFIG (設定表單), RUNNING (排程中/進度), RESULT (回測結果)
   const [viewState, setViewState] = useState<'CONFIG' | 'RUNNING' | 'RESULT'>('CONFIG');
@@ -84,13 +153,18 @@ export default function BacktestPage() {
     try {
       const res = await fetch(`/api/watchlist?t=${Date.now()}`, { cache: 'no-store' });
       if (res.status === 401) {
-        router.push('/login');
+        setIsGuest(true);
+        const fallback = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'];
+        setWatchlist(fallback);
+        setSelectedSymbols((prev) => (prev.length === 0 ? ['BTCUSDT', 'ETHUSDT'] : prev));
         return;
       }
       if (res.ok) {
         const json = await res.json();
         const list = json.data || [];
-        setWatchlist(list.map((w: WatchlistItem) => w.symbol));
+        const syms = list.map((w: WatchlistItem) => w.symbol);
+        setWatchlist(syms.length > 0 ? syms : ['BTCUSDT', 'ETHUSDT', 'SOLUSDT']);
+        setSelectedSymbols((prev) => (prev.length === 0 ? (syms.slice(0, 2).length > 0 ? syms.slice(0, 2) : ['BTCUSDT', 'ETHUSDT']) : prev));
       }
     } catch (err) {
       console.error('Failed to fetch watchlist', err);
@@ -101,13 +175,23 @@ export default function BacktestPage() {
     try {
       const res = await fetch(`/api/strategies?t=${Date.now()}`, { cache: 'no-store' });
       if (res.status === 401) {
-        router.push('/login');
+        setIsGuest(true);
+        setStrategies(GUEST_DEFAULT_STRATEGIES);
+        setSelectedStrategyId(GUEST_DEFAULT_STRATEGIES[0].id);
         return;
       }
       if (res.ok) {
+        setIsGuest(false);
         const json = await res.json();
         const list = json.data || [];
-        setStrategies(list.filter((s: SavedStrategy) => s.name !== '__categories__'));
+        const userStrats = list.filter((s: SavedStrategy) => s.name !== '__categories__');
+        if (userStrats.length > 0) {
+          setStrategies(userStrats);
+          setSelectedStrategyId((prev) => prev || userStrats[0].id);
+        } else {
+          setStrategies(GUEST_DEFAULT_STRATEGIES);
+          setSelectedStrategyId((prev) => prev || GUEST_DEFAULT_STRATEGIES[0].id);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch strategies', err);
@@ -118,7 +202,7 @@ export default function BacktestPage() {
     try {
       const res = await fetch(`/api/backtest/history?limit=5&t=${Date.now()}`, { cache: 'no-store' });
       if (res.status === 401) {
-        router.push('/login');
+        setJobHistory([]);
         return;
       }
       if (res.ok) {
@@ -134,6 +218,19 @@ export default function BacktestPage() {
   // 提交回測任務
   const handleStartBacktest = async () => {
     setError(null);
+
+    if (isGuest) {
+      if (
+        confirm(
+          locale === 'zh-TW'
+            ? '雲端量化回測需要登入帳號以排隊運算。是否前往登入？'
+            : 'Cloud backtesting requires sign-in to queue computation. Go to sign in?',
+        )
+      ) {
+        router.push('/login?from=/backtest');
+      }
+      return;
+    }
 
     // 取得選定策略的篩選條件
     const strategy = strategies.find(s => s.id === selectedStrategyId);
@@ -193,7 +290,14 @@ export default function BacktestPage() {
       });
 
       if (res.status === 401) {
-        router.push('/login');
+        setIsGuest(true);
+        setError(
+          locale === 'zh-TW'
+            ? '請先登入即可啟動雲端量化回測計算！'
+            : 'Please sign in to launch cloud backtest execution!',
+        );
+        setViewState('CONFIG');
+        router.push('/login?from=/backtest');
         return;
       }
 
@@ -307,16 +411,27 @@ export default function BacktestPage() {
     <div className="container mx-auto p-4 max-w-7xl space-y-6">
       {/* 標題與 ThemeLanguageSelector */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between pb-4 border-b border-indigo-500/10 gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent flex items-center gap-2">
-            <Sparkles className="h-7 w-7 text-indigo-400 animate-pulse" />
-            {locale === 'zh-TW' ? '策略回測系統' : 'Strategy Backtester'}
-          </h1>
-          <p className="text-sm text-zinc-400 mt-1">
-            {locale === 'zh-TW'
-              ? '驗證多時框指標篩選策略，支援動態多條件止盈止損與歷史 K 線數據回放。'
-              : 'Test multi-timeframe strategies with historical data & modular risk settings.'}
-          </p>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="flex items-center gap-2 group shrink-0"
+            title={locale === 'zh-TW' ? '返回首頁' : 'Back to Home'}
+          >
+            <div className="bg-indigo-600/10 p-2 rounded-xl border border-indigo-500/20 group-hover:scale-105 transition-all shadow-md shadow-indigo-500/10">
+              <img src="/icon.png" alt="Logo" className="w-8 h-8 object-contain rounded-md" />
+            </div>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent flex items-center gap-2">
+              <Sparkles className="h-7 w-7 text-indigo-400 animate-pulse" />
+              {locale === 'zh-TW' ? '策略回測系統' : 'Strategy Backtester'}
+            </h1>
+            <p className="text-sm text-zinc-400 mt-1">
+              {locale === 'zh-TW'
+                ? '驗證多時框指標篩選策略，支援動態多條件止盈止損與歷史 K 線數據回放。'
+                : 'Test multi-timeframe strategies with historical data & modular risk settings.'}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -327,9 +442,45 @@ export default function BacktestPage() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             {locale === 'zh-TW' ? '返回篩選器' : 'Back to Screener'}
           </Button>
+          {isGuest ? (
+            <Button
+              onClick={() => router.push('/login?from=/backtest')}
+              className="cursor-pointer bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium shadow-md shadow-indigo-500/20"
+            >
+              {locale === 'zh-TW' ? '登入 / 註冊' : 'Sign In / Register'}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => router.push('/profile')}
+              className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10 text-zinc-200"
+            >
+              {locale === 'zh-TW' ? '個人帳號設定' : 'Account Settings'}
+            </Button>
+          )}
           <ThemeLanguageSelector />
         </div>
       </div>
+
+      {/* 訪客模式提示橫幅 */}
+      {isGuest && (
+        <div className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-4 py-2.5 rounded-xl text-xs sm:text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-base">💡</span>
+            <span>
+              {locale === 'zh-TW'
+                ? '目前為訪客預覽模式，您可以自由查看回測策略參數與預設模型。登入後即可啟動專屬雲端回測運算與歷史紀錄。'
+                : 'Guest preview mode: View backtest parameters and model templates freely. Sign in to run cloud backtest execution.'}
+            </span>
+          </div>
+          <Link
+            href="/login?from=/backtest"
+            className="shrink-0 text-xs font-semibold text-indigo-400 hover:text-indigo-300 underline underline-offset-4"
+          >
+            {locale === 'zh-TW' ? '立即登入 →' : 'Sign In Now →'}
+          </Link>
+        </div>
+      )}
 
       {/* 錯誤通知 */}
       {error && (

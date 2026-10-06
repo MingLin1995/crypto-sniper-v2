@@ -210,6 +210,14 @@ export default function ForgotPasswordPage() {
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-6 bg-zinc-950/60 min-h-screen">
       <ThemeLanguageSelector />
+      <Link href="/" className="flex items-center gap-2.5 mb-6 group" title="返回首頁">
+        <div className="bg-indigo-600/10 p-2 rounded-2xl border border-indigo-500/20 group-hover:scale-105 transition-all shadow-md shadow-indigo-500/10">
+          <img src="/icon.png" alt="Logo" className="w-8 h-8 object-contain rounded-lg" />
+        </div>
+        <span className="text-2xl font-extrabold bg-gradient-to-r from-zinc-50 via-zinc-100 to-indigo-400 bg-clip-text text-transparent">
+          CryptoSniper V2
+        </span>
+      </Link>
       <Suspense fallback={<div className="text-zinc-500 text-sm">載入中...</div>}>
         <ForgotPasswordContent />
       </Suspense>

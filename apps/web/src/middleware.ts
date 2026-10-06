@@ -7,10 +7,8 @@ export function middleware(request: NextRequest) {
   const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
   const isProtectedPage =
     pathname.startsWith("/profile") ||
-    pathname.startsWith("/screener") ||
     pathname.startsWith("/watchlist") ||
-    pathname.startsWith("/alerts") ||
-    pathname.startsWith("/backtest");
+    pathname.startsWith("/alerts");
 
   const refreshToken = request.cookies.get("refresh_token")?.value;
 
@@ -24,13 +22,6 @@ export function middleware(request: NextRequest) {
   // 2. If logged in and accessing login/register, redirect to screener page
   if (isAuthPage && refreshToken) {
     return NextResponse.redirect(new URL("/screener", request.url));
-  }
-
-  // 3. For root page /, redirect to screener if logged in, otherwise let it fall through to landing page
-  if (pathname === "/") {
-    if (refreshToken) {
-      return NextResponse.redirect(new URL("/screener", request.url));
-    }
   }
 
   return NextResponse.next();

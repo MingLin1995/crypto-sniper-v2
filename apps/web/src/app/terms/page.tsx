@@ -14,7 +14,16 @@ export default function TermsOfServicePage() {
     <main className="flex-1 flex flex-col items-center justify-center p-6 bg-zinc-950/60 min-h-screen py-12">
       <ThemeLanguageSelector />
       
-      <div className="w-full max-w-3xl border border-indigo-500/20 glass-indigo rounded-xl p-8 md:p-12 shadow-2xl relative mt-8">
+      <Link href="/" className="flex items-center gap-2.5 mb-4 group" title="返回首頁">
+        <div className="bg-indigo-600/10 p-2 rounded-2xl border border-indigo-500/20 group-hover:scale-105 transition-all shadow-md shadow-indigo-500/10">
+          <img src="/icon.png" alt="Logo" className="w-8 h-8 object-contain rounded-lg" />
+        </div>
+        <span className="text-2xl font-extrabold bg-gradient-to-r from-zinc-50 via-zinc-100 to-indigo-400 bg-clip-text text-transparent">
+          CryptoSniper V2
+        </span>
+      </Link>
+
+      <div className="w-full max-w-3xl border border-indigo-500/20 glass-indigo rounded-xl p-8 md:p-12 shadow-2xl relative mt-2">
         {/* Header */}
         <div className="flex items-center space-x-3 mb-8 border-b border-indigo-500/10 pb-6">
           <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
@@ -131,9 +140,9 @@ export default function TermsOfServicePage() {
 
         {/* Footer actions */}
         <div className="mt-12 pt-6 border-t border-indigo-500/10 flex justify-between items-center">
-          <Link href="/login" className="flex items-center text-sm text-indigo-400 hover:text-indigo-300 hover:underline transition-colors font-medium">
+          <Link href="/" className="flex items-center text-sm text-indigo-400 hover:text-indigo-300 hover:underline transition-colors font-medium">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            {isZh ? "返回登入" : "Back to Login"}
+            {isZh ? "返回首頁" : "Back to Home"}
           </Link>
           <Link href="/privacy" className="text-sm text-indigo-400 hover:text-indigo-300 hover:underline transition-colors font-medium">
             {isZh ? "隱私權政策" : "Privacy Policy"}

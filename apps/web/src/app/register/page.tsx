@@ -136,6 +136,14 @@ export default function RegisterPage() {
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-6 bg-zinc-950/60 min-h-screen">
       <ThemeLanguageSelector />
+      <Link href="/" className="flex items-center gap-2.5 mb-6 group" title="返回首頁">
+        <div className="bg-indigo-600/10 p-2 rounded-2xl border border-indigo-500/20 group-hover:scale-105 transition-all shadow-md shadow-indigo-500/10">
+          <img src="/icon.png" alt="Logo" className="w-8 h-8 object-contain rounded-lg" />
+        </div>
+        <span className="text-2xl font-extrabold bg-gradient-to-r from-zinc-50 via-zinc-100 to-indigo-400 bg-clip-text text-transparent">
+          CryptoSniper V2
+        </span>
+      </Link>
       <Card className="w-full max-w-md border-indigo-500/20 glass-indigo animate-fade-in-up hover-premium">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -433,7 +434,16 @@ function ProfileContent() {
       {/* Page Header with Avatar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-indigo-500/10">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl font-extrabold shadow-lg shadow-indigo-500/30 border border-indigo-400/20 shrink-0">
+          <Link
+            href="/"
+            className="flex items-center gap-2 group shrink-0"
+            title={locale === "zh-TW" ? "返回首頁" : "Back to Home"}
+          >
+            <div className="bg-indigo-600/10 p-2 rounded-xl border border-indigo-500/20 group-hover:scale-105 transition-all shadow-md shadow-indigo-500/10">
+              <img src="/icon.png" alt="Logo" className="w-8 h-8 object-contain rounded-md" />
+            </div>
+          </Link>
+          <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white text-xl font-extrabold shadow-lg shadow-indigo-500/30 border border-indigo-400/20 shrink-0">
             {avatarLetter}
           </div>
           <div>

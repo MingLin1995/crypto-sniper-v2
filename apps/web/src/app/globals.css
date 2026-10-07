@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @custom-variant light (&:where(.light, .light *));
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --color-background: var(--background);
@@ -124,17 +125,32 @@ html.light .border-indigo-500\/10 {
 }
 
 html.light .bg-zinc-900,
+html.light .bg-zinc-900\/90,
+html.light .bg-zinc-900\/80,
+html.light .bg-zinc-900\/70,
+html.light .bg-zinc-900\/60,
 html.light .bg-zinc-900\/50,
 html.light .bg-zinc-900\/40,
 html.light .bg-zinc-900\/30,
 html.light .bg-zinc-900\/20,
+html.light .bg-zinc-950\/90,
+html.light .bg-zinc-950\/80,
+html.light .bg-zinc-950\/70,
 html.light .bg-zinc-950\/60,
 html.light .bg-zinc-950\/50,
 html.light .bg-zinc-950\/40,
 html.light .bg-zinc-950\/30,
-html.light .bg-zinc-950\/20 {
+html.light .bg-zinc-950\/20,
+html.light .bg-black\/40 {
   background-color: rgba(255, 255, 255, 0.85) !important;
   color: #0f172a !important;
+}
+
+html.light .bg-indigo-600,
+html.light .bg-indigo-500,
+html.light .bg-primary,
+html.light .bg-destructive {
+  color: #ffffff !important;
 }
 
 html.light select,
@@ -154,7 +170,8 @@ html.light input[type="email"] {
 }
 
 html.light .bg-red-950\/20,
-html.light .bg-red-950\/40 {
+html.light .bg-red-950\/40,
+html.light .bg-red-950\/60 {
   background-color: rgba(254, 242, 242, 0.85) !important;
   border-color: rgba(252, 165, 165, 0.5) !important;
 }
@@ -167,9 +184,23 @@ html.light .bg-purple-950\/40 {
 
 html.light .bg-indigo-950\/20,
 html.light .bg-indigo-950\/30,
-html.light .bg-indigo-950\/40 {
+html.light .bg-indigo-950\/40,
+html.light .bg-indigo-950\/60 {
   background-color: rgba(238, 242, 255, 0.85) !important;
   border-color: rgba(199, 210, 254, 0.6) !important;
+}
+
+html.light .bg-emerald-950\/20,
+html.light .bg-emerald-950\/40,
+html.light .bg-emerald-950\/60 {
+  background-color: rgba(236, 253, 245, 0.85) !important;
+  border-color: rgba(167, 243, 208, 0.6) !important;
+}
+
+html.light .border-zinc-700,
+html.light .border-zinc-700\/50,
+html.light .border-zinc-700\/40 {
+  border-color: rgba(226, 232, 240, 0.8) !important;
 }
 
 html.light .border-zinc-800 {
@@ -211,6 +242,14 @@ html.light .text-zinc-100 {
 
 html.light .text-zinc-300 {
   color: #334155 !important;
+}
+
+html.light .text-amber-400 {
+  color: #d97706 !important;
+}
+
+html.light .text-yellow-400 {
+  color: #ca8a04 !important;
 }
 
 html.light .glass-indigo {

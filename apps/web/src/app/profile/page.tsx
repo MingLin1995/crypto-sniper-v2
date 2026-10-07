@@ -460,7 +460,7 @@ function ProfileContent() {
           <Button variant="outline" onClick={() => router.push("/backtest")} className="cursor-pointer border-indigo-500/30 hover:bg-indigo-500/10">
             {locale === "zh-TW" ? "策略回測" : "Strategy Backtesting"}
           </Button>
-          <Button data-testid="profile-logout-btn" variant="outline" onClick={handleLogout} className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 cursor-pointer">
+          <Button data-testid="profile-logout-btn" variant="outline" onClick={handleLogout} className="border-red-500/30 text-red-500 light:text-red-600 hover:bg-red-500/10 hover:text-red-400 light:hover:text-red-700 cursor-pointer">
             {t.logoutBtn}
           </Button>
         </div>
@@ -468,12 +468,12 @@ function ProfileContent() {
 
       {/* Error & Success Display */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm">
+        <div className="bg-red-500/10 light:bg-red-50/70 border border-red-500/20 light:border-red-200 text-red-400 light:text-red-700 p-3 rounded-lg text-sm">
           {error}
         </div>
       )}
       {success && (
-        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-lg text-sm">
+        <div className="bg-emerald-500/10 light:bg-emerald-50/70 border border-emerald-500/20 light:border-emerald-200 text-emerald-400 light:text-emerald-700 p-3 rounded-lg text-sm">
           {success}
         </div>
       )}
@@ -687,11 +687,11 @@ function ProfileContent() {
                   </div>
                   <div>
                     {user.googleId ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 light:bg-emerald-100 text-emerald-400 light:text-emerald-700 border border-emerald-500/20 light:border-emerald-300">
                         {locale === "zh-TW" ? "已連結" : "Linked"}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-500/10 light:bg-zinc-100 text-zinc-400 light:text-zinc-600 border border-zinc-500/20 light:border-zinc-300">
                         {locale === "zh-TW" ? "未連結" : "Not Linked"}
                       </span>
                     )}
@@ -708,7 +708,7 @@ function ProfileContent() {
               </div>
               <div className="mt-4">
                 {user.googleId ? (
-                  <Button variant="outline" size="sm" onClick={() => handleUnlink("google")} className="w-full border-red-500/25 text-red-400 hover:bg-red-500/10 cursor-pointer">
+                  <Button variant="outline" size="sm" onClick={() => handleUnlink("google")} className="w-full border-red-500/25 light:border-red-300 text-red-400 light:text-red-600 hover:bg-red-500/10 light:hover:bg-red-50 cursor-pointer">
                     {t.unlinkBtn}
                   </Button>
                 ) : (
@@ -732,11 +732,11 @@ function ProfileContent() {
                   </div>
                   <div>
                     {user.discordId ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 light:bg-emerald-100 text-emerald-400 light:text-emerald-700 border border-emerald-500/20 light:border-emerald-300">
                         {locale === "zh-TW" ? "已連結" : "Linked"}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-500/10 light:bg-zinc-100 text-zinc-400 light:text-zinc-600 border border-zinc-500/20 light:border-zinc-300">
                         {locale === "zh-TW" ? "未連結" : "Not Linked"}
                       </span>
                     )}
@@ -753,7 +753,7 @@ function ProfileContent() {
               </div>
               <div className="mt-4">
                 {user.discordId ? (
-                  <Button variant="outline" size="sm" onClick={() => handleUnlink("discord")} className="w-full border-red-500/25 text-red-400 hover:bg-red-500/10 cursor-pointer">
+                  <Button variant="outline" size="sm" onClick={() => handleUnlink("discord")} className="w-full border-red-500/25 light:border-red-300 text-red-400 light:text-red-600 hover:bg-red-500/10 light:hover:bg-red-50 cursor-pointer">
                     {t.unlinkBtn}
                   </Button>
                 ) : (
@@ -778,21 +778,21 @@ function ProfileContent() {
                   <div className="flex items-center gap-1.5">
                     {user.telegramId ? (
                       <>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 light:bg-emerald-100 text-emerald-400 light:text-emerald-700 border border-emerald-500/20 light:border-emerald-300">
                           {locale === "zh-TW" ? "已連結" : "Linked"}
                         </span>
                         {user.telegramChatId ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 light:bg-emerald-100 text-emerald-400 light:text-emerald-700 border border-emerald-500/20 light:border-emerald-300">
                             {locale === "zh-TW" ? "到價通知已啟用" : "Price Alerts Enabled"}
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 light:bg-amber-100 text-amber-400 light:text-amber-800 border border-amber-500/20 light:border-amber-300">
                             {locale === "zh-TW" ? "到價通知未啟用" : "Price Alerts Disabled"}
                           </span>
                         )}
                       </>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-500/10 light:bg-zinc-100 text-zinc-400 light:text-zinc-600 border border-zinc-500/20 light:border-zinc-300">
                         {locale === "zh-TW" ? "未連結" : "Not Linked"}
                       </span>
                     )}
@@ -832,7 +832,7 @@ function ProfileContent() {
                     )}
                     
                     {/* 解除綁定按鈕 */}
-                    <Button variant="outline" size="sm" onClick={() => handleUnlink("telegram")} className="w-full border-red-500/25 text-red-400 hover:bg-red-500/10 cursor-pointer text-xs">
+                    <Button variant="outline" size="sm" onClick={() => handleUnlink("telegram")} className="w-full border-red-500/25 light:border-red-300 text-red-400 light:text-red-600 hover:bg-red-500/10 light:hover:bg-red-50 cursor-pointer text-xs">
                       {t.unlinkBtn}
                     </Button>
                   </div>
@@ -877,27 +877,27 @@ function ProfileContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <Card className="w-full max-w-md border-indigo-500/20 glass-indigo shadow-2xl animate-in zoom-in-95 duration-200">
             <CardHeader>
-              <div className="flex items-center gap-2 text-amber-400">
+              <div className="flex items-center gap-2 text-amber-500 light:text-amber-700">
                 <svg className="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                 </svg>
-                <CardTitle className="text-lg">
+                <CardTitle className="text-lg text-zinc-900 dark:text-white">
                   {locale === "zh-TW" ? "社交帳號已被其他用戶綁定" : "Social Account Already Bound"}
                 </CardTitle>
               </div>
-              <CardDescription className="text-xs text-zinc-400 mt-1">
+              <CardDescription className="text-xs text-zinc-400 light:text-zinc-600 mt-1">
                 {locale === "zh-TW"
                   ? `您正試圖綁定的 ${confirmRebindData.provider.toUpperCase()} 帳戶已被另一個帳戶連結。`
                   : `The ${confirmRebindData.provider.toUpperCase()} account you are trying to link is already connected to another profile.`}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-sm text-zinc-300 leading-relaxed">
+              <p className="text-sm text-zinc-300 light:text-zinc-700 leading-relaxed">
                 {locale === "zh-TW"
                   ? "是否要強制將該社交帳號「轉移並綁定」到此帳戶？"
                   : "Do you want to force transfer and link this social account to your current profile?"}
               </p>
-              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-xs text-red-400 leading-tight">
+              <div className="bg-red-500/10 light:bg-red-50/70 border border-red-500/20 light:border-red-200 rounded-lg p-3 text-xs text-red-400 light:text-red-700 leading-tight">
                 <strong>{locale === "zh-TW" ? "⚠️ 注意：" : "⚠️ Warning:"}</strong>{" "}
                 {locale === "zh-TW"
                   ? "轉移後，另一個臨時帳戶中的設定（如策略、最愛清單）將會被合併到此帳戶，且該臨時帳戶將會被軟刪除並登出。"
@@ -909,7 +909,7 @@ function ProfileContent() {
                 variant="outline"
                 onClick={() => setConfirmRebindData(null)}
                 disabled={submittingRebind}
-                className="cursor-pointer border-zinc-800 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                className="cursor-pointer border-zinc-800 light:border-zinc-300 hover:bg-zinc-900 light:hover:bg-zinc-100 text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900"
               >
                 {locale === "zh-TW" ? "取消" : "Cancel"}
               </Button>

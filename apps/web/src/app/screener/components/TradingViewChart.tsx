@@ -403,7 +403,7 @@ export function TradingViewChart({
                     </span>
                     <Button
                       onClick={() => window.location.href = "/alerts?tab=channels"}
-                      className="cursor-pointer bg-red-650 hover:bg-red-600 text-white text-xs font-bold px-3.5 h-8.5 shrink-0 w-full sm:w-auto"
+                      className="cursor-pointer bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3.5 h-8.5 shrink-0 w-full sm:w-auto"
                     >
                       {locale === "zh-TW" ? "前往啟用" : "Go to Enable"}
                     </Button>
@@ -411,7 +411,7 @@ export function TradingViewChart({
                 ) : (
                   <>
                     {/* Condition above/below toggle */}
-                    <div className="flex items-center gap-1 border border-zinc-800 light:border-zinc-250 p-1 rounded-lg bg-zinc-950/80 light:bg-slate-50 w-full sm:w-auto">
+                    <div className="flex items-center gap-1 border border-zinc-800 light:border-zinc-300 p-1 rounded-lg bg-zinc-950/80 light:bg-slate-50 w-full sm:w-auto">
                       <button
                         type="button"
                         disabled={channelsEnabled === null}
@@ -419,7 +419,7 @@ export function TradingViewChart({
                         className={`flex-1 sm:flex-initial text-[11px] font-bold px-3 py-1 rounded-md transition-all cursor-pointer ${
                           quickCondition === "ABOVE"
                             ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
-                            : "text-zinc-500 hover:text-zinc-300"
+                            : "text-zinc-500 light:text-zinc-600 hover:text-zinc-300 light:hover:text-zinc-900"
                         }`}
                       >
                         ▲ {locale === "zh-TW" ? "高於" : "ABOVE"}
@@ -431,7 +431,7 @@ export function TradingViewChart({
                         className={`flex-1 sm:flex-initial text-[11px] font-bold px-3 py-1 rounded-md transition-all cursor-pointer ${
                           quickCondition === "BELOW"
                             ? "bg-red-500/15 text-red-400 border border-red-500/25"
-                            : "text-zinc-500 hover:text-zinc-300"
+                            : "text-zinc-500 light:text-zinc-600 hover:text-zinc-300 light:hover:text-zinc-900"
                         }`}
                       >
                         ▼ {locale === "zh-TW" ? "低於" : "BELOW"}
@@ -447,7 +447,7 @@ export function TradingViewChart({
                         placeholder={locale === "zh-TW" ? "目標價格" : "Target Price"}
                         value={quickPrice}
                         onChange={(e) => setQuickPrice(e.target.value)}
-                        className="w-full h-8.5 font-mono text-xs border-indigo-500/25 bg-zinc-950/40"
+                        className="w-full h-8.5 font-mono text-xs border-indigo-500/25 light:border-zinc-300 bg-zinc-950/40 light:bg-white light:text-zinc-900"
                       />
                     </div>
 

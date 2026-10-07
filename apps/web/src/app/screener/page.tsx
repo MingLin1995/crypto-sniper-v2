@@ -866,7 +866,7 @@ function ScreenerContent() {
 
       {/* 訪客模式提示橫幅 */}
       {isGuest && (
-        <div className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-4 py-2.5 rounded-xl text-xs sm:text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div className="bg-indigo-500/10 light:bg-indigo-50/70 border border-indigo-500/20 light:border-indigo-200 text-indigo-300 light:text-indigo-800 px-4 py-2.5 rounded-xl text-xs sm:text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-base">💡</span>
             <span>
@@ -877,7 +877,7 @@ function ScreenerContent() {
           </div>
           <Link
             href="/login?from=/screener"
-            className="shrink-0 text-xs font-semibold text-indigo-400 hover:text-indigo-300 underline underline-offset-4"
+            className="shrink-0 text-xs font-semibold text-indigo-400 light:text-indigo-600 hover:text-indigo-300 light:hover:text-indigo-700 underline underline-offset-4"
           >
             {locale === 'zh-TW' ? '立即登入 →' : 'Sign In Now →'}
           </Link>

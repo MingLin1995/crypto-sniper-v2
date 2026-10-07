@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { createChart, AreaSeries } from 'lightweight-charts';
+import { useApp } from '@/components/AppProviders';
 
 interface EquityChartProps {
   data: { timestamp: number; equity: number }[];
@@ -90,6 +91,7 @@ function processChartData(data: { timestamp: number; equity: number }[], maxPoin
 }
 
 export function EquityChart({ data }: EquityChartProps) {
+  const { theme } = useApp();
   const containerRef = useRef<HTMLDivElement>(null);
   const mainChartContainerRef = useRef<HTMLDivElement>(null);
   const drawdownChartContainerRef = useRef<HTMLDivElement>(null);
@@ -106,7 +108,7 @@ export function EquityChart({ data }: EquityChartProps) {
     // Process data and calculate drawdown
     const processedData = processChartData(data, 1000);
 
-    const isLightMode = document.documentElement.classList.contains('light');
+    const isLightMode = theme === 'light' || document.documentElement.classList.contains('light');
 
     // Common options
     const commonChartOptions = {
@@ -257,14 +259,14 @@ export function EquityChart({ data }: EquityChartProps) {
 
         // Set content
         tooltip.innerHTML = `
-          <div class="text-[10px] text-zinc-500 font-bold mb-1 border-b border-indigo-500/10 pb-1">${dateStr}</div>
+          <div class="text-[10px] text-zinc-500 light:text-zinc-600 font-bold mb-1 border-b border-indigo-500/10 light:border-zinc-200 pb-1">${dateStr}</div>
           <div class="flex justify-between gap-4 items-center">
-            <span class="text-zinc-400">總權益:</span>
-            <span class="font-bold text-indigo-400">$${targetItem.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span class="text-zinc-400 light:text-zinc-600">總權益:</span>
+            <span class="font-bold text-indigo-400 light:text-indigo-600">$${targetItem.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
           <div class="flex justify-between gap-4 items-center">
-            <span class="text-zinc-400">回撤率:</span>
-            <span class="font-bold ${targetItem.drawdown === 0 ? 'text-zinc-400' : 'text-rose-400'}">${targetItem.drawdown.toFixed(2)}%</span>
+            <span class="text-zinc-400 light:text-zinc-600">回撤率:</span>
+            <span class="font-bold ${targetItem.drawdown === 0 ? (isLightMode ? 'text-zinc-600' : 'text-zinc-400') : (isLightMode ? 'text-rose-600' : 'text-rose-400')}">${targetItem.drawdown.toFixed(2)}%</span>
           </div>
         `;
 
@@ -323,7 +325,7 @@ export function EquityChart({ data }: EquityChartProps) {
       mainChart.remove();
       drawdownChart.remove();
     };
-  }, [data]);
+  }, [data, theme]);
 
   return (
     <div ref={containerRef} className="relative w-full flex flex-col gap-4">

@@ -270,11 +270,11 @@ export function BacktestConfigForm({
   };
 
   return (
-    <Card className="border border-zinc-800 bg-zinc-950/70 backdrop-blur-md shadow-xl text-zinc-100">
-      <CardHeader className="border-b border-zinc-800/80 pb-4">
+    <Card className="border border-zinc-800 light:border-zinc-200 bg-zinc-950/70 light:bg-white/95 backdrop-blur-md shadow-xl text-zinc-100 light:text-zinc-900">
+      <CardHeader className="border-b border-zinc-800/80 light:border-zinc-200 pb-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-lg font-bold flex items-center gap-2 text-zinc-100">
+            <CardTitle className="text-lg font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
               <Settings className="w-5 h-5 text-indigo-400" />
               {locale === 'zh-TW' ? '回測參數配置' : 'Backtest Configuration'}
             </CardTitle>
@@ -295,14 +295,14 @@ export function BacktestConfigForm({
         {/* 1. 選擇策略與標的 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-zinc-300">
+            <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
               {locale === 'zh-TW' ? '選擇已儲存之篩選策略' : 'Select Saved Strategy'}
             </label>
             <select
               data-testid="backtest-strategy-select"
               value={selectedStrategyId}
               onChange={(e) => handleStrategyChange(e.target.value)}
-              className="w-full h-9 bg-zinc-900 border border-zinc-800 rounded-lg px-3 text-zinc-100 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full h-9 bg-zinc-900 light:bg-white border border-zinc-800 light:border-zinc-200 rounded-lg px-3 text-zinc-900 dark:text-zinc-100 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             >
               <option value="">{locale === 'zh-TW' ? '-- 請選擇策略 --' : '-- Select Strategy --'}</option>
               {strategies.map((strat) => (
@@ -315,7 +315,7 @@ export function BacktestConfigForm({
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-zinc-300">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 {locale === 'zh-TW' ? '回測標的 (可單選或最多 10 個)' : 'Symbols (1 ~ 10)'}
               </label>
               <div className="flex items-center gap-2">
@@ -323,7 +323,7 @@ export function BacktestConfigForm({
                   <button
                     type="button"
                     onClick={() => setSelectedSymbols([])}
-                    className="text-[11px] text-zinc-500 hover:text-zinc-300 cursor-pointer"
+                    className="text-[11px] text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 cursor-pointer"
                   >
                     {locale === 'zh-TW' ? '清空' : 'Clear'}
                   </button>
@@ -332,7 +332,7 @@ export function BacktestConfigForm({
                   <button
                     type="button"
                     onClick={() => setShowWatchlist(!showWatchlist)}
-                    className="text-[11px] text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                    className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 underline cursor-pointer"
                   >
                     {showWatchlist
                       ? (locale === 'zh-TW' ? '收起追蹤清單' : 'Hide Watchlist')
@@ -349,18 +349,18 @@ export function BacktestConfigForm({
               onChange={(e) => setSymbolText(e.target.value)}
               onKeyDown={handleSymbolInputKeyDown}
               placeholder={locale === 'zh-TW' ? '輸入標的 (如 BTCUSDT) 後按 Enter' : 'Type symbol and hit Enter'}
-              className="h-9 bg-zinc-900 border-zinc-800 text-zinc-100 text-xs"
+              className="h-9 bg-zinc-900 light:bg-white border-zinc-800 light:border-zinc-200 text-zinc-900 dark:text-zinc-100 text-xs"
             />
 
             {/* 展開之追蹤清單點選區 */}
             {showWatchlist && watchlist.length > 0 && (
-              <div className="p-2.5 rounded-lg bg-zinc-900/90 border border-indigo-500/30 space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-zinc-400">
+              <div className="p-2.5 rounded-lg bg-zinc-900/90 light:bg-slate-50 border border-indigo-500/30 light:border-indigo-200 space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
                   <span>{locale === 'zh-TW' ? '點擊加入 / 移除標的：' : 'Click to add / remove symbol:'}</span>
                   <button
                     type="button"
                     onClick={addAllWatchlist}
-                    className="text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                    className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 underline cursor-pointer"
                   >
                     {locale === 'zh-TW' ? '全部加入' : 'Add All'}
                   </button>
@@ -385,8 +385,8 @@ export function BacktestConfigForm({
                         }}
                         className={`px-2.5 py-1 text-xs rounded-md font-mono transition-all cursor-pointer border ${
                           isSelected
-                            ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200 font-semibold shadow-sm'
-                            : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:text-white'
+                            ? 'bg-indigo-600/30 light:bg-indigo-50 border-indigo-500 text-indigo-200 light:text-indigo-700 font-semibold shadow-sm'
+                            : 'bg-zinc-950 light:bg-zinc-100 border-zinc-800 light:border-zinc-200 text-zinc-300 light:text-zinc-700 hover:border-zinc-700 light:hover:border-zinc-300 hover:text-white light:hover:text-zinc-900'
                         }`}
                       >
                         {isSelected ? `✓ ${sym}` : `+ ${sym}`}
@@ -401,13 +401,13 @@ export function BacktestConfigForm({
                 {selectedSymbols.map((sym) => (
                   <span
                     key={sym}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-zinc-800 text-zinc-200 border border-zinc-700"
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-zinc-800 light:bg-zinc-200 text-zinc-200 light:text-zinc-800 border border-zinc-700 light:border-zinc-300"
                   >
                     {sym}
                     <button
                       type="button"
                       onClick={() => removeSymbol(sym)}
-                      className="text-zinc-400 hover:text-red-400 text-xs ml-0.5"
+                      className="text-zinc-400 light:text-zinc-600 hover:text-red-400 light:hover:text-red-600 text-xs ml-0.5"
                     >
                       ×
                     </button>
@@ -419,15 +419,15 @@ export function BacktestConfigForm({
         </div>
 
         {/* 2. 回測時間區間與主要時框 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl bg-zinc-900/40 light:bg-zinc-50 border border-zinc-800/80 light:border-zinc-200">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-zinc-300">
+            <label className="text-xs font-medium text-zinc-300 light:text-zinc-700">
               {locale === 'zh-TW' ? '主要執行時框' : 'Execution Interval'}
             </label>
             <select
               value={interval}
               onChange={(e) => setInterval(e.target.value)}
-              className="w-full h-8 bg-zinc-900 border border-zinc-800 rounded px-2 text-zinc-100 text-xs"
+              className="w-full h-8 bg-zinc-900 light:bg-white border border-zinc-800 light:border-zinc-300 rounded px-2 text-zinc-100 light:text-zinc-900 text-xs"
             >
               {intervalOrder.map((intv) => (
                 <option key={intv} value={intv}>
@@ -438,26 +438,26 @@ export function BacktestConfigForm({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-zinc-300">
+            <label className="text-xs font-medium text-zinc-300 light:text-zinc-700">
               {locale === 'zh-TW' ? '開始日期' : 'Start Date'}
             </label>
             <Input
               type="date"
               value={startDateStr}
               onChange={(e) => setStartDateStr(e.target.value)}
-              className="h-8 bg-zinc-900 border-zinc-800 text-zinc-100 text-xs"
+              className="h-8 bg-zinc-900 light:bg-white border-zinc-800 light:border-zinc-300 text-zinc-100 light:text-zinc-900 text-xs"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-zinc-300">
+            <label className="text-xs font-medium text-zinc-300 light:text-zinc-700">
               {locale === 'zh-TW' ? '結束日期' : 'End Date'}
             </label>
             <Input
               type="date"
               value={endDateStr}
               onChange={(e) => setEndDateStr(e.target.value)}
-              className="h-8 bg-zinc-900 border-zinc-800 text-zinc-100 text-xs"
+              className="h-8 bg-zinc-900 light:bg-white border-zinc-800 light:border-zinc-300 text-zinc-100 light:text-zinc-900 text-xs"
             />
           </div>
         </div>
@@ -473,7 +473,7 @@ export function BacktestConfigForm({
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <div className="w-1 h-3.5 bg-indigo-500 rounded-full" />
-            <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">
+            <h3 className="text-xs font-bold text-zinc-200 light:text-zinc-800 uppercase tracking-wider">
               {locale === 'zh-TW' ? '風險控制與出場機制' : 'Risk & Exit Management'}
             </h3>
           </div>
@@ -481,18 +481,18 @@ export function BacktestConfigForm({
           {/* 上半部：固定停損 (Stop Loss) 與 固定目標停利 (Take Profit) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* 固定停損 */}
-            <div className="p-4 rounded-xl bg-red-950/20 border border-red-500/20 space-y-3">
+            <div className="p-4 rounded-xl bg-red-950/20 light:bg-red-50/70 border border-red-500/20 light:border-red-200 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-red-400 flex items-center gap-1.5">
+                <span className="text-xs font-bold text-red-400 light:text-red-700 flex items-center gap-1.5">
                   <ShieldAlert className="w-4 h-4" />
                   {locale === 'zh-TW' ? '固定停損 (Stop Loss)' : 'Fixed Stop Loss'}
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 font-mono font-bold">
+                <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 light:bg-red-100 text-red-400 light:text-red-700 font-mono font-bold">
                   -{slPercent}%
                 </span>
               </div>
               <div className="flex items-center gap-2 pt-1">
-                <span className="text-xs text-zinc-300 font-medium whitespace-nowrap">
+                <span className="text-xs text-zinc-300 light:text-zinc-700 font-medium whitespace-nowrap">
                   {locale === 'zh-TW' ? '停損幅度 (%):' : 'Stop Loss (%):'}
                 </span>
                 <Input
@@ -502,15 +502,15 @@ export function BacktestConfigForm({
                   step={0.5}
                   min={0.1}
                   max={100}
-                  className="bg-zinc-900 border-red-500/30 text-zinc-100 font-bold text-sm h-8"
+                  className="bg-zinc-900 light:bg-white border-red-500/30 light:border-red-300 text-zinc-100 light:text-zinc-900 font-bold text-sm h-8"
                 />
               </div>
             </div>
 
             {/* 固定目標停利 */}
-            <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/20 space-y-3">
+            <div className="p-4 rounded-xl bg-emerald-950/20 light:bg-emerald-50/70 border border-emerald-500/20 light:border-emerald-200 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                <span className="text-xs font-bold text-emerald-400 light:text-emerald-700 flex items-center gap-1.5">
                   <Target className="w-4 h-4" />
                   {locale === 'zh-TW' ? '固定停利 (Take Profit)' : 'Fixed Take Profit'}
                 </span>
@@ -526,12 +526,12 @@ export function BacktestConfigForm({
                       setExitConditionMode('AUTO_REVERSE');
                     }
                   }}
-                  className="h-4 w-4 rounded border-zinc-700 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                  className="h-4 w-4 rounded border-zinc-700 light:border-zinc-300 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
                 />
               </div>
               {useTpFixed ? (
                 <div className="flex items-center gap-2 pt-1">
-                  <span className="text-xs text-zinc-300 font-medium whitespace-nowrap">
+                  <span className="text-xs text-zinc-300 light:text-zinc-700 font-medium whitespace-nowrap">
                     {locale === 'zh-TW' ? '目標獲利 (%):' : 'Target Profit (%):'}
                   </span>
                   <Input
@@ -541,11 +541,11 @@ export function BacktestConfigForm({
                     step={1}
                     min={0.5}
                     max={500}
-                    className="bg-zinc-900 border-emerald-500/30 text-zinc-100 font-bold text-sm h-8"
+                    className="bg-zinc-900 light:bg-white border-emerald-500/30 light:border-emerald-300 text-zinc-100 light:text-zinc-900 font-bold text-sm h-8"
                   />
                 </div>
               ) : (
-                <div className="text-[11px] text-zinc-500 italic pt-2">
+                <div className="text-[11px] text-zinc-500 light:text-zinc-600 italic pt-2">
                   {locale === 'zh-TW' ? '（已改用下方指標平倉）' : '(Using signal exit below)'}
                 </div>
               )}
@@ -553,15 +553,15 @@ export function BacktestConfigForm({
           </div>
 
           {/* 下半部：指標平倉模式 (雙模式：反向平倉 vs 自訂平倉條件) */}
-          <div className="p-4 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-4">
+          <div className="p-4 rounded-xl bg-indigo-950/20 light:bg-indigo-50/50 border border-indigo-500/30 light:border-indigo-200 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                <Zap className="w-4 h-4 text-indigo-400" />
+              <div className="text-xs font-bold text-indigo-300 light:text-indigo-800 flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-indigo-400 light:text-indigo-600" />
                 {locale === 'zh-TW' ? '指標出場訊號' : 'Indicator Signal Exit'}
               </div>
 
               {/* 2 模式切換鈕：反向平倉 vs 自訂平倉條件 */}
-              <div className="flex items-center bg-zinc-900/90 border border-zinc-800 rounded-lg p-1 gap-1 shrink-0">
+              <div className="flex items-center bg-zinc-900/90 light:bg-zinc-100 border border-zinc-800 light:border-zinc-300 rounded-lg p-1 gap-1 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -571,7 +571,7 @@ export function BacktestConfigForm({
                   className={`px-2.5 py-1 text-xs rounded-md font-medium transition-all cursor-pointer ${
                     exitConditionMode === 'AUTO_REVERSE'
                       ? 'bg-indigo-600 text-white shadow-sm font-semibold'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                      : 'text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900'
                   }`}
                 >
                   {locale === 'zh-TW' ? '反向平倉' : 'Reverse Exit'}
@@ -585,7 +585,7 @@ export function BacktestConfigForm({
                   className={`px-2.5 py-1 text-xs rounded-md font-medium transition-all cursor-pointer ${
                     exitConditionMode === 'CUSTOM'
                       ? 'bg-indigo-600 text-white shadow-sm font-semibold'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                      : 'text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900'
                   }`}
                 >
                   {locale === 'zh-TW' ? '自訂平倉條件' : 'Custom Exit'}
@@ -595,21 +595,21 @@ export function BacktestConfigForm({
 
             {/* Mode 1: AUTO_REVERSE */}
             {exitConditionMode === 'AUTO_REVERSE' && (
-              <div className="p-3 bg-zinc-900/70 border border-indigo-500/20 rounded-lg space-y-2">
+              <div className="p-3 bg-zinc-900/70 light:bg-white border border-indigo-500/20 light:border-indigo-100 rounded-lg space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-emerald-400 light:text-emerald-700 flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4" />
                     {locale === 'zh-TW' ? '反向平倉已啟用' : 'Reverse Exit Enabled'}
                   </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 font-mono">
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/10 light:bg-indigo-50 text-indigo-300 light:text-indigo-700 font-mono">
                     {interval} 時框
                   </span>
                 </div>
-                <div className="flex items-center gap-2 p-2 rounded bg-black/40 border border-zinc-800 text-xs font-mono text-indigo-300">
-                  <span className="text-zinc-400 font-sans text-[11px] shrink-0">
+                <div className="flex items-center gap-2 p-2 rounded bg-black/40 light:bg-emerald-50/50 border border-zinc-800 light:border-emerald-200 text-xs font-mono text-indigo-300 light:text-indigo-800">
+                  <span className="text-zinc-400 light:text-zinc-600 font-sans text-[11px] shrink-0">
                     {locale === 'zh-TW' ? '平倉條件：' : 'Exit Condition:'}
                   </span>
-                  <span className="font-bold text-emerald-300 truncate">
+                  <span className="font-bold text-emerald-300 light:text-emerald-700 truncate">
                     {derivedAutoReversePreview}
                   </span>
                 </div>
@@ -618,10 +618,10 @@ export function BacktestConfigForm({
 
             {/* Mode 2: CUSTOM */}
             {exitConditionMode === 'CUSTOM' && (
-              <div className="space-y-3 p-3 bg-zinc-900/70 border border-indigo-500/20 rounded-lg">
+              <div className="space-y-3 p-3 bg-zinc-900/70 light:bg-white border border-indigo-500/20 light:border-indigo-100 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
-                    <SlidersHorizontal className="w-4 h-4 text-indigo-400" />
+                  <span className="text-xs font-semibold text-indigo-300 light:text-indigo-800 flex items-center gap-1.5">
+                    <SlidersHorizontal className="w-4 h-4 text-indigo-400 light:text-indigo-600" />
                     {locale === 'zh-TW' ? '自訂平倉條件' : 'Custom Exit Conditions'}
                   </span>
                   <Button
@@ -629,7 +629,7 @@ export function BacktestConfigForm({
                     variant="outline"
                     size="sm"
                     onClick={addExitCondition}
-                    className="h-6 text-[11px] px-2 border-indigo-500/30 hover:bg-indigo-500/10 text-indigo-300 cursor-pointer"
+                    className="h-6 text-[11px] px-2 border-indigo-500/30 light:border-indigo-300 hover:bg-indigo-500/10 text-indigo-300 light:text-indigo-700 cursor-pointer"
                   >
                     <Plus className="w-3 h-3 mr-1" />
                     {locale === 'zh-TW' ? '新增條件' : 'Add Condition'}
@@ -648,9 +648,9 @@ export function BacktestConfigForm({
                     return (
                       <div
                         key={condIdx}
-                        className="flex flex-wrap items-center gap-2 p-2 bg-zinc-950/80 border border-zinc-800 rounded-lg text-xs"
+                        className="flex flex-wrap items-center gap-2 p-2 bg-zinc-950/80 light:bg-zinc-50 border border-zinc-800 light:border-zinc-200 rounded-lg text-xs"
                       >
-                        <span className="text-[11px] font-bold text-indigo-400 w-4">
+                        <span className="text-[11px] font-bold text-indigo-400 light:text-indigo-600 w-4">
                           #{condIdx + 1}
                         </span>
 
@@ -658,7 +658,7 @@ export function BacktestConfigForm({
                         <select
                           value={condType}
                           onChange={(e) => updateExitConditionField(condIdx, 'type', e.target.value)}
-                          className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 font-medium h-7 cursor-pointer"
+                          className="bg-zinc-900 light:bg-white border border-zinc-700 light:border-zinc-300 rounded px-2 py-1 text-xs text-zinc-100 light:text-zinc-900 font-medium h-7 cursor-pointer"
                         >
                           <option value="PRICE">{locale === 'zh-TW' ? '現價 (Price)' : 'Price'}</option>
                           <option value="EMA">EMA</option>
@@ -675,7 +675,7 @@ export function BacktestConfigForm({
                             max={500}
                             placeholder="週期"
                             onChange={(e) => updateExitConditionField(condIdx, 'period', Number(e.target.value))}
-                            className="w-16 h-7 text-center bg-zinc-900 border-zinc-700 text-xs"
+                            className="w-16 h-7 text-center bg-zinc-900 light:bg-white border-zinc-700 light:border-zinc-300 text-zinc-100 light:text-zinc-900 text-xs"
                           />
                         )}
 
@@ -683,7 +683,7 @@ export function BacktestConfigForm({
                         <select
                           value={cond.operator}
                           onChange={(e) => updateExitConditionField(condIdx, 'operator', e.target.value as any)}
-                          className="bg-zinc-900 border border-indigo-500/50 rounded px-2 py-1 text-xs text-indigo-300 font-bold h-7 cursor-pointer"
+                          className="bg-zinc-900 light:bg-white border border-indigo-500/50 light:border-indigo-300 rounded px-2 py-1 text-xs text-indigo-300 light:text-indigo-700 font-bold h-7 cursor-pointer"
                         >
                           <option value="gt">&gt; {locale === 'zh-TW' ? '大於' : 'Gt'}</option>
                           <option value="lt">&lt; {locale === 'zh-TW' ? '小於' : 'Lt'}</option>
@@ -693,7 +693,7 @@ export function BacktestConfigForm({
                         <select
                           value={condCompareType}
                           onChange={(e) => updateExitConditionField(condIdx, 'compareType', e.target.value as any)}
-                          className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300 h-7 cursor-pointer"
+                          className="bg-zinc-900 light:bg-white border border-zinc-700 light:border-zinc-300 rounded px-2 py-1 text-xs text-zinc-300 light:text-zinc-700 h-7 cursor-pointer"
                         >
                           <option value="indicator">{locale === 'zh-TW' ? '指標' : 'Indicator'}</option>
                           <option value="value">{locale === 'zh-TW' ? '數值' : 'Value'}</option>
@@ -705,7 +705,7 @@ export function BacktestConfigForm({
                             <select
                               value={condCompareIndicatorType}
                               onChange={(e) => updateExitConditionField(condIdx, 'compareIndicatorType', e.target.value as any)}
-                              className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 font-medium h-7 cursor-pointer"
+                              className="bg-zinc-900 light:bg-white border border-zinc-700 light:border-zinc-300 rounded px-2 py-1 text-xs text-zinc-100 light:text-zinc-900 font-medium h-7 cursor-pointer"
                             >
                               <option value="EMA">EMA</option>
                               <option value="SMA">SMA</option>
@@ -721,7 +721,7 @@ export function BacktestConfigForm({
                                 max={500}
                                 placeholder="週期"
                                 onChange={(e) => updateExitConditionField(condIdx, 'comparePeriod', Number(e.target.value))}
-                                className="w-16 h-7 text-center bg-zinc-900 border-zinc-700 text-xs"
+                                className="w-16 h-7 text-center bg-zinc-900 light:bg-white border-zinc-700 light:border-zinc-300 text-zinc-100 light:text-zinc-900 text-xs"
                               />
                             )}
                           </div>
@@ -731,7 +731,7 @@ export function BacktestConfigForm({
                             value={condCompareValue}
                             placeholder="數值"
                             onChange={(e) => updateExitConditionField(condIdx, 'compareValue', Number(e.target.value))}
-                            className="w-20 h-7 text-center bg-zinc-900 border-zinc-700 text-xs"
+                            className="w-20 h-7 text-center bg-zinc-900 light:bg-white border-zinc-700 light:border-zinc-300 text-zinc-100 light:text-zinc-900 text-xs"
                           />
                         )}
 
@@ -739,7 +739,7 @@ export function BacktestConfigForm({
                           <button
                             type="button"
                             onClick={() => removeExitCondition(condIdx)}
-                            className="text-zinc-500 hover:text-red-400 p-1 ml-auto cursor-pointer"
+                            className="text-zinc-500 hover:text-red-400 light:hover:text-red-600 p-1 ml-auto cursor-pointer"
                             title="刪除條件"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -754,7 +754,7 @@ export function BacktestConfigForm({
 
             {/* Mode 3: NONE */}
             {exitConditionMode === 'NONE' && (
-              <div className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-xs text-zinc-400 leading-relaxed">
+              <div className="p-3 bg-zinc-900/50 light:bg-white border border-zinc-800 light:border-zinc-200 rounded-lg text-xs text-zinc-400 light:text-zinc-600 leading-relaxed">
                 {locale === 'zh-TW'
                   ? '已啟用上方固定停利（未選取指標平倉）。若需依指標訊號平倉，請點擊上方「反向平倉」或「自訂平倉條件」。'
                   : 'Fixed Take Profit enabled. Click "Reverse Exit" or "Custom Exit" above to switch to indicator signal exit.'}
@@ -767,26 +767,26 @@ export function BacktestConfigForm({
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <div className="w-1 h-3.5 bg-indigo-500 rounded-full" />
-            <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">
+            <h3 className="text-xs font-bold text-zinc-200 light:text-zinc-800 uppercase tracking-wider">
               {locale === 'zh-TW' ? '資金與倉位管理' : 'Capital & Position Sizing'}
             </h3>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-xl bg-zinc-900/40 light:bg-zinc-50 border border-zinc-800/80 light:border-zinc-200">
             <div className="space-y-1">
-              <label className="text-[11px] text-zinc-400">
+              <label className="text-[11px] text-zinc-400 light:text-zinc-600">
                 {locale === 'zh-TW' ? '初始資金 (USDT)' : 'Initial Balance'}
               </label>
               <Input
                 type="number"
                 value={initialBalance}
                 onChange={(e) => setInitialBalance(Number(e.target.value))}
-                className="h-8 bg-zinc-900 border-zinc-800 text-zinc-100 text-xs"
+                className="h-8 bg-zinc-900 light:bg-white border-zinc-800 light:border-zinc-300 text-zinc-100 light:text-zinc-900 text-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] text-indigo-300 font-semibold">
+              <label className="text-[11px] text-indigo-300 light:text-indigo-700 font-semibold">
                 {locale === 'zh-TW' ? '單筆風險佔比 (%)' : 'Risk Per Trade (%)'}
               </label>
               <Input
@@ -796,12 +796,12 @@ export function BacktestConfigForm({
                 step={0.5}
                 min={0.1}
                 max={20}
-                className="h-8 bg-zinc-900 border-indigo-500/50 text-indigo-200 font-bold text-xs"
+                className="h-8 bg-zinc-900 light:bg-white border-indigo-500/50 light:border-indigo-400 text-indigo-200 light:text-indigo-700 font-bold text-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] text-zinc-400">
+              <label className="text-[11px] text-zinc-400 light:text-zinc-600">
                 {locale === 'zh-TW' ? '槓桿倍數 (Leverage)' : 'Leverage'}
               </label>
               <Input
@@ -810,12 +810,12 @@ export function BacktestConfigForm({
                 onChange={(e) => setLeverage(Number(e.target.value))}
                 min={1}
                 max={50}
-                className="h-8 bg-zinc-900 border-zinc-800 text-zinc-100 text-xs"
+                className="h-8 bg-zinc-900 light:bg-white border-zinc-800 light:border-zinc-300 text-zinc-100 light:text-zinc-900 text-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] text-zinc-400">
+              <label className="text-[11px] text-zinc-400 light:text-zinc-600">
                 {locale === 'zh-TW' ? '最大持倉數' : 'Max Positions'}
               </label>
               <Input
@@ -824,7 +824,7 @@ export function BacktestConfigForm({
                 onChange={(e) => setMaxPositions(Number(e.target.value))}
                 min={1}
                 max={10}
-                className="h-8 bg-zinc-900 border-zinc-800 text-zinc-100 text-xs"
+                className="h-8 bg-zinc-900 light:bg-white border-zinc-800 light:border-zinc-300 text-zinc-100 light:text-zinc-900 text-xs"
               />
             </div>
           </div>

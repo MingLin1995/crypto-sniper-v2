@@ -437,7 +437,7 @@ export default function Home() {
           <div className="bg-indigo-600/10 p-1.5 rounded-xl border border-indigo-500/20 group-hover:scale-105 transition-all shadow-md shadow-indigo-500/10">
             <img src="/icon.png" alt="Logo" className="w-6 h-6 object-contain rounded-md" />
           </div>
-          <span className="text-xl font-bold bg-gradient-to-r from-zinc-50 via-zinc-100 to-indigo-400 bg-clip-text text-transparent">
+          <span className="text-xl font-bold bg-gradient-to-r from-zinc-900 via-slate-800 to-indigo-600 dark:from-zinc-50 dark:via-zinc-100 dark:to-indigo-400 bg-clip-text text-transparent">
             {t.brandName}
           </span>
         </Link>
@@ -489,16 +489,16 @@ export default function Home() {
             <span>{t.heroBadge}</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white leading-[1.1]">
-            <span className="block bg-gradient-to-r from-white via-zinc-100 to-indigo-400 bg-clip-text text-transparent">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-zinc-900 dark:text-white leading-[1.1]">
+            <span className="block bg-gradient-to-r from-zinc-900 via-slate-800 to-indigo-600 dark:from-white dark:via-zinc-100 dark:to-indigo-400 bg-clip-text text-transparent">
               {t.brandName}
             </span>
-            <span className="block text-2xl sm:text-3xl md:text-4xl text-zinc-400 light:text-zinc-600 font-semibold mt-4">
+            <span className="block text-2xl sm:text-3xl md:text-4xl text-zinc-500 dark:text-zinc-400 font-semibold mt-4">
               {t.tagline}
             </span>
           </h1>
 
-          <p className="text-lg text-zinc-400 light:text-zinc-600 leading-relaxed max-w-2xl mx-auto">
+          <p className="text-lg text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-2xl mx-auto">
             {t.description}
           </p>
 
@@ -508,12 +508,12 @@ export default function Home() {
                 {t.getStarted} <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" className="font-semibold px-8 w-full sm:w-auto border-indigo-500/30 hover:bg-indigo-500/10 text-indigo-300" asChild>
+            <Button size="lg" variant="outline" className="font-semibold px-8 w-full sm:w-auto border-indigo-500/30 hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300" asChild>
               <Link href="/backtest">
                 <LineChart className="mr-2 h-4 w-4" /> {t.goToBacktest}
               </Link>
             </Button>
-            <Button size="lg" variant="outline" className="font-semibold px-8 w-full sm:w-auto hover:bg-zinc-800" asChild>
+            <Button size="lg" variant="outline" className="font-semibold px-8 w-full sm:w-auto hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200" asChild>
               <Link href="/register">
                 {t.register}
               </Link>
@@ -524,11 +524,11 @@ export default function Home() {
         {/* Interactive Screener Live Preview */}
         <section id="demo" className="pt-24 space-y-8 max-w-4xl mx-auto w-full animate-scale-in">
           <div className="text-center space-y-3">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-white flex items-center justify-center gap-2">
               <Sparkles className="w-6 h-6 text-indigo-400 animate-pulse" />
               {t.demoTitle}
             </h2>
-            <p className="text-sm text-zinc-400 light:text-zinc-600">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
               {t.demoSubtitle}
             </p>
           </div>
@@ -540,7 +540,7 @@ export default function Home() {
                 onClick={() => setSelectedStrat("ema9_21_15m")}
                 className={`px-4 py-2 text-xs md:text-sm font-semibold rounded-full transition-all cursor-pointer ${selectedStrat === "ema9_21_15m"
                   ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
-                  : "bg-zinc-900/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+                  : "bg-zinc-900/60 light:bg-zinc-100 text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900 hover:bg-zinc-800/50 light:hover:bg-zinc-200"
                   }`}
               >
                 {t.strategyTab1}
@@ -549,7 +549,7 @@ export default function Home() {
                 onClick={() => setSelectedStrat("sma20_50_4h")}
                 className={`px-4 py-2 text-xs md:text-sm font-semibold rounded-full transition-all cursor-pointer ${selectedStrat === "sma20_50_4h"
                   ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
-                  : "bg-zinc-900/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+                  : "bg-zinc-900/60 light:bg-zinc-100 text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900 hover:bg-zinc-800/50 light:hover:bg-zinc-200"
                   }`}
               >
                 {t.strategyTab2}
@@ -558,7 +558,7 @@ export default function Home() {
                 onClick={() => setSelectedStrat("ema50_200_1d")}
                 className={`px-4 py-2 text-xs md:text-sm font-semibold rounded-full transition-all cursor-pointer ${selectedStrat === "ema50_200_1d"
                   ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
-                  : "bg-zinc-900/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+                  : "bg-zinc-900/60 light:bg-zinc-100 text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900 hover:bg-zinc-800/50 light:hover:bg-zinc-200"
                   }`}
               >
                 {t.strategyTab3}
@@ -572,11 +572,11 @@ export default function Home() {
                   {t.loadingText}
                 </div>
               ) : isWarmingUp ? (
-                <div className="py-12 text-center text-sm text-amber-400">
+                <div className="py-12 text-center text-sm text-amber-500 dark:text-amber-400">
                   ⚠️ {locale === "zh-TW" ? "行情數據預熱中，請於 10-15 秒後再次點擊切換重試" : "Market data warming up, please switch back and retry in 10-15 seconds"}
                 </div>
               ) : demoError ? (
-                <div className="py-12 text-center text-sm text-rose-400">
+                <div className="py-12 text-center text-sm text-rose-500 dark:text-rose-400">
                   {demoError}
                 </div>
               ) : displayResults.length === 0 ? (
@@ -593,19 +593,19 @@ export default function Home() {
                       <th className="py-3 px-4 text-right">{t.tableAction}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-900/50">
+                  <tbody className="divide-y divide-zinc-900/50 light:divide-zinc-200">
                     {displayResults.map((item) => (
-                      <tr key={item.symbol} className="hover:bg-zinc-900/30 transition-colors">
-                        <td className="py-3.5 px-4 font-bold text-white flex items-center gap-1.5">
+                      <tr key={item.symbol} className="hover:bg-zinc-900/30 light:hover:bg-zinc-100 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                           {item.symbol}
                         </td>
                         <td className="py-3.5 px-4 font-mono">{formatPrice(item.price)}</td>
-                        <td className="py-3.5 px-4 font-mono text-zinc-400">{formatVolume(item.volume)}</td>
+                        <td className="py-3.5 px-4 font-mono text-zinc-500 dark:text-zinc-400">{formatVolume(item.volume)}</td>
                         <td className="py-3.5 px-4 text-right space-x-2">
                           <button
                             onClick={() => setIsUnlockOpen(true)}
-                            className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
+                            className="inline-flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-semibold cursor-pointer"
                           >
                             <Bell className="w-3.5 h-3.5" />
                             <span>{t.actionNotify}</span>
@@ -638,11 +638,11 @@ export default function Home() {
         {/* Backtest Results & Engine Showcase Section */}
         <section id="backtest" className="pt-24 space-y-8 max-w-4xl mx-auto w-full animate-scale-in">
           <div className="text-center space-y-3">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-white flex items-center justify-center gap-2">
               <LineChart className="w-6 h-6 text-indigo-400 animate-pulse" />
               {t.backtestTitle}
             </h2>
-            <p className="text-sm text-zinc-400 light:text-zinc-600">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
               {t.backtestSubtitle}
             </p>
           </div>
@@ -655,7 +655,7 @@ export default function Home() {
                 className={`px-4 py-2 text-xs md:text-sm font-semibold rounded-full transition-all cursor-pointer ${
                   selectedBacktestStrat === "btc"
                     ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
-                    : "bg-zinc-900/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+                    : "bg-zinc-900/60 light:bg-zinc-100 text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900 hover:bg-zinc-800/50 light:hover:bg-zinc-200"
                 }`}
               >
                 {t.backtestTab1}
@@ -665,7 +665,7 @@ export default function Home() {
                 className={`px-4 py-2 text-xs md:text-sm font-semibold rounded-full transition-all cursor-pointer ${
                   selectedBacktestStrat === "eth"
                     ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
-                    : "bg-zinc-900/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+                    : "bg-zinc-900/60 light:bg-zinc-100 text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900 hover:bg-zinc-800/50 light:hover:bg-zinc-200"
                 }`}
               >
                 {t.backtestTab2}
@@ -675,7 +675,7 @@ export default function Home() {
                 className={`px-4 py-2 text-xs md:text-sm font-semibold rounded-full transition-all cursor-pointer ${
                   selectedBacktestStrat === "sol"
                     ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
-                    : "bg-zinc-900/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+                    : "bg-zinc-900/60 light:bg-zinc-100 text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900 hover:bg-zinc-800/50 light:hover:bg-zinc-200"
                 }`}
               >
                 {t.backtestTab3}
@@ -683,16 +683,16 @@ export default function Home() {
             </div>
 
             {/* Strategy Logic Header Pill */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-950/60 p-3.5 rounded-xl border border-indigo-500/20 text-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-950/60 light:bg-slate-100 p-3.5 rounded-xl border border-indigo-500/20 text-xs">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono font-bold text-white px-2 py-0.5 rounded bg-indigo-500/20 border border-indigo-500/30">
+                <span className="font-mono font-bold text-indigo-700 dark:text-white px-2 py-0.5 rounded bg-indigo-500/20 border border-indigo-500/30">
                   {currentBacktest.symbol} ({currentBacktest.timeframe})
                 </span>
-                <span className="text-zinc-300 font-mono">
+                <span className="text-zinc-700 dark:text-zinc-300 font-mono">
                   {currentBacktest.logic}
                 </span>
               </div>
-              <span className="text-[11px] text-indigo-300 font-semibold shrink-0">
+              <span className="text-[11px] text-indigo-600 dark:text-indigo-300 font-semibold shrink-0">
                 ⏱ {t.backtestPeriodBadge}
               </span>
             </div>
@@ -701,26 +701,26 @@ export default function Home() {
             <div className="bg-indigo-950/30 border border-indigo-500/20 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-indigo-400" />
-                <span className="font-bold text-zinc-200">
+                <span className="font-bold text-zinc-800 dark:text-zinc-200">
                   {t.backtestBenchmarkTitle}：
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-4 sm:gap-6 font-mono text-xs">
                 <div>
-                  <span className="text-zinc-400">{t.backtestBtcBuyHold}：</span>
-                  <span className="font-bold text-emerald-400">
+                  <span className="text-zinc-500 dark:text-zinc-400">{t.backtestBtcBuyHold}：</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
                     +{currentBacktest.btcBuyHold}%
                   </span>
                 </div>
                 <div>
-                  <span className="text-zinc-400">{t.backtestBtcDca}：</span>
-                  <span className="font-bold text-emerald-400">
+                  <span className="text-zinc-500 dark:text-zinc-400">{t.backtestBtcDca}：</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
                     +{currentBacktest.btcDca}%
                   </span>
                 </div>
                 <div>
-                  <span className="text-zinc-400">{t.backtestCurrentStrategy}：</span>
-                  <span className="font-bold text-emerald-400 text-sm">
+                  <span className="text-zinc-500 dark:text-zinc-400">{t.backtestCurrentStrategy}：</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                     +{currentBacktest.roi}%
                   </span>
                 </div>
@@ -731,56 +731,56 @@ export default function Home() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {/* ROI */}
               <div className="bg-zinc-900/40 rounded-xl p-3.5 border border-indigo-500/10 space-y-1">
-                <div className="text-[11px] text-zinc-400 font-medium">{t.backtestRoi}</div>
-                <div className="text-xl font-black text-emerald-400 font-mono">+{currentBacktest.roi}%</div>
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">{t.backtestRoi}</div>
+                <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono">+{currentBacktest.roi}%</div>
                 <div className="text-[10px] text-zinc-500">{t.backtestAnnualized}: +{currentBacktest.annualizedRoi}%</div>
               </div>
 
               {/* Win Rate */}
               <div className="bg-zinc-900/40 rounded-xl p-3.5 border border-indigo-500/10 space-y-1">
-                <div className="text-[11px] text-zinc-400 font-medium">{t.backtestWinRate}</div>
-                <div className="text-xl font-black text-indigo-400 font-mono">{currentBacktest.winRate}%</div>
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">{t.backtestWinRate}</div>
+                <div className="text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono">{currentBacktest.winRate}%</div>
                 <div className="text-[10px] text-zinc-500">{t.backtestProfitFactor}: {currentBacktest.profitFactor}</div>
               </div>
 
               {/* MDD */}
               <div className="bg-zinc-900/40 rounded-xl p-3.5 border border-indigo-500/10 space-y-1">
-                <div className="text-[11px] text-zinc-400 font-medium">{t.backtestMdd}</div>
-                <div className="text-xl font-black text-rose-400 font-mono">{currentBacktest.maxDrawdown}%</div>
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">{t.backtestMdd}</div>
+                <div className="text-xl font-black text-rose-600 dark:text-rose-400 font-mono">{currentBacktest.maxDrawdown}%</div>
                 <div className="text-[10px] text-zinc-500">{t.backtestSharpe}: {currentBacktest.sharpe}</div>
               </div>
 
               {/* Total Trades */}
               <div className="bg-zinc-900/40 rounded-xl p-3.5 border border-indigo-500/10 space-y-1">
-                <div className="text-[11px] text-zinc-400 font-medium">{t.backtestTrades}</div>
-                <div className="text-xl font-black text-zinc-100 font-mono">
-                  {currentBacktest.totalTrades} <span className="text-xs font-normal text-zinc-400">{t.backtestTradesDetail}</span>
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">{t.backtestTrades}</div>
+                <div className="text-xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
+                  {currentBacktest.totalTrades} <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">{t.backtestTradesDetail}</span>
                 </div>
-                <div className="text-[10px] text-zinc-400 font-mono">
-                  <span className="text-emerald-400">{currentBacktest.winningTrades}{t.backtestWinCount}</span> / <span className="text-rose-400">{currentBacktest.losingTrades}{t.backtestLossCount}</span>
+                <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
+                  <span className="text-emerald-600 dark:text-emerald-400">{currentBacktest.winningTrades}{t.backtestWinCount}</span> / <span className="text-rose-600 dark:text-rose-400">{currentBacktest.losingTrades}{t.backtestLossCount}</span>
                 </div>
               </div>
 
               {/* Leverage & Risk Sizing */}
               <div className="bg-zinc-900/40 rounded-xl p-3.5 border border-indigo-500/10 space-y-1 col-span-2 sm:col-span-1">
-                <div className="text-[11px] text-zinc-400 font-medium">{t.backtestRiskLabel}</div>
-                <div className="text-sm font-bold text-zinc-200 flex items-center gap-1.5 pt-0.5">
-                  <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-xs font-mono">5x</span>
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">{t.backtestRiskLabel}</div>
+                <div className="text-sm font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5 pt-0.5">
+                  <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-xs font-mono">5x</span>
                   <span className="text-xs">{t.backtestRiskDetail}</span>
                 </div>
-                <div className="text-[10px] text-emerald-400 font-semibold">{t.backtestAutoReverse}</div>
+                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">{t.backtestAutoReverse}</div>
               </div>
             </div>
 
             {/* Simulated Equity Curve SVG Chart */}
             <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs text-zinc-400 px-1">
-                <span className="font-semibold text-zinc-200 flex items-center gap-1.5">
+              <div className="flex justify-between items-center text-xs text-zinc-500 dark:text-zinc-400 px-1">
+                <span className="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
                   <BarChart2 className="w-4 h-4 text-indigo-400" />
                   {t.backtestEquityTitle}
                 </span>
                 <span className="font-mono text-zinc-500">
-                  {t.backtestInitialCapital}: <span className="text-zinc-300 font-bold">${currentBacktest.initialCapital.toLocaleString()}</span> ➔ {t.backtestFinalCapital}: <span className="text-emerald-400 font-bold">${currentBacktest.finalCapital.toLocaleString()} USDT</span>
+                  {t.backtestInitialCapital}: <span className="text-zinc-700 dark:text-zinc-300 font-bold">${currentBacktest.initialCapital.toLocaleString()}</span> ➔ {t.backtestFinalCapital}: <span className="text-emerald-600 dark:text-emerald-400 font-bold">${currentBacktest.finalCapital.toLocaleString()} USDT</span>
                 </span>
               </div>
 
@@ -839,10 +839,10 @@ export default function Home() {
         {/* Feature grid */}
         <section id="features" className="pt-24 pb-12 space-y-16">
           <div className="text-center space-y-4 max-w-2xl mx-auto">
-            <h2 className="text-3xl font-bold tracking-tight text-white">
+            <h2 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
               {t.featuresTitle}
             </h2>
-            <p className="text-zinc-400 light:text-zinc-600">
+            <p className="text-zinc-500 dark:text-zinc-400">
               {t.featuresSub}
             </p>
           </div>
@@ -853,8 +853,8 @@ export default function Home() {
               <div className="bg-indigo-600/10 p-3 w-fit rounded-xl border border-indigo-500/20 text-indigo-400">
                 <TrendingUp className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold text-white">{t.feature1Title}</h3>
-              <p className="text-sm text-zinc-400 light:text-zinc-600 leading-relaxed">{t.feature1Desc}</p>
+              <h3 className="text-xl font-bold text-zinc-900 dark:text-white">{t.feature1Title}</h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{t.feature1Desc}</p>
             </div>
 
             {/* Feature 2: Backtest Engine */}
@@ -862,8 +862,8 @@ export default function Home() {
               <div className="bg-indigo-600/10 p-3 w-fit rounded-xl border border-indigo-500/20 text-indigo-400">
                 <BarChart2 className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold text-white">{t.feature2Title}</h3>
-              <p className="text-sm text-zinc-400 light:text-zinc-600 leading-relaxed">{t.feature2Desc}</p>
+              <h3 className="text-xl font-bold text-zinc-900 dark:text-white">{t.feature2Title}</h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{t.feature2Desc}</p>
             </div>
 
             {/* Feature 3: Risk & Rules */}
@@ -871,8 +871,8 @@ export default function Home() {
               <div className="bg-indigo-600/10 p-3 w-fit rounded-xl border border-indigo-500/20 text-indigo-400">
                 <Settings className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold text-white">{t.feature3Title}</h3>
-              <p className="text-sm text-zinc-400 light:text-zinc-600 leading-relaxed">{t.feature3Desc}</p>
+              <h3 className="text-xl font-bold text-zinc-900 dark:text-white">{t.feature3Title}</h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{t.feature3Desc}</p>
             </div>
 
             {/* Feature 4: Instant Multi-Channel Alerts */}
@@ -880,8 +880,8 @@ export default function Home() {
               <div className="bg-indigo-600/10 p-3 w-fit rounded-xl border border-indigo-500/20 text-indigo-400">
                 <Bell className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold text-white">{t.feature4Title}</h3>
-              <p className="text-sm text-zinc-400 light:text-zinc-600 leading-relaxed">{t.feature4Desc}</p>
+              <h3 className="text-xl font-bold text-zinc-900 dark:text-white">{t.feature4Title}</h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{t.feature4Desc}</p>
             </div>
           </div>
         </section>
@@ -889,34 +889,34 @@ export default function Home() {
         {/* How It Works Section */}
         <section id="how-it-works" className="pt-16 pb-12 space-y-16">
           <div className="text-center space-y-4 max-w-2xl mx-auto">
-            <h2 className="text-3xl font-bold tracking-tight text-white">
+            <h2 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
               {t.howItWorksTitle}
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="glass hover-premium p-6 rounded-xl border border-zinc-800 space-y-3">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <div className="glass hover-premium p-6 rounded-xl border border-zinc-800 light:border-zinc-200 space-y-3">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-indigo-400" />
                 {t.step1Title}
               </h3>
-              <p className="text-xs text-zinc-400 light:text-zinc-600 leading-relaxed">{t.step1Desc}</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{t.step1Desc}</p>
             </div>
 
-            <div className="glass hover-premium p-6 rounded-xl border border-zinc-800 space-y-3">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <div className="glass hover-premium p-6 rounded-xl border border-zinc-800 light:border-zinc-200 space-y-3">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-indigo-400" />
                 {t.step2Title}
               </h3>
-              <p className="text-xs text-zinc-400 light:text-zinc-600 leading-relaxed">{t.step2Desc}</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{t.step2Desc}</p>
             </div>
 
-            <div className="glass hover-premium p-6 rounded-xl border border-zinc-800 space-y-3">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <div className="glass hover-premium p-6 rounded-xl border border-zinc-800 light:border-zinc-200 space-y-3">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-indigo-400" />
                 {t.step3Title}
               </h3>
-              <p className="text-xs text-zinc-400 light:text-zinc-600 leading-relaxed">{t.step3Desc}</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{t.step3Desc}</p>
             </div>
           </div>
         </section>
@@ -924,9 +924,9 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="w-full bg-zinc-950/80 light:bg-white/80 border-t border-zinc-900 light:border-zinc-200 py-12 z-10 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8 text-sm text-zinc-400 light:text-zinc-600">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8 text-sm text-zinc-500 dark:text-zinc-400">
           <div className="space-y-4">
-            <span className="text-lg font-bold text-white flex items-center gap-2">
+            <span className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
               <img src="/icon.png" alt="Logo" className="w-6 h-6 object-contain rounded-md" />
               {t.brandName}
             </span>
@@ -938,7 +938,7 @@ export default function Home() {
                 href="https://github.com/MingLin1995/crypto-sniper-v2"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-xs text-zinc-400 hover:text-indigo-400 transition-colors font-semibold"
+                className="inline-flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-semibold"
               >
                 <svg viewBox="0 0 24 24" className="w-4.5 h-4.5 fill-current" stroke="none">
                   <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
@@ -949,19 +949,19 @@ export default function Home() {
           </div>
 
           <div className="space-y-4">
-            <h4 className="font-semibold text-white">{locale === "zh-TW" ? "相關條款" : "Legal & Privacy"}</h4>
+            <h4 className="font-semibold text-zinc-900 dark:text-white">{locale === "zh-TW" ? "相關條款" : "Legal & Privacy"}</h4>
             <div className="flex flex-col gap-2.5">
-              <Link href="/privacy" className="hover:text-indigo-400 light:hover:text-indigo-600 transition-colors w-fit">
+              <Link href="/privacy" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors w-fit">
                 {t.privacyPolicy}
               </Link>
-              <Link href="/terms" className="hover:text-indigo-400 light:hover:text-indigo-600 transition-colors w-fit">
+              <Link href="/terms" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors w-fit">
                 {t.termsOfService}
               </Link>
             </div>
           </div>
 
           <div className="space-y-4 col-span-1">
-            <h4 className="font-semibold text-white">{t.contactSupport}</h4>
+            <h4 className="font-semibold text-zinc-900 dark:text-white">{t.contactSupport}</h4>
             <p className="text-xs">{t.contactText}</p>
             <p className="text-xs text-zinc-500 pt-2">
               &copy; {new Date().getFullYear()} {t.brandName}. All rights reserved.
@@ -977,7 +977,7 @@ export default function Home() {
             {/* Close Button */}
             <button
               onClick={() => setIsUnlockOpen(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-full bg-zinc-900/80 text-zinc-400 hover:text-zinc-100 border border-zinc-800 hover:border-zinc-700 transition-all cursor-pointer"
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-zinc-900/80 light:bg-zinc-100 text-zinc-400 hover:text-zinc-100 light:hover:text-zinc-900 border border-zinc-800 light:border-zinc-200 transition-all cursor-pointer"
               aria-label="Close modal"
             >
               <X className="w-4 h-4" />
@@ -988,16 +988,16 @@ export default function Home() {
               <div className="mx-auto w-12 h-12 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-2">
                 <Lock className="w-6 h-6 animate-pulse" />
               </div>
-              <h3 className="text-xl font-bold text-white tracking-tight">
+              <h3 className="text-xl font-bold text-zinc-900 dark:text-white tracking-tight">
                 {t.unlockTitle}
               </h3>
-              <p className="text-xs text-zinc-400 max-w-xs mx-auto">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto">
                 {t.unlockDesc}
               </p>
             </div>
 
             {/* Benefit Bullet Points */}
-            <ul className="space-y-3.5 text-xs text-zinc-300">
+            <ul className="space-y-3.5 text-xs text-zinc-600 dark:text-zinc-300">
               <li className="flex items-start gap-2.5">
                 <CheckCircle className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
                 <span>{t.unlockPoint1}</span>
@@ -1018,7 +1018,7 @@ export default function Home() {
 
             {/* Call to Actions */}
             <div className="grid grid-cols-2 gap-3 pt-2">
-              <Button variant="outline" className="font-semibold py-2 w-full hover:bg-zinc-800" asChild>
+              <Button variant="outline" className="font-semibold py-2 w-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200" asChild>
                 <Link href="/login" onClick={() => setIsUnlockOpen(false)}>
                   {t.loginNow}
                 </Link>

@@ -214,7 +214,7 @@ export default function ForgotPasswordPage() {
         <div className="bg-indigo-600/10 p-2 rounded-2xl border border-indigo-500/20 group-hover:scale-105 transition-all shadow-md shadow-indigo-500/10">
           <img src="/icon.png" alt="Logo" className="w-8 h-8 object-contain rounded-lg" />
         </div>
-        <span className="text-2xl font-extrabold bg-gradient-to-r from-zinc-50 via-zinc-100 to-indigo-400 bg-clip-text text-transparent">
+        <span className="text-2xl font-extrabold bg-gradient-to-r from-zinc-900 via-slate-800 to-indigo-600 dark:from-zinc-50 dark:via-zinc-100 dark:to-indigo-400 bg-clip-text text-transparent">
           CryptoSniper V2
         </span>
       </Link>

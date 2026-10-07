@@ -714,10 +714,10 @@ function AlertsContent() {
                             const absPercent = Math.abs(diffPercent).toFixed(2);
                             if (alert.condition === "ABOVE") {
                               distanceStr = currentVal >= targetVal ? "0%" : `+${absPercent}%`;
-                              distanceColor = currentVal >= targetVal ? "text-emerald-400" : "text-amber-400";
+                              distanceColor = currentVal >= targetVal ? "text-emerald-400 light:text-emerald-600" : "text-amber-400 light:text-amber-600";
                             } else {
                               distanceStr = currentVal <= targetVal ? "0%" : `-${absPercent}%`;
-                              distanceColor = currentVal <= targetVal ? "text-emerald-400" : "text-amber-400";
+                              distanceColor = currentVal <= targetVal ? "text-emerald-400 light:text-emerald-600" : "text-amber-400 light:text-amber-600";
                             }
                           }
 
@@ -827,7 +827,7 @@ function AlertsContent() {
                             <td className="px-6 py-4 font-mono text-zinc-300 light:text-zinc-700">{alert.targetPrice}</td>
                             <td className="px-6 py-4">
                               {alert.isTriggered ? (
-                                <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                <span className="inline-flex items-center gap-1 text-xs text-emerald-400 light:text-emerald-700 font-bold bg-emerald-500/10 light:bg-emerald-100 border border-emerald-500/20 light:border-emerald-300 px-2 py-0.5 rounded-full">
                                   <CheckCircle2 className="h-3 w-3" />
                                   {locale === "zh-TW" ? "已觸發" : "Triggered"}
                                 </span>
@@ -838,7 +838,7 @@ function AlertsContent() {
                                 </span>
                               )}
                             </td>
-                            <td className="px-6 py-4 text-zinc-400 light:text-zinc-550 text-xs font-mono">
+                            <td className="px-6 py-4 text-zinc-400 light:text-zinc-500 text-xs font-mono">
                               {alert.triggeredAt
                                 ? new Date(alert.triggeredAt).toLocaleString(locale, {
                                     month: "2-digit",
@@ -981,7 +981,7 @@ function AlertsContent() {
                       <Settings className="h-3.5 w-3.5" />
                       {t.discordGuideTitle}
                     </h4>
-                    <ol className="text-xs text-zinc-400 light:text-zinc-650 space-y-2 list-decimal list-inside leading-relaxed pl-1">
+                    <ol className="text-xs text-zinc-400 light:text-zinc-600 space-y-2 list-decimal list-inside leading-relaxed pl-1">
                       <li>{t.discordGuideStep1}</li>
                       <li>{t.discordGuideStep2}</li>
                       <li>{t.discordGuideStep3}</li>
@@ -1068,7 +1068,7 @@ function AlertsContent() {
                       <Settings className="h-3.5 w-3.5" />
                       {t.telegramGuideTitle}
                     </h4>
-                    <ol className="text-xs text-zinc-400 light:text-zinc-650 space-y-2 list-decimal list-inside leading-relaxed pl-1">
+                    <ol className="text-xs text-zinc-400 light:text-zinc-600 space-y-2 list-decimal list-inside leading-relaxed pl-1">
                       <li>{t.telegramGuideStep1}</li>
                       <li>{t.telegramGuideStep2}</li>
                       <li>{t.telegramGuideStep3}</li>
@@ -1139,7 +1139,7 @@ function AlertsContent() {
                       className={`py-2 px-3 rounded-lg text-xs font-bold transition border cursor-pointer ${
                         conditionInput === "ABOVE"
                           ? "bg-emerald-500/15 border-emerald-500 text-emerald-400 font-extrabold"
-                          : "bg-zinc-950 dark:bg-zinc-950 light:bg-zinc-100 border-zinc-800 light:border-zinc-200 text-zinc-400 light:text-zinc-650 hover:text-zinc-200 light:hover:text-zinc-900"
+                          : "bg-zinc-950 dark:bg-zinc-950 light:bg-zinc-100 border-zinc-800 light:border-zinc-200 text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900"
                       }`}
                     >
                       ▲ {locale === "zh-TW" ? "大於或等於" : "ABOVE (>=)"}
@@ -1150,7 +1150,7 @@ function AlertsContent() {
                       className={`py-2 px-3 rounded-lg text-xs font-bold transition border cursor-pointer ${
                         conditionInput === "BELOW"
                           ? "bg-red-500/15 border-red-500 text-red-400 font-extrabold"
-                          : "bg-zinc-950 dark:bg-zinc-950 light:bg-zinc-100 border-zinc-800 light:border-zinc-200 text-zinc-400 light:text-zinc-650 hover:text-zinc-200 light:hover:text-zinc-900"
+                          : "bg-zinc-950 dark:bg-zinc-950 light:bg-zinc-100 border-zinc-800 light:border-zinc-200 text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900"
                       }`}
                     >
                       ▼ {locale === "zh-TW" ? "小於或等於" : "BELOW (<=)"}
@@ -1185,7 +1185,7 @@ function AlertsContent() {
                     setPriceInput("");
                   }}
                   disabled={creating}
-                  className="cursor-pointer border-zinc-850 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200 text-xs"
+                  className="cursor-pointer border-zinc-800 light:border-zinc-300 hover:bg-zinc-900 light:hover:bg-zinc-100 text-zinc-400 light:text-zinc-600 hover:text-zinc-200 light:hover:text-zinc-900 text-xs"
                 >
                   {locale === "zh-TW" ? "取消" : "Cancel"}
                 </Button>

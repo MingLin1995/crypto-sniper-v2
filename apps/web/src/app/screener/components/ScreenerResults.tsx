@@ -71,7 +71,9 @@ export function ScreenerResults({
         </div>
         <CardDescription className="mt-2 text-xs text-zinc-500">
           {activeTab === "results"
-            ? (locale === "zh-TW" ? "以 24h 成交量大小降冪排序" : "Sorted by 24h volume descending")
+            ? (locale === "zh-TW"
+                ? "掃描高流動性池 (前 20%) 與自選追蹤標的・依 24h 成交額降冪排序"
+                : "Scans top ~20% high-liquidity pool & watchlist・Sorted by 24h volume")
             : (locale === "zh-TW" ? "點擊星星取消追蹤，點選項目快速切換圖表" : "Click star to unfollow, click row to update chart")}
         </CardDescription>
       </CardHeader>

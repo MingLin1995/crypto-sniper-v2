@@ -31,12 +31,18 @@ jobs:
       - name: 安裝 Monorepo 依賴套件
         run: bun install --frozen-lockfile
 
+      - name: 執行重大資安漏洞檢查 (Critical Audit)
+        run: bun audit --audit-level=critical
+
       - name: 重新產生 Prisma Client
         run: bun --cwd apps/api prisma generate
 
-      - name: 執行 Jest 單元測試 (產生 JUnit XML)
+      - name: 執行全專案 TypeScript 與建置編譯檢查
+        run: bun run build
+
+      - name: 執行 Jest 單元測試與覆蓋率報告 (產生 JUnit XML)
         working-directory: apps/api
-        run: bun run test -- --reporters=default --reporters=jest-junit
+        run: bun run test:cov -- --reporters=default --reporters=jest-junit
         env:
           JEST_JUNIT_OUTPUT_DIR: '.'
           JEST_JUNIT_OUTPUT_NAME: 'junit.xml'
@@ -276,6 +282,10 @@ jobs:
           NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY || secrets.TURNSTILE_SITE_KEY || '' }}
           TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY || '' }}
           TURNSTILE_ENABLED: ${{ secrets.TURNSTILE_ENABLED || 'true' }}
+          UNIVERSE_HOT_COUNT: ${{ secrets.UNIVERSE_HOT_COUNT || '50' }}
+          UNIVERSE_ENTER_PERCENT: ${{ secrets.UNIVERSE_ENTER_PERCENT || '18' }}
+          UNIVERSE_EXIT_PERCENT: ${{ secrets.UNIVERSE_EXIT_PERCENT || '25' }}
+          UNIVERSE_EXIT_GRACE_MS: ${{ secrets.UNIVERSE_EXIT_GRACE_MS || '21600000' }}
         run: |
           cat << EOF > .env
           APP_NAME=${APP_NAME}
@@ -336,6 +346,10 @@ jobs:
           NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
           TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY}
           TURNSTILE_ENABLED=${TURNSTILE_ENABLED}
+          UNIVERSE_HOT_COUNT=${UNIVERSE_HOT_COUNT}
+          UNIVERSE_ENTER_PERCENT=${UNIVERSE_ENTER_PERCENT}
+          UNIVERSE_EXIT_PERCENT=${UNIVERSE_EXIT_PERCENT}
+          UNIVERSE_EXIT_GRACE_MS=${UNIVERSE_EXIT_GRACE_MS}
           EOF
           # 移除空值設定行以保持乾淨
           sed -i '/=$/d' .env

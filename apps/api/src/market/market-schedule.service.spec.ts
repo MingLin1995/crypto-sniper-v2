@@ -157,11 +157,12 @@ describe('MarketScheduleService & MarketCacheService', () => {
       expect(mockRedisClient.expire).toHaveBeenCalledWith('market:prices', 30);
     });
 
-    it('分流策略：enqueueKlinesForInterval 應能區分 Hot 與 Cold 標的並進行模除分流', async () => {
-      const mockSymbols = Array.from({ length: 60 }, (_, i) => `SYM${i}USDT`);
+    it('分流策略：enqueueKlinesForInterval 應能區分 Hot 與 Warm 標的並進行模除分流', async () => {
+      // 300 檔有效標的時，前 18% 為 54 檔（50 檔 Hot + 4 檔 Warm）
+      const mockSymbols = Array.from({ length: 300 }, (_, i) => `SYM${i}USDT`);
       const mockRanking = mockSymbols.map((symbol, idx) => ({
         symbol,
-        quoteVolume: 100000 - idx * 1000,
+        quoteVolume: 500000 - idx * 1000,
       }));
 
       mockBinanceService.getUSDTFuturesSymbols.mockResolvedValue(mockSymbols);
@@ -178,7 +179,7 @@ describe('MarketScheduleService & MarketCacheService', () => {
 
       const queueLength = scheduleService.getQueueLength();
       expect(queueLength).toBeGreaterThanOrEqual(50);
-      expect(queueLength).toBeLessThan(60);
+      expect(queueLength).toBeLessThan(54);
 
       getMinutesSpy.mockRestore();
     });
@@ -255,6 +256,59 @@ describe('MarketScheduleService & MarketCacheService', () => {
       const coldTaskIndex = queue.findIndex((t: any) => t.symbol === 'COLDUSDT' && t.interval === '5m');
       
       expect(btcTaskIndex).toBeLessThan(coldTaskIndex);
+    });
+
+    it('Active Universe 過濾：低於進入門檻且未在自選清單的長尾標的，不應排入 K 線佇列', async () => {
+      // 300 檔有效標的：前 18% = 54 檔 (50 Hot + 4 Warm)，第 55~300 檔應被排除
+      const mockSymbols = Array.from({ length: 300 }, (_, i) => `SYM${i + 1}USDT`);
+      const mockRanking = mockSymbols.map((symbol, idx) => ({
+        symbol,
+        quoteVolume: (300 - idx) * 10000,
+      }));
+
+      mockBinanceService.getUSDTFuturesSymbols.mockResolvedValue(mockSymbols);
+      mockRedisClient.get.mockImplementation(async (key: string) => {
+        if (key === 'market:ranking:volume') return JSON.stringify(mockRanking);
+        return null;
+      });
+      mockBinanceService.getKlines.mockResolvedValue([
+        { open: 100, high: 100, low: 100, close: 100, volume: 0, openTime: 0, closeTime: 0 },
+      ]);
+
+      await scheduleService.handle15mKlines();
+
+      // 第一檔 (Hot) 已被 shift 出佇列執行，佇列剩餘應為 54 - 1 = 53 檔 (長尾 246 檔完全不進佇列)
+      const queue = (scheduleService as any).queue as { symbol: string; interval: string }[];
+      expect(queue.length).toBe(53);
+      expect(queue.some((t) => t.symbol === 'SYM250USDT')).toBe(false);
+    });
+
+    it('退池清理：超過 6 小時寬限期跌出前 25% 的標的，應主動清除其 Redis K 線快取', async () => {
+      mockRedisClient.del = jest.fn().mockResolvedValue(9);
+      const mockSymbols = Array.from({ length: 300 }, (_, i) => `SYM${i + 1}USDT`);
+      const mockRanking = mockSymbols.map((symbol, idx) => ({
+        symbol,
+        quoteVolume: (300 - idx) * 10000,
+      }));
+
+      // 模擬 SYM280USDT 在 7 小時前曾在池內，現已超過 6 小時寬限期
+      (scheduleService as any).activeTimestampMap = {
+        SYM280USDT: Date.now() - 7 * 60 * 60 * 1000,
+      };
+
+      await scheduleService.refreshSymbolUniverse(mockSymbols, mockRanking);
+
+      expect(mockRedisClient.del).toHaveBeenCalledWith(
+        'market:klines:SYM280USDT:5m',
+        'market:klines:SYM280USDT:15m',
+        'market:klines:SYM280USDT:30m',
+        'market:klines:SYM280USDT:1h',
+        'market:klines:SYM280USDT:2h',
+        'market:klines:SYM280USDT:4h',
+        'market:klines:SYM280USDT:1d',
+        'market:klines:SYM280USDT:1w',
+        'market:klines:SYM280USDT:1M',
+      );
     });
   });
 });

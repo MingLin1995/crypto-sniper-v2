@@ -7,6 +7,18 @@ export interface VolumeRanking {
   quoteVolume: number;
 }
 
+export interface SymbolUniverseCache {
+  hot: string[];
+  warm: string[];
+  pinned: string[];
+  activeSymbols: string[];
+  activeTimestampMap: Record<string, number>;
+  totalTradableCandidates: number;
+  updatedAt: number;
+}
+
+const ALL_KLINE_INTERVALS = ['5m', '15m', '30m', '1h', '2h', '4h', '1d', '1w', '1M'];
+
 @Injectable()
 export class MarketCacheService {
   constructor(private readonly redisService: RedisService) {}
@@ -119,6 +131,25 @@ export class MarketCacheService {
   }
 
   /**
+   * 刪除已退池標的的所有時間週期 K 線快取，釋放 Redis 記憶體
+   */
+  async deleteSymbolKlines(symbols: string[]): Promise<void> {
+    if (!symbols || symbols.length === 0) return;
+    if (typeof (this.client as any).del !== 'function') return;
+
+    const keys: string[] = [];
+    for (const symbol of symbols) {
+      for (const interval of ALL_KLINE_INTERVALS) {
+        keys.push(`market:klines:${symbol}:${interval}`);
+      }
+    }
+
+    if (keys.length > 0) {
+      await this.client.del(...keys);
+    }
+  }
+
+  /**
    * 寫入 24h 成交量排行
    */
   async setVolumeRanking(ranking: VolumeRanking[]): Promise<void> {
@@ -133,6 +164,55 @@ export class MarketCacheService {
     const key = `market:ranking:volume`;
     const value = await this.client.get(key);
     return value ? JSON.parse(value) : null;
+  }
+
+  /**
+   * 寫入當前活躍可交易標的池 (Active Universe)
+   */
+  async setSymbolUniverse(universe: SymbolUniverseCache): Promise<void> {
+    const key = `market:universe`;
+    await this.client.setex(key, this.RANKING_TTL, JSON.stringify(universe));
+  }
+
+  /**
+   * 取得當前活躍可交易標的池 (Active Universe)
+   */
+  async getSymbolUniverse(): Promise<SymbolUniverseCache | null> {
+    const key = `market:universe`;
+    try {
+      const value = await this.client.get(key);
+      if (!value) return null;
+      const parsed = JSON.parse(value);
+      if (
+        !parsed ||
+        typeof parsed !== 'object' ||
+        Array.isArray(parsed) ||
+        !Array.isArray(parsed.activeSymbols)
+      ) {
+        return null;
+      }
+      return parsed as SymbolUniverseCache;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 當使用者將新標的加入自選清單時，即時將其併入 Redis 的 Active Universe 白名單
+   */
+  async addPinnedSymbolToUniverse(symbol: string): Promise<void> {
+    const normalized = symbol.trim().toUpperCase();
+    if (!normalized) return;
+
+    const universe = await this.getSymbolUniverse();
+    if (!universe) return;
+
+    if (!universe.activeSymbols.includes(normalized)) {
+      universe.pinned = Array.from(new Set([...(universe.pinned || []), normalized]));
+      universe.activeSymbols = [...universe.activeSymbols, normalized];
+      universe.updatedAt = Date.now();
+      await this.setSymbolUniverse(universe);
+    }
   }
 
   /**

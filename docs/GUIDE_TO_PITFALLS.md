@@ -543,28 +543,30 @@
 
 ---
 
-### 案例 25：Redis 極限記憶體淘汰 (volatile-lru) 引發的預熱死鎖，與前 5 大主流幣錨點防禦
+### 案例 25：Redis 極限記憶體淘汰 (volatile-lru)、高流動性池 (Active Universe) 遲滯帶與前 5 大主流幣錨點防禦
 
 - **Situation (情境與困境)**：
-  在 AWS EC2 (1GB RAM) 正式環境中，用戶訪問 `https://crypto-sniper.minglin.net/login?from=%2Fscreener` 或首頁 `/` 時，畫面持續凍結並顯示「行情資料預熱中，請稍後再試」。後端 NestJS 持續拋出 `ServiceUnavailableException: 行情資料 (15m) 預熱中，請稍後再試 (HTTP 503)`。
+  在 AWS EC2 (1GB RAM) 正式環境中，用戶訪問 `https://crypto-sniper.minglin.net/login?from=%2Fscreener` 或首頁 `/` 時，畫面持續凍結並顯示「行情資料預熱中，請稍後再試」。後端 NestJS 持續拋出 `ServiceUnavailableException: 行情資料 (15m) 預熱中，請稍後再試 (HTTP 503)`。此外，過去對全市場 600+ 檔冷門幣採用模除降頻輪詢（如 4h 時框每 12 小時才更新一次），不僅容易因過期 K 線 (`stale cache`) 污染篩選訊號，更在首頁載入時觸發數百筆即時補拉 API 請求。
 - **Task (目標)**：
-  徹底排查 Redis 快取淘汰與行情預熱檢驗的衝突，消除核心時框快取頻繁丟失導致的 503 阻斷，並確保已登入用戶自動轉址至 Screener 時能立即取得行情。
+  徹底排查 Redis 快取淘汰與行情預熱檢驗的衝突，建立牛熊自適應的「高流動性池 + 自選清單白名單」K 線分層架構，消除過期 K 線污染與 503 阻斷，並確保首頁與 Screener 秒級回傳行情。
 - **Action (行動與解決方案)**：
   1. **記憶體容量與資料量的數學排查 (Math vs Limits)**：
-     - EC2 資源極度嚴苛，Redis 設有 `maxmemory 28mb`。
-     - 啟動期 `MarketScheduleService` 嘗試預熱 9 個時間週期 × 350 個交易對（合計 2,550 個任務），每筆 K 線為 500 根完整 OHLCV 物件（約 70 KB），總資料量達 178 MB。
-     - 當 Redis 填滿 28 MB 後，`volatile-lru` 淘汰最久未讀取的 Key，把最先寫入的 5m 與 15m 短週期快取全部逐出！
-  2. **K 線快取緊湊格式序列化 (Compact Serialization)**：
-     - 在 `MarketCacheService` 將 K 線物件由臃腫的 Key-Value 物件轉為緊湊數值陣列 `[openTime, open, high, low, close, volume, closeTime]`。
-     - 讀取時自動透明解包，記憶體佔用降低 68%（70 KB → 22 KB/幣），並延長排行 TTL 至 1 小時防範排程閃爍。
-  3. **啟動精準輕量預熱 (Top 50 Hot Warmup)**：
-     - 啟動時改為僅預熱前 50 檔熱門幣的核心時框（`15m`, `1h`, `4h`, `1d`, `5m`），任務數縮減 90%（250 個任務），25 秒內即完成，Redis 僅佔用約 5.5 MB，絕不觸發任何 Key 淘汰。長時框排程（>=1h）則對冷門幣依時間模除分流。
-  4. **Top 5 主流幣錨點清單與即時拉取兜底 (Anchor Fallback & On-the-Fly Bootstrapping)**：
-     - 排行缺失時，`ScreenerService` 強制將前五大主流幣（`BTCUSDT`, `ETHUSDT`, `SOLUSDT`, `BNBUSDT`, `XRPUSDT`）排在最前抽樣，杜絕回退至字母排序（`1000xxx` 迷因幣）的誤判陷阱。
-     - 當取樣為 0 時，由 `getKlinesWithFallback` 即時拉取熱門標的補齊快取，不粗暴拋出 503。
-  5. **生產環境 Redis 記憶體微調**：
-     - 將 `docker-compose.prod.yml` 中 Redis 內部 `maxmemory` 微調為 36mb（容器限制 48M）。
+     - EC2 資源極度嚴苛，Redis 設有 `maxmemory 36mb`（容器限制 48M）。
+     - 若無差別快取 9 個時間週期 × 全市場 600+ 交易對，總資料量將遠超記憶體上限，觸發 `volatile-lru` 將最先寫入的 5m 與 15m 短週期快取逐出。
+  2. **高流動性池 (Active Universe) 排名百分比遲滯帶 + 自選白名單 (`Pinned`)**：
+     - 以 `TRADING` USDT 永續合約且 `quoteVolume > 0` 的有效標的數 $n$ 為分母，實作隨牛熊自動縮放門檻的動態池 (`classifySymbolUniverse`)：
+       - **進入門檻 (`UNIVERSE_ENTER_PERCENT=18`)**：排名 $\le \lceil n \times 0.18 \rceil$ 或前 50 名熱門幣 (`Hot`) 自動納入池中。
+       - **離開門檻與 6 小時寬限期 (`UNIVERSE_EXIT_PERCENT=25`, `UNIVERSE_EXIT_GRACE_MS=21600000`)**：已入池標的排名掉出 $\lceil n \times 0.25 \rceil$ 且**連續維持 6 小時**才真正移出，徹底根除排名邊界每 5 分鐘反覆進出的快取抖動。
+       - **自選清單強制釘選 (`Pinned`)**：使用者加入 `WatchlistItem` 的標的自動寫入 `market:universe` 白名單，不受成交額排名限制。
+       - **主動快取清理 (`deleteSymbolKlines`)**：正式滑出池外的標的 (`dropped`) 立即從 Redis `DEL` 刪除其 9 個時框的 K 線快取，確保 `36MB` 記憶體 100% 服務活躍池標的。
+  3. **K 線快取緊湊格式序列化 (Compact Serialization)**：
+     - 在 `MarketCacheService` 將 K 線物件由臃腫的 Key-Value 物件轉為緊湊數值陣列 `[openTime, open, high, low, close, volume, closeTime]`，記憶體佔用降低 68%（70 KB → 22 KB/幣），並延長排行與高流動性池 TTL 至 1 小時。
+  4. **啟動精準輕量預熱與核心時框全量同步**：
+     - 啟動時僅預熱前 50 檔熱門幣的核心時框（`15m`, `1h`, `4h`, `1d`, `5m`），25 秒內完成。常態排程中，池內標的 (`Hot + Warm + Pinned` 約 110 檔) 在核心篩選時框 (`15m, 1h, 4h, 1d`) **每輪 100% 同步更新**，徹底消除冷門幣過期 K 線產生假訊號的問題。
+  5. **Top 5 主流幣錨點與即時補拉預算保護 (`MAX_ON_THE_FLY_FETCHES_PER_SCREEN = 10`)**：
+     - 排行缺失時，`ScreenerService` 強制將前五大主流幣（`BTCUSDT`, `ETHUSDT`, `SOLUSDT`, `BNBUSDT`, `XRPUSDT`）排在最前抽樣。
+     - 單次篩選請求限制最多即時補拉 10 檔快取未命中的標的（例如剛釘選的自選幣），且在 API 權重 `> 1800` 時自動跳過，保護首頁 `/` 與 `/screener` 絕不觸發全市場 API 風暴。
 - **Result (成果)**：
-  啟動預熱時間由數分鐘縮短至 25 秒內，Redis 記憶體維持在 15MB 內低水位，核心時框 100% 穩定命中，首頁即時體驗與 Screener 登入後訪問皆能秒級回傳行情數據，42 組測試套件全數維持綠燈。
+  啟動預熱時間由數分鐘縮短至 25 秒內，Redis 記憶體穩定控制在 ~22MB 安全水位（遠低於 36MB 上限），核心時框 100% 穩定命中且零過期 K 線污染，首頁與 Screener 皆能秒級回傳精準訊號。
 
 

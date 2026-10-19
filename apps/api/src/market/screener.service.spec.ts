@@ -250,5 +250,63 @@ describe('ScreenerService', () => {
       expect(result.length).toBe(1);
       expect(result[0].symbol).toBe('BTCUSDT');
     });
+
+    it('當 Redis 已快取 Active Universe 時，應僅掃描該活躍池，不呼叫全市場 getUSDTFuturesSymbols', async () => {
+      mockMarketCacheService.getScreenerResult.mockResolvedValue(null);
+      mockMarketCacheService.getSymbolUniverse = jest.fn().mockResolvedValue({
+        hot: ['BTCUSDT'],
+        warm: [],
+        pinned: ['PINNEDUSDT'],
+        activeSymbols: ['BTCUSDT', 'PINNEDUSDT'],
+        activeTimestampMap: {},
+        totalTradableCandidates: 500,
+        updatedAt: Date.now(),
+      });
+
+      const risingKlines = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+      mockMarketCacheService.getKlines.mockResolvedValue(mapToOHLCV(risingKlines));
+      mockMarketCacheService.getPrices.mockResolvedValue({
+        BTCUSDT: 65000,
+        PINNEDUSDT: 1.5,
+      });
+      mockMarketCacheService.getVolumeRanking.mockResolvedValue([
+        { symbol: 'BTCUSDT', quoteVolume: 10000000 },
+        { symbol: 'PINNEDUSDT', quoteVolume: 5000 },
+      ]);
+
+      const result = await service.screen(mockRequest);
+
+      expect(mockBinanceService.getUSDTFuturesSymbols).not.toHaveBeenCalled();
+      expect(result.map((r) => r.symbol)).toEqual(['BTCUSDT', 'PINNEDUSDT']);
+    });
+
+    it('防護機制：單次篩選請求遇到大量快取未命中時，on-the-fly API 補拉次數不應超過 10 次上限', async () => {
+      const manySymbols = Array.from({ length: 40 }, (_, i) => `SYM${i + 1}USDT`);
+      mockMarketCacheService.getScreenerResult.mockResolvedValue(null);
+      mockMarketCacheService.getSymbolUniverse = jest.fn().mockResolvedValue({
+        hot: manySymbols,
+        warm: [],
+        pinned: [],
+        activeSymbols: manySymbols,
+        activeTimestampMap: {},
+        totalTradableCandidates: 40,
+        updatedAt: Date.now(),
+      });
+
+      // 僅 SYM1USDT 有快取 (讓預熱檢測通過)，其餘 39 檔全部 Cache Miss
+      const risingKlines = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+      mockMarketCacheService.getKlines.mockImplementation(async (symbol: string) => {
+        if (symbol === 'SYM1USDT') return mapToOHLCV(risingKlines);
+        return null;
+      });
+      mockBinanceService.getKlines.mockResolvedValue(mapToOHLCV(risingKlines));
+      mockMarketCacheService.getPrices.mockResolvedValue({});
+      mockMarketCacheService.getVolumeRanking.mockResolvedValue([]);
+
+      await service.screen(mockRequest);
+
+      // 39 檔缺失中，最多只允許即時向幣安補拉 10 次，徹底杜絕首頁或篩選器觸發全市場 API 風暴
+      expect(mockBinanceService.getKlines).toHaveBeenCalledTimes(10);
+    });
   });
 });

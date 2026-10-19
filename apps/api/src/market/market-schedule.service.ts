@@ -1,8 +1,14 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { BinanceService, VolumeRanking } from './binance.service';
 import { MarketCacheService } from './market-cache.service';
 import { BinanceWebsocketService } from './binance-websocket.service';
+import { ExtendedPrismaService } from '../common/prisma/extended-prisma.service';
+import {
+  classifySymbolUniverse,
+  getUniverseConfigFromEnv,
+  SymbolUniverseResult,
+} from './helpers/symbol-universe';
 
 interface Task {
   symbol: string;
@@ -27,11 +33,13 @@ export class MarketScheduleService implements OnModuleInit {
   private queue: Task[] = [];
   private isProcessing = false;
   private symbolRankMap = new Map<string, number>();
+  private activeTimestampMap: Record<string, number> = {};
 
   constructor(
     private readonly binanceService: BinanceService,
     private readonly marketCacheService: MarketCacheService,
     private readonly binanceWebsocketService: BinanceWebsocketService,
+    @Optional() private readonly prisma?: ExtendedPrismaService,
   ) {}
 
   async onModuleInit() {
@@ -41,13 +49,14 @@ export class MarketScheduleService implements OnModuleInit {
       const ranking = await this.updatePricesAndRanking();
       const symbols = await this.binanceService.getUSDTFuturesSymbols();
 
-      // 啟動時預熱常用核心時框的熱門標的 K 線快取 (優先預熱前 50 檔熱門標的，避免任務過多或記憶體超限)
+      // 啟動時預熱常用核心時框的活躍標的池 (優先排序確保 Hot 50 排在佇列最前端優先完成，隨後平滑預熱 Warm + Pinned)
       if (ranking.length > 0 && symbols.length > 0) {
-        this.logger.log('Warming up K-line caches on startup (Hot 50 symbols)...');
+        this.logger.log('Warming up K-line caches on startup (Hot 50 prioritized + Active Universe)...');
         const warmupIntervals = ['15m', '1h', '4h', '1d', '5m'];
         for (const interval of warmupIntervals) {
-          // 傳入快取的 symbols 與 ranking，且設定 startProcessor = false，防範啟動時的競態條件；hotOnly = true
-          await this.enqueueKlinesForInterval(interval, false, symbols, ranking, true);
+          // 5m 啟動時僅預熱 Hot 50，其餘核心時框 (15m, 1h, 4h, 1d) 納入完整 Active Universe (由 queue.sort 確保 Hot 50 絕對優先)
+          const hotOnly = interval === '5m';
+          await this.enqueueKlinesForInterval(interval, false, symbols, ranking, hotOnly);
         }
         // 統一在全部任務皆已入列並排好順序後，才一次性啟動處理器，確保完全遵守優先權排序
         this.processQueue();
@@ -55,6 +64,74 @@ export class MarketScheduleService implements OnModuleInit {
     } catch (err: any) {
       this.logger.error('Failed to run initial startup initialization', err?.stack);
     }
+  }
+
+  /**
+   * 讀取資料庫中所有使用者的自選清單標的 (不重複 symbol)，作為 Pinned 白名單
+   */
+  private async getPinnedWatchlistSymbols(): Promise<string[]> {
+    if (!this.prisma?.client?.watchlistItem?.findMany) {
+      return [];
+    }
+    try {
+      const items = await this.prisma.client.watchlistItem.findMany({
+        select: { symbol: true },
+        distinct: ['symbol'],
+      });
+      return items.map((item: { symbol: string }) => item.symbol);
+    } catch (err: any) {
+      this.logger.warn(`Failed to query pinned watchlist symbols: ${err?.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * 重新計算活躍可交易標的池 (Active Universe)，同步寫入 Redis 並清理已退池標的的 K 線快取
+   */
+  async refreshSymbolUniverse(
+    cachedSymbols?: string[],
+    cachedRanking?: VolumeRanking[],
+  ): Promise<SymbolUniverseResult> {
+    const validSymbols = cachedSymbols || (await this.binanceService.getUSDTFuturesSymbols());
+    const ranking = cachedRanking || (await this.marketCacheService.getVolumeRanking()) || [];
+    const pinnedSymbols = await this.getPinnedWatchlistSymbols();
+
+    let previousActiveMap = this.activeTimestampMap;
+    if (Object.keys(previousActiveMap).length === 0) {
+      const cachedUniverse = await this.marketCacheService.getSymbolUniverse?.();
+      if (cachedUniverse?.activeTimestampMap) {
+        previousActiveMap = cachedUniverse.activeTimestampMap;
+      }
+    }
+
+    const universe = classifySymbolUniverse({
+      validSymbols,
+      ranking,
+      pinnedSymbols,
+      previousActiveMap,
+      config: getUniverseConfigFromEnv(),
+    });
+
+    this.activeTimestampMap = universe.activeTimestampMap;
+
+    await this.marketCacheService.setSymbolUniverse?.({
+      hot: universe.hot,
+      warm: universe.warm,
+      pinned: universe.pinned,
+      activeSymbols: universe.activeSymbols,
+      activeTimestampMap: universe.activeTimestampMap,
+      totalTradableCandidates: universe.totalTradableCandidates,
+      updatedAt: Date.now(),
+    });
+
+    if (universe.dropped.length > 0) {
+      this.logger.log(
+        `Removing ${universe.dropped.length} dropped symbols from K-line cache: ${universe.dropped.join(', ')}`,
+      );
+      await this.marketCacheService.deleteSymbolKlines?.(universe.dropped);
+    }
+
+    return universe;
   }
 
   /**
@@ -74,6 +151,14 @@ export class MarketScheduleService implements OnModuleInit {
     if (tickers.length > 0) {
       await this.marketCacheService.setPricesPipeline(tickers);
     }
+
+    // 同步重算 Active Universe (前 18% 進 / 25% 出 + 6h 寬限期 + Watchlist Pinned)
+    try {
+      await this.refreshSymbolUniverse(undefined, ranking);
+    } catch (err: any) {
+      this.logger.warn(`Failed to refresh symbol universe during ranking update: ${err?.message}`);
+    }
+
     return ranking;
   }
 
@@ -184,7 +269,7 @@ export class MarketScheduleService implements OnModuleInit {
   }
 
   /**
-   * 依時間週期將需更新的交易對加入佇列，並針對 Cold 交易對進行模除分流行動
+   * 依時間週期將 Active Universe (Hot + Warm + Pinned) 交易對加入佇列，排除長尾低流動性標的
    */
   private async enqueueKlinesForInterval(
     interval: string,
@@ -208,58 +293,40 @@ export class MarketScheduleService implements OnModuleInit {
         });
       }
 
-      // 建立成交量 Map，以便快速查詢與排序
-      const volumeMap = new Map<string, number>();
-      ranking.forEach((r) => volumeMap.set(r.symbol, r.quoteVolume));
-
-      // 依交易量降冪排序
-      symbols.sort((a, b) => {
-        const volA = volumeMap.get(a) || 0;
-        const volB = volumeMap.get(b) || 0;
-        return volB - volA;
-      });
-
-      // 劃分熱門與冷門交易對 (熱門取前50)
-      const hotSymbols = symbols.slice(0, 50);
-      const coldSymbols = symbols.slice(50);
+      // 透過 SymbolUniverse 分層：排除長尾低流動性標的，僅保留 Hot (前 50)、Warm (前 18% 進 / 25% 出 + 6h 寬限) 與 Pinned (自選清單)
+      const universe = await this.refreshSymbolUniverse(symbols, ranking);
+      const hotSymbols = universe.hot;
+      const warmSymbols = [...universe.warm, ...universe.pinned];
 
       let targetSymbols: string[] = [];
 
-      // 實作熱度分流策略，冷門交易對依分鐘進行模除分流，以降低單次排程之 API 負載
+      // 由於 Active Universe 已收斂至約 100~140 檔，核心時框 (15m, 1h, 4h, 1d) 每輪皆完整更新以根除舊 K 線問題；
+      // 僅最高頻的 5m 與次要時框 (30m, 2h, 1w, 1M) 對 Warm + Pinned 進行 % 2 奇偶分流
       if (hotOnly) {
-        // 僅針對熱門標的更新 (啟動預熱專用，避免寫入過多 Key 導致 Redis LRU 淘汰)
         targetSymbols = hotSymbols;
       } else if (interval === '5m') {
-        const groupIdx = Math.floor(new Date().getMinutes() / 5) % 3;
-        const coldToUpdate = coldSymbols.filter((_, idx) => idx % 3 === groupIdx);
-        targetSymbols = [...hotSymbols, ...coldToUpdate];
-      } else if (interval === '15m') {
-        const groupIdx = Math.floor(new Date().getMinutes() / 15) % 2;
-        const coldToUpdate = coldSymbols.filter((_, idx) => idx % 2 === groupIdx);
-        targetSymbols = [...hotSymbols, ...coldToUpdate];
+        const groupIdx = Math.floor(new Date().getMinutes() / 5) % 2;
+        const warmToUpdate = warmSymbols.filter((_, idx) => idx % 2 === groupIdx);
+        targetSymbols = [...hotSymbols, ...warmToUpdate];
+      } else if (
+        interval === '15m' ||
+        interval === '1h' ||
+        interval === '4h' ||
+        interval === '1d'
+      ) {
+        targetSymbols = [...hotSymbols, ...warmSymbols];
       } else if (interval === '30m') {
         const groupIdx = Math.floor(new Date().getMinutes() / 30) % 2;
-        const coldToUpdate = coldSymbols.filter((_, idx) => idx % 2 === groupIdx);
-        targetSymbols = [...hotSymbols, ...coldToUpdate];
-      } else if (interval === '1h' || interval === '2h') {
-        // 1h/2h: 熱門交易對每次更新，冷門交易對依小時模除分流 (4 組分流)
-        const currentHour = new Date().getHours();
-        const coldToUpdate = coldSymbols.filter((_, idx) => idx % 4 === currentHour % 4);
-        targetSymbols = [...hotSymbols, ...coldToUpdate];
-      } else if (interval === '4h') {
-        // 4h: 冷門交易對依 4 小時區間模除分流 (3 組分流)
-        const groupIdx = Math.floor(new Date().getHours() / 4) % 3;
-        const coldToUpdate = coldSymbols.filter((_, idx) => idx % 3 === groupIdx);
-        targetSymbols = [...hotSymbols, ...coldToUpdate];
-      } else if (interval === '1d') {
-        // 1d: 冷門交易對依日期奇偶分流 (2 組分流)
-        const groupIdx = new Date().getDate() % 2;
-        const coldToUpdate = coldSymbols.filter((_, idx) => idx % 2 === groupIdx);
-        targetSymbols = [...hotSymbols, ...coldToUpdate];
+        const warmToUpdate = warmSymbols.filter((_, idx) => idx % 2 === groupIdx);
+        targetSymbols = [...hotSymbols, ...warmToUpdate];
+      } else if (interval === '2h') {
+        const groupIdx = Math.floor(new Date().getHours() / 2) % 2;
+        const warmToUpdate = warmSymbols.filter((_, idx) => idx % 2 === groupIdx);
+        targetSymbols = [...hotSymbols, ...warmToUpdate];
       } else {
-        // 1w, 1M: 長週期更新熱門標的與首批冷門標的
-        const coldToUpdate = coldSymbols.filter((_, idx) => idx % 3 === 0);
-        targetSymbols = [...hotSymbols, ...coldToUpdate];
+        // 1w, 1M: 長週期更新
+        const warmToUpdate = warmSymbols.filter((_, idx) => idx % 2 === 0);
+        targetSymbols = [...hotSymbols, ...warmToUpdate];
       }
 
       // 將任務加到佇列中，避免重複
@@ -270,13 +337,15 @@ export class MarketScheduleService implements OnModuleInit {
         }
       }
 
+      const hotCount = getUniverseConfigFromEnv().hotCount;
+
       // 佇列排序：
-      // 1. 優先處理所有熱門標的 (Hot Symbols, Volume Rank < 50)
-      // 2. 同屬熱門或冷門時，優先權高的 (時間短的時框，如 5m) 排在前面
+      // 1. 優先處理所有熱門標的 (Hot Symbols, Volume Rank < hotCount)
+      // 2. 同屬熱門或非熱門時，優先權高的 (時間短的時框，如 5m) 排在前面
       // 3. 同時框且同熱度屬性時，成交量排行較前面 (熱門幣種) 排在前面
       this.queue.sort((a, b) => {
-        const isHotA = (this.symbolRankMap.get(a.symbol) ?? 9999) < 50;
-        const isHotB = (this.symbolRankMap.get(b.symbol) ?? 9999) < 50;
+        const isHotA = (this.symbolRankMap.get(a.symbol) ?? 9999) < hotCount;
+        const isHotB = (this.symbolRankMap.get(b.symbol) ?? 9999) < hotCount;
 
         if (isHotA !== isHotB) {
           return isHotA ? -1 : 1;

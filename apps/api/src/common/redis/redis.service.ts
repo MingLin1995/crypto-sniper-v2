@@ -29,15 +29,15 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         this.logger.warn('MetricsService 在此階段尚未註冊或解析完成');
       }
 
-      // Proxy client.get 以追蹤快取命中率
+      // Proxy client.get 以追蹤快取命中率 (使用 Optional Chaining 防範 MetricsService.onModuleInit 尚未執行的啟動期競態)
       const originalGet = this.client.get.bind(this.client);
       this.client.get = async (key: string, ...rest: any[]) => {
         const result = await originalGet(key, ...rest);
         if (this.metricsService) {
           if (result !== null) {
-            this.metricsService.redisCacheHitsTotal.inc();
+            this.metricsService.redisCacheHitsTotal?.inc();
           } else {
-            this.metricsService.redisCacheMissesTotal.inc();
+            this.metricsService.redisCacheMissesTotal?.inc();
           }
         }
         return result;

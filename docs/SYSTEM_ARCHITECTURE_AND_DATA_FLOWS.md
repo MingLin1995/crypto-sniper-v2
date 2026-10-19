@@ -163,15 +163,18 @@ sequenceDiagram
 
 ## 5. 幣安行情資料抓取與限流自適應調度流程 (Binance Ingestion & Rate Limit Flow)
 
-行情數據抓取與指標計算是策略篩選看板（Screener）的基石。為了解決多時框（9 個）、多交易對（700+）高頻請求導致幣安 `429 Rate Limit` 封鎖的問題，系統在 `MarketScheduleService` 實作了冷熱分流、自適應權重延遲與主備援切換機制。
+行情數據抓取與指標計算是策略篩選看板（Screener）的基石。為了解決多時框（9 個）、多交易對（700+）高頻請求導致幣安 `429 Rate Limit` 封鎖與 Redis 記憶體淘汰的問題，系統在 `MarketScheduleService` 實作了**動態活躍標的池（Active Universe）分層、遲滯退出寬限期、自適應權重延遲與主備援切換機制**。
 
 ![Binance Ingestion & Rate Limit Flow](./assets/binance-ingestion-rate-limit.svg)
 
 ### 流程詳解：
 
-1. **冷熱交易對分流 (Hot/Cold Separation)**：
-   - 系統每 5 分鐘拉取並計算 24h 成交量排行（Volume Ranking）存入 Redis，前 50 名的交易對被標記為**熱門標的 (Hot)**，其餘為**冷門標的 (Cold)**。
-   - 更新 5m、15m、30m 短週期 K 線時，熱門交易對每次均會更新；冷門交易對則依當前時間分鐘進行模除分組（如 5m 週期分成 3 組，每 5 分鐘只輪詢更新 1/3 的冷門交易對），從而在保障熱門標的即時性的同時，將冷門標的的 API 請求次數縮減為原來的 1/3。
+1. **動態活躍標的池分層與遲滯退出 (Active Universe & Hysteresis)**：
+   - 系統每 5 分鐘拉取全市場 24h 成交量排行（Volume Ranking）存入 Redis，並以 `TRADING` 狀態且 `quoteVolume > 0` 的有效 USDT 永續合約作為分母 $n$，將標的池分為三層：
+     - **熱門保底 (`Hot`)**：成交額排名前 50 名，所有時框每輪皆優先即時更新。
+     - **高流動性池 (`Warm`)**：成交額排名前 **18%**（`rank <= ceil(n × 0.18)`）自動進入池內；一旦在池內，只要排名維持在前 **25%** 內即持續保留；若跌出前 25% 且**連續超過 6 小時寬限期 (`UNIVERSE_EXIT_GRACE_MS`)** 仍未回升，才正式移出並主動刪除其 Redis K 線快取 (`DEL market:klines:${symbol}:*`)，釋放記憶體。
+     - **自選清單白名單 (`Pinned`)**：任何使用者加入 `WatchlistItem` 的追蹤標的，不論成交額排名高低皆強制保留於活躍池內。
+   - 透過將 K 線輪詢母體收斂至約 100~140 檔可交易標的（排除約 80% 長尾低流動性雜訊標的），核心時框（`15m`、`1h`、`4h`、`1d`）得以在每次收線時 **100% 全數更新**，僅最高頻的 `5m` 與次要時框對 `Warm + Pinned` 採用 `% 2` 奇偶分流。
 2. **單執行緒排隊與自適應延遲 (Single-Threaded Queue & Adaptive Backoff)**：
    - 所有需要更新的 K 線任務統一進入一個記憶體佇列，由一個單執行緒迴圈依序執行，防止多執行緒併發請求爆額。
    - 使用 Axios 攔截器（Interceptor）實時攔截回應標頭中的 `X-MBX-USED-WEIGHT-1M`。每執行完一次請求，便判斷目前已耗用權重，動態調整請求間隔：
@@ -222,7 +225,7 @@ sequenceDiagram
 
 ## 7. 策略篩選引擎資料流向 (Screener Strategy Engine Flow)
 
-Screener 是產品的核心功能，讓用戶在 700+ 個 USDT 永續合約中，透過自訂「多時框均線交叉條件」快速篩選出符合策略的標的。篩選引擎採用了**配置 Hash 快取、行情預熱偵測、併發批次控制與 K 線回退機制**。
+Screener 是產品的核心功能，讓用戶在高流動性永續合約池與自選追蹤清單（Active Universe）中，透過自訂「多時框技術指標條件」快速篩選出符合策略的標的。篩選引擎採用了**配置 Hash 快取、活躍池收斂 (`market:universe`)、行情預熱偵測、併發批次控制與配額保護回退機制**。
 
 ### 架構圖：
 
@@ -230,16 +233,16 @@ Screener 是產品的核心功能，讓用戶在 700+ 個 USDT 永續合約中�
 
 ```mermaid
 flowchart TD
-    A["前端提交篩選條件<br/>(多時框 × 多 MA 條件)"] --> B{"SHA-256 配置 Hash<br/>Redis 快取命中?"}
+    A["前端提交篩選條件<br/>(多時框 × 多指標條件)"] --> B{"SHA-256 配置 Hash<br/>Redis 快取命中?"}
     B -->|命中 TTL: 60s| C["直接回傳快取結果"]
-    B -->|未命中| D["取得 700+ USDT 永續合約清單<br/>(1h 記憶體快取 + API 降級)"]
-    D --> E{"行情預熱偵測<br/>取樣 20 個交易對"}
-    E -->|"K 線覆蓋率 < 10%"| F["回傳 503<br/>行情資料預熱中"]
+    B -->|未命中| D["讀取 Active Universe 清單<br/>(Hot 50 + Top 18%~25% Warm + Watchlist Pinned)"]
+    D --> E{"行情預熱偵測<br/>取樣前 20 個熱門/錨點標的"}
+    E -->|"快取缺失且即時補拉無回應"| F["回傳 503<br/>行情資料預熱中"]
     E -->|覆蓋率通過| G["併發篩選<br/>20 個/批次 Promise.all"]
     G --> H["逐交易對 × 逐時框<br/>條件評估"]
     H --> I{"Redis K 線快取<br/>命中?"}
-    I -->|命中| J["計算 SMA/EMA"]
-    I -->|未命中| K["即時調用幣安 API<br/>並回寫快取"]
+    I -->|命中| J["計算技術指標"]
+    I -->|"未命中 (單次最多補拉 10 檔)"| K["安全配額內即時調用幣安 API<br/>並回寫快取"]
     K --> J
     J --> L{"所有條件<br/>皆成立?"}
     L -->|是| M["加入符合清單"]
@@ -251,10 +254,10 @@ flowchart TD
 
 ### 核心設計要點：
 
-1. **配置 Hash 去重快取**：將篩選條件（時框、MA 類型、週期、運算子）結構化排序後以 `SHA-256` 雜湊，相同配置的請求直接命中 Redis 快取（TTL: 60s），大幅減少重複計算。
-2. **行情預熱偵測 (Cache Warmup Detection)**：系統啟動後前幾分鐘 K 線快取尚未完備。Screener 在執行篩選前，優先依 24h 交易量排行前列與前 5 大主流錨點標的（BTC, ETH, SOL, BNB, XRP）檢查快取覆蓋率，若快取完全缺失，自動以 `getKlinesWithFallback` 觸發即時拉取補齊，僅在外部 API 完全無回應時才回傳 `503 Service Unavailable`，避免在系統剛啟動或冷門幣排序時誤判卡死。
-3. **併發批次控制**：對 700+ 交易對的篩選以 20 個為一批次執行 `Promise.all`，防止同時發起數百個 Redis 查詢造成 Redis 連線池耗盡。
-4. **K 線回退 (Fallback)**：若 Redis 中某交易對的 K 線快取已過期，Screener 會即時調用幣安 `GET /fapi/v1/klines` API 並回寫快取，確保篩選不因快取缺失而漏掉任何標的。
+1. **配置 Hash 去重快取**：將篩選條件（時框、指標類型、週期、運算子）結構化排序後以 `SHA-256` 雜湊，相同配置的請求直接命中 Redis 快取（TTL: 60s），大幅減少重複計算。
+2. **活躍可交易池收斂 (`Active Universe`)**：篩選器預設讀取 Redis `market:universe`（包含前 50 熱門、成交額前 18%~25% 遲滯池及用戶 `WatchlistItem` 自選白名單），避免首頁預覽或策略篩選對 500+ 檔無量長尾幣觸發全量 Cache Miss 風暴。
+3. **行情預熱偵測 (Cache Warmup Detection)**：系統啟動後前幾分鐘 K 線快取尚未完備。Screener 在執行篩選前，優先依 24h 交易量排行前列與前 5 大主流錨點標的（BTC, ETH, SOL, BNB, XRP）檢查快取覆蓋率，若快取完全缺失，自動以 `getKlinesWithFallback` 為前 3 檔錨點即時補齊，僅在外部 API 完全無回應時才回傳 `503 Service Unavailable`。
+4. **併發批次控制與即時補拉配額保護**：對活躍池交易對以 20 個為一批次執行 `Promise.all`，並限制單次篩選請求最多僅允許 10 次 on-the-fly API 補拉（且當 API 權重 > 1,800 時自動停止補拉），徹底防範高併發請求打爆幣安限流或塞滿 Redis `36MB` 記憶體。
 5. **交易對清單降級策略**：`BinanceService.getUSDTFuturesSymbols()` 自帶 1 小時的 in-memory 快取。當幣安 API 調用失敗時，降級回傳舊快取資料，避免全系統連鎖中斷。
 
 ---
@@ -488,9 +491,10 @@ Redis 7.x 在系統中扮演**高速快取**與**非同步任務佇列 Broker (B
 | 鍵值命名規範 (Key Pattern)            | 資料結構 (Type)  | 功用 (Usage)                                                  | 過期機制 (TTL)  | 實作備註                                                            |
 | :------------------------------------ | :--------------- | :------------------------------------------------------------ | :-------------- | :------------------------------------------------------------------ |
 | `market:prices`                       | Hash             | 儲存全市場所有交易對的最新成交價（例如：`BTCUSDT ➔ 95000.5`） | 30 秒           | 使用單一 Hash 結構，大幅減少 Redis 的 Key 數量與記憶體碎片。        |
-| `market:klines:${symbol}:${interval}` | String (JSON)    | 儲存指定交易對與時間週期的最新 500 根收盤價陣列               | 依週期 2h ~ 90d | 短週期 (5m) TTL 2h，長週期 (1M) TTL 90d，防止佇列延遲導致快取消失。 |
-| `market:ranking:volume`               | String (JSON)    | 儲存 24h 交易量排行榜，作為 cold/hot 標的分流更新的判斷基準   | 5 分鐘          | 定期刷新，Screener 依此進行模除輪詢分組。                           |
-| `screener:result:${hash}`             | String (JSON)    | 儲存 Screener 篩選結果快取，以 SHA-256 配置 Hash 為 Key       | 60 秒           | 相同配置的請求直接命中，避免重複計算 700+ 交易對。                  |
+| `market:klines:${symbol}:${interval}` | String (JSON)    | 儲存高流動性池與自選清單標的最新 500 根 K 線緊湊陣列          | 依週期 2h ~ 90d | 短週期 (5m) TTL 2h，長週期 (1M) TTL 90d；滑出池外時主動清除 (`DEL`)。|
+| `market:ranking:volume`               | String (JSON)    | 儲存 24h 成交量排行榜 (`quoteVolume`)                         | 1 小時          | 每 5 分鐘刷新，延長 TTL 避免排程間隙產生排行快取閃爍。              |
+| `market:universe`                     | String (JSON)    | 儲存高流動性池狀態 (`hot`, `warm`, `pinned`, `active`, `outOfBoundsSince`) | 1 小時 | 18% 進、25% 連續 6 小時出之遲滯帶 + 自選白名單 (`Pinned`)。         |
+| `screener:result:${hash}`             | String (JSON)    | 儲存 Screener 篩選結果快取，以 SHA-256 配置 Hash 為 Key       | 60 秒           | 相同配置的請求直接命中，避免重複計算高流動性池標的。                |
 | `oauth:state:${uuid}`                 | String           | 暫存第三方登入的 `state` 防禦權標（標記是登入或綁定動作）     | 5 分鐘          | 超時自動移除，防範 CSRF 攻擊與無效資料殘留。                        |
 | `oauth_rebind:${token}`               | String (JSON)    | 暫存帳號合併確認資料（userId、provider、existingUserId）      | 5 分鐘          | 用戶確認合併後消費，防止無限期掛起的合併請求。                      |
 | `verify_code:${action}:${email}`      | String           | Email 註冊/密碼重設驗證碼（CSPRNG 6 碼）                      | 10 分鐘         | 驗證成功或嘗試次數超限後立即刪除。                                  |
@@ -606,12 +610,12 @@ sequenceDiagram
    - OAuth 帳號合併時，使用 `Prisma.$transaction` 確保資產轉移與帳號註銷的 ACID 原子性。
    - 實作 **Prisma Client Extension (`softDeleteExtension`)**，在資料庫驅動層級全面攔截 `delete` 動作改為 `deletedAt` 軟刪除更新，並在查詢時自動追加 `deletedAt: null` 過濾與 `password` 欄位隱匿（Omit），以底層機制根除開發者人為遺漏的安全隱患。
    - 行情比對採用**樂觀鎖 (Optimistic Locking)** 技術，藉由 `updatedAt` 條件比對與併發衝突捕獲（Prisma Error `P2025`），防範告警重複觸發或通知重試中的競態條件（Race Condition）。
-4. **自適應 API 限流調度與雙軌備援**：整合單執行緒任務佇列、冷熱標的分流（成交量排行與模除分組輪詢）、`X-MBX-USED-WEIGHT-1M` 權重動態延遲反饋，配合 WebSocket 存活狀態檢測的 REST 備援 Cron 機制，實現超低額度開銷的全時段行情同步。
+4. **自適應 API 限流調度與高流動性池 (Active Universe)**：整合單執行緒任務佇列、排名百分比遲滯帶（Top 18% 進、Top 25% 連續 6h 出 + 自選清單白名單 `Pinned`）、池外標的主動快取清理、`X-MBX-USED-WEIGHT-1M` 權重動態延遲反饋，配合 WebSocket 存活狀態檢測的 REST 備援 Cron 機制，實現超低額度開銷與零過期 K 線污染的全時段行情同步。
 5. **資料庫連接池與 PWA 通知生命週期優化**：
    - 於 `ExtendedPrismaService` 中手動設定 pg Pool 驅動參數（限制 `max: 20`、連線超時與空閒釋放時間），徹底防範高頻查詢時連接洩漏或連接池耗盡。
    - 在推送 Web Push 時自動捕獲 `410 (Gone)` 及 `404` 錯誤，並在資料庫中自動清理失效或過期的 PWA 訂閱憑證，防止無效數據囤積。
 6. **零手動部署 (Zero-touch CI/CD)**：從 GitHub 測試、ARM64 跨編譯、ECR 託管到 EC2 自動更新與資料庫遷移，全程由 Code 驅動，無須人工 SSH 介入。
 7. **雙 Token 認證與 Session 劫持防禦**：Access Token (30min) + Refresh Token (7d) 架構搭配 HttpOnly Secure Cookie 傳輸、Token Rotation（每次刷新舊 Token 廢棄）、User-Agent 比對偵測 Session 劫持，以及 CSPRNG 驗證碼防暴力破解機制。
-8. **策略篩選引擎效能優化**：SHA-256 配置 Hash 快取去重、行情預熱偵測（10% 覆蓋率門檻）、20 並發批次控制、K 線回退即時拉取，確保在 700+ 交易對 × 9 時框的規模下依然秒級回應。
+8. **策略篩選引擎效能優化**：SHA-256 配置 Hash 快取去重、行情預熱偵測（10% 覆蓋率門檻）、高流動性池精準掃描、20 並發批次控制、受預算保護（單次上限 10 筆）的 K 線回退即時拉取，確保在多時框複合條件下依然秒級回應且訊號零延遲。
 9. **NestJS 七層全域管線**：IP 黑名單 → 速率限制 → JWT 認證 → RBAC 授權 → DTO 白名單驗證 → 業務邏輯 → 日誌/指標/回應格式化，每層獨立可配置，搭配 `__systemLogged` 標記防止日誌重複寫入。
 10. **量化回測引擎與撮合機制**：針對量化交易常見的未來函數問題，採次根 K 棒開盤價 (Bar $i+1$ Open) 撮合、跨時框向前填充 (Forward Fill) 對齊、雙向手續費與滑價磨損計入，配合 BullMQ 非同步任務佇列與風險部位動態換算，提供更貼近真實市場的回測評估。

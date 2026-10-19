@@ -1,10 +1,15 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { BinanceService } from './binance.service';
+import { Injectable, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
+import { BinanceService, VolumeRanking } from './binance.service';
 import { MarketCacheService } from './market-cache.service';
 import { ScreenerRequestDto, ScreenerTimeframeBlockDto } from './dto/screener.dto';
 import { evaluateCondition, normalizeCondition } from './helpers/indicator-evaluator';
+import { classifySymbolUniverse, getUniverseConfigFromEnv } from './helpers/symbol-universe';
+import { ExtendedPrismaService } from '../common/prisma/extended-prisma.service';
 import { OHLCVKline } from './types';
 import * as crypto from 'crypto';
+
+/** 單次篩選請求允許的最大即時 (on-the-fly) API 補拉次數，防止啟動初期或首頁預覽觸發全量併發爬蟲 */
+const MAX_ON_THE_FLY_FETCHES_PER_SCREEN = 10;
 
 @Injectable()
 export class ScreenerService {
@@ -13,17 +18,58 @@ export class ScreenerService {
   constructor(
     private readonly binanceService: BinanceService,
     private readonly marketCacheService: MarketCacheService,
+    @Optional() private readonly prisma?: ExtendedPrismaService,
   ) {}
+
+  /**
+   * 取得當前活躍可交易標的池 (Active Universe = Hot 50 ∪ Top 18%~25% Warm ∪ Watchlist Pinned)
+   * 優先讀取 Redis 快取的 market:universe，若無則即時依 24h 成交量排行與自選清單計算
+   */
+  private async getActiveUniverseSymbols(cachedRanking?: VolumeRanking[]): Promise<string[]> {
+    const cachedUniverse = await this.marketCacheService.getSymbolUniverse?.();
+    if (cachedUniverse?.activeSymbols && cachedUniverse.activeSymbols.length > 0) {
+      return cachedUniverse.activeSymbols;
+    }
+
+    const validSymbols = await this.binanceService.getUSDTFuturesSymbols();
+    if (!validSymbols || validSymbols.length === 0) {
+      return [];
+    }
+
+    const ranking = cachedRanking ?? (await this.marketCacheService.getVolumeRanking()) ?? [];
+    let pinnedSymbols: string[] = [];
+    if (this.prisma?.client?.watchlistItem?.findMany) {
+      try {
+        const items = await this.prisma.client.watchlistItem.findMany({
+          select: { symbol: true },
+          distinct: ['symbol'],
+        });
+        pinnedSymbols = items.map((i: { symbol: string }) => i.symbol);
+      } catch {
+        pinnedSymbols = [];
+      }
+    }
+
+    const universe = classifySymbolUniverse({
+      validSymbols,
+      ranking,
+      pinnedSymbols,
+      config: getUniverseConfigFromEnv(),
+    });
+
+    return universe.activeSymbols;
+  }
 
   /**
    * 執行多時框均線條件篩選
    */
   async screen(dto: ScreenerRequestDto): Promise<any[]> {
     let matchingSymbols: string[];
+    const currentRanking = (await this.marketCacheService.getVolumeRanking()) || [];
 
     if (!dto.timeframes || dto.timeframes.length === 0) {
-      // 預設沒有篩選條件時，撈取所有交易對
-      matchingSymbols = await this.binanceService.getUSDTFuturesSymbols();
+      // 預設沒有篩選條件時，僅回傳高流動性池與自選清單 (Active Universe)
+      matchingSymbols = await this.getActiveUniverseSymbols(currentRanking);
       if (!matchingSymbols || matchingSymbols.length === 0) {
         return [];
       }
@@ -35,19 +81,22 @@ export class ScreenerService {
       if (cachedSymbols) {
         matchingSymbols = cachedSymbols;
       } else {
-        // 2. 獲取所有永續合約交易對
-        const symbols = await this.binanceService.getUSDTFuturesSymbols();
+        // 2. 獲取活躍可交易標的池 (Active Universe)，不再全掃 700+ 長尾合約
+        const symbols = await this.getActiveUniverseSymbols(currentRanking);
         if (symbols.length === 0) {
           throw new ServiceUnavailableException('目前無法取得交易對資料');
         }
 
         // 3. 行情預熱偵測：優先採樣 24h 交易量排行前列的熱門標的進行快取檢驗。
         // 若排行快取暫時為空，優先以主流標的為錨點候選清單，避免因字首字母排序（如 1000xxx 開頭冷門幣種）誤判系統預熱中。
-        const ranking = (await this.marketCacheService.getVolumeRanking()) || [];
         const fallbackAnchors = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT'];
+        const activeSet = new Set(symbols);
+        const rankedActive = currentRanking
+          .map((r) => r.symbol)
+          .filter((s) => activeSet.has(s));
         const candidateSymbols =
-          ranking.length > 0
-            ? ranking.map((r) => r.symbol)
+          rankedActive.length > 0
+            ? rankedActive
             : [
                 ...symbols.filter((s) => fallbackAnchors.includes(s)),
                 ...symbols.filter((s) => !fallbackAnchors.includes(s)),
@@ -79,7 +128,7 @@ export class ScreenerService {
           }
         }
 
-        // 4. 篩選各交易對
+        // 4. 篩選活躍池內各交易對
         matchingSymbols = await this.runScreening(symbols, dto.timeframes);
 
         // 5. 寫入快取 (TTL: 60s)
@@ -88,7 +137,6 @@ export class ScreenerService {
     }
 
     // 6. 補齊最新價格與 24h 成交量資訊
-    const currentRanking = (await this.marketCacheService.getVolumeRanking()) || [];
     const volumeMap = new Map<string, number>();
     currentRanking.forEach((r) => volumeMap.set(r.symbol, r.quoteVolume));
 
@@ -105,7 +153,7 @@ export class ScreenerService {
   }
 
   /**
-   * 對所有交易對進行平行篩選
+   * 對活躍池交易對進行平行篩選
    */
   private async runScreening(
     // 限制同時執行篩選評估的併發數量，防範 Redis 負載過大與過多 on-the-fly HTTP 請求
@@ -113,6 +161,7 @@ export class ScreenerService {
     timeframes: ScreenerTimeframeBlockDto[],
   ): Promise<string[]> {
     const matchingSymbols: string[] = [];
+    const onTheFlyBudget = { remaining: MAX_ON_THE_FLY_FETCHES_PER_SCREEN };
 
     const concurrencyLimit = 20;
     const chunks: string[][] = [];
@@ -123,7 +172,7 @@ export class ScreenerService {
     for (const chunk of chunks) {
       const results = await Promise.all(
         chunk.map(async (symbol) => {
-          const isMatch = await this.checkSymbolMatches(symbol, timeframes);
+          const isMatch = await this.checkSymbolMatches(symbol, timeframes, onTheFlyBudget);
           return { symbol, isMatch };
         }),
       );
@@ -144,9 +193,10 @@ export class ScreenerService {
   private async checkSymbolMatches(
     symbol: string,
     timeframes: ScreenerTimeframeBlockDto[],
+    onTheFlyBudget?: { remaining: number },
   ): Promise<boolean> {
     for (const tf of timeframes) {
-      const prices = await this.getKlinesWithFallback(symbol, tf.interval);
+      const prices = await this.getKlinesWithFallback(symbol, tf.interval, onTheFlyBudget);
       if (!prices || prices.length === 0) {
         return false; // 無法取得歷史行情時不符合
       }
@@ -161,19 +211,37 @@ export class ScreenerService {
   }
 
   /**
-   * 取得 K 線資料，若快取未命中則實時調用幣安 API 並回寫快取
+   * 取得 K 線資料，若快取未命中且仍在安全配額內，則實時調用幣安 API 並回寫快取
    */
-  private async getKlinesWithFallback(symbol: string, interval: string): Promise<OHLCVKline[]> {
+  private async getKlinesWithFallback(
+    symbol: string,
+    interval: string,
+    onTheFlyBudget?: { remaining: number },
+  ): Promise<OHLCVKline[]> {
     const cached = await this.marketCacheService.getKlines(symbol, interval);
     if (cached && cached.length > 0) {
       return cached;
     }
 
+    // 防護機制：若已達單次篩選即時補拉上限，或幣安 API 權重過高 (>1800)，則直接略過不觸發 API 風暴
+    const usedWeight = this.binanceService.getUsedWeight?.() ?? 0;
+    if (usedWeight > 1800) {
+      return [];
+    }
+    if (onTheFlyBudget) {
+      if (onTheFlyBudget.remaining <= 0) {
+        return [];
+      }
+      onTheFlyBudget.remaining -= 1;
+    }
+
     try {
       this.logger.warn(`K-line cache miss for ${symbol} (${interval}), fetching on-the-fly...`);
       const klines = await this.binanceService.getKlines(symbol, interval);
-      await this.marketCacheService.setKlines(symbol, interval, klines);
-      return klines;
+      if (klines && klines.length > 0) {
+        await this.marketCacheService.setKlines(symbol, interval, klines);
+      }
+      return klines || [];
     } catch (err: any) {
       this.logger.error(
         `Failed to fetch klines on-the-fly for ${symbol} (${interval}): ${err.message}`,

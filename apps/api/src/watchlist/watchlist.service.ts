@@ -48,13 +48,16 @@ export class WatchlistService {
       throw new ConflictException('該交易對已在您的追蹤清單中');
     }
 
-    // 3. 儲存新追蹤項目
-    return this.prisma.client.watchlistItem.create({
+    // 3. 儲存新追蹤項目並即時同步至活躍標的池白名單 (Active Universe)
+    const created = await this.prisma.client.watchlistItem.create({
       data: {
         userId,
         symbol,
       },
     });
+
+    await this.marketCacheService.addPinnedSymbolToUniverse?.(symbol);
+    return created;
   }
 
   /**

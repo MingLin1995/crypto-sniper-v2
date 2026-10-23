@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { IpBlacklistMiddleware } from './ip-blacklist.middleware';
 import { IpBlacklistService } from './ip-blacklist.service';
 
@@ -65,9 +65,9 @@ describe('IpBlacklistMiddleware (IP 黑名單防護中介軟體)', () => {
     const mockResponse = {} as Response;
     const mockNext = jest.fn();
 
-    await expect(
-      middleware.use(mockRequest, mockResponse, mockNext)
-    ).rejects.toThrow(ForbiddenException);
+    await expect(middleware.use(mockRequest, mockResponse, mockNext)).rejects.toThrow(
+      ForbiddenException,
+    );
 
     expect(service.isIpBlacklisted).toHaveBeenCalledWith('192.168.1.1');
     expect(mockNext).not.toHaveBeenCalled();

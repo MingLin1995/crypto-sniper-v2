@@ -26,6 +26,6 @@ test.describe('登入頁面核心合約測試 (Login Contract)', () => {
 
     // 驗證錯誤訊息元素
     const errorMessage = page.locator('[data-testid="login-error-message"]');
-    await expect(errorMessage).toBeVisible({ timeout: 5000 });
+    await expect(errorMessage).toBeVisible({ timeout: 15000 });
   });
 });

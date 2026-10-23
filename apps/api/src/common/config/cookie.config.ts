@@ -1,4 +1,4 @@
-import { CookieOptions } from 'express';
+import type { CookieOptions } from 'express';
 
 export const getCookieDomain = (): string | undefined => {
   if (process.env.COOKIE_DOMAIN) {

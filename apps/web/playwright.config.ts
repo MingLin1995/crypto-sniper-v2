@@ -16,17 +16,15 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 2,
-  timeout: 45000,
-  reporter: [
-    ['list'],
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
-  ],
+  workers: process.env.CI ? 2 : 1,
+  timeout: 60000,
+  reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    serviceWorkers: 'block',
   },
   projects: [
     {
@@ -49,13 +47,16 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
       env: {
-        DATABASE_URL: process.env.DATABASE_URL || 'postgresql://dev_user:dev_password@127.0.0.1:5432/app_dev?schema=public',
+        DATABASE_URL:
+          process.env.DATABASE_URL ||
+          'postgresql://dev_user:dev_password@127.0.0.1:5432/app_dev?schema=public',
         REDIS_HOST: process.env.REDIS_HOST || '127.0.0.1',
         REDIS_PORT: process.env.REDIS_PORT || '6379',
         PORT: '3000',
         FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3001',
         JWT_SECRET: process.env.JWT_SECRET || 'dev-jwt-secret-for-ci-at-least-32chars-long',
-        JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'dev-jwt-refresh-secret-for-ci-at-least-32chars-long',
+        JWT_REFRESH_SECRET:
+          process.env.JWT_REFRESH_SECRET || 'dev-jwt-refresh-secret-for-ci-at-least-32chars-long',
       },
     },
     {

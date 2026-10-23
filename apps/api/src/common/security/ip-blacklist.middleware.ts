@@ -1,5 +1,5 @@
 import { Injectable, NestMiddleware, ForbiddenException, Logger } from '@nestjs/common';
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { IpBlacklistService } from './ip-blacklist.service';
 
 @Injectable()
@@ -14,7 +14,9 @@ export class IpBlacklistMiddleware implements NestMiddleware {
     if (ip) {
       const isBlocked = await this.ipBlacklistService.isIpBlacklisted(ip);
       if (isBlocked) {
-        this.logger.warn(`攔截來自被封鎖 IP 的請求：${ip} | 路徑：${req.method} ${req.originalUrl}`);
+        this.logger.warn(
+          `攔截來自被封鎖 IP 的請求：${ip} | 路徑：${req.method} ${req.originalUrl}`,
+        );
         throw new ForbiddenException('您的 IP 已被封鎖');
       }
     }

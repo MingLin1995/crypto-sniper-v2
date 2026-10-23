@@ -10,7 +10,7 @@ This project is **CryptoSniper v2**, an enterprise-grade cryptocurrency trading 
 
 - Runtime: Bun 1.x
 - Monorepo Orchestration: Turborepo
-- Backend Framework: NestJS 11.x (TypeScript 5.x)
+- Backend Framework: NestJS 12.x (TypeScript 5.x)
 - Frontend Framework: Next.js 14.x (App Router)
 - Database: PostgreSQL 16
 - ORM: Prisma 7.x (v7.2.0)

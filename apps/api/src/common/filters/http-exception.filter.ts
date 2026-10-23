@@ -1,5 +1,5 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { LoggerService, LogLevel, LogType } from '../logger/logger.service';
 import { maskSensitiveData } from '../utils/mask-sensitive.helper';
 
@@ -35,9 +35,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const userId = (user as any)?.sub;
     const userAccount = (user as any)?.account;
 
-    const logMessage = exception instanceof HttpException
-      ? message
-      : (exception instanceof Error ? exception.message : '內部伺服器錯誤');
+    const logMessage =
+      exception instanceof HttpException
+        ? message
+        : exception instanceof Error
+          ? exception.message
+          : '內部伺服器錯誤';
 
     // 只有在攔截器或其它地方未記錄時才寫入日誌，以防重複記錄
     if (!(request as any).__systemLogged) {

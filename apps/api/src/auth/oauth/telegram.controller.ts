@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Res, Request, Param, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Res,
+  Request,
+  Param,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 import { SkipTransform } from '../../common/decorators/skip-transform.decorator';
@@ -8,9 +17,12 @@ import { AuthService } from '../auth.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { ConfigService } from '@nestjs/config';
 import { TelegramWidgetLoginDto } from '../dto/oauth.dto';
-import { Response } from 'express';
+import type { Response } from 'express';
 import * as crypto from 'crypto';
-import { ACCESS_TOKEN_COOKIE_OPTIONS, REFRESH_TOKEN_COOKIE_OPTIONS } from '../../common/config/cookie.config';
+import {
+  ACCESS_TOKEN_COOKIE_OPTIONS,
+  REFRESH_TOKEN_COOKIE_OPTIONS,
+} from '../../common/config/cookie.config';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -29,11 +41,12 @@ export class TelegramController {
   async getTelegramLinkToken(@Request() req: any) {
     const userId = req.user.sub;
     const token = crypto.randomBytes(16).toString('hex');
-    
+
     const redis = this.redisService.getClient();
     await redis.set(`tg_link:${token}`, userId, 'EX', 600); // 10 分鐘有效
 
-    const botUsername = this.configService.get<string>('TELEGRAM_BOT_USERNAME') || 'CryptoSniper_MLvip_Bot';
+    const botUsername =
+      this.configService.get<string>('TELEGRAM_BOT_USERNAME') || 'CryptoSniper_MLvip_Bot';
     const botUrl = `https://t.me/${botUsername}?start=${token}`;
 
     return { token, botUrl };
@@ -48,7 +61,7 @@ export class TelegramController {
     @Res({ passthrough: true }) res: Response,
   ) {
     this.oauthService.validateTelegramAuth(dto);
-    
+
     const user = await this.oauthService.handleOAuthLoginOrLink('telegram', {
       id: dto.id,
       first_name: dto.first_name,
@@ -68,11 +81,15 @@ export class TelegramController {
   @ApiOperation({ summary: 'Telegram Widget 綁定' })
   async telegramLink(@Request() req: any, @Body() dto: TelegramWidgetLoginDto) {
     this.oauthService.validateTelegramAuth(dto);
-    
-    await this.oauthService.handleOAuthLoginOrLink('telegram', {
-      id: dto.id,
-      first_name: dto.first_name,
-    }, req.user.sub);
+
+    await this.oauthService.handleOAuthLoginOrLink(
+      'telegram',
+      {
+        id: dto.id,
+        first_name: dto.first_name,
+      },
+      req.user.sub,
+    );
 
     return { message: 'Telegram 帳號綁定成功' };
   }

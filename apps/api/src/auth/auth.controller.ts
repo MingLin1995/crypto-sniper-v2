@@ -1,26 +1,31 @@
-import {
-  Controller,
-  Post,
-  Get,
-  Body,
-  UseGuards,
-  Request,
-  Res,
-} from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Request, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
-import { ApiOkResponseGeneric, ApiCreatedResponseGeneric } from '../common/decorators/api-ok-response-generic.decorator';
+import {
+  ApiOkResponseGeneric,
+  ApiCreatedResponseGeneric,
+} from '../common/decorators/api-ok-response-generic.decorator';
 import { AuthService } from './auth.service';
 import { EmailVerificationService } from './email-verification.service';
 import { Public } from '../common/decorators/public.decorator';
 import { RefreshTokenGuard } from './refresh-token.guard';
 import { TurnstileGuard } from '../common/security/turnstile/turnstile.guard';
 import { TurnstileService } from '../common/security/turnstile/turnstile.service';
-import { LoginDto, RegisterDto, AuthResponseDto, LogoutResponseDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
+import {
+  LoginDto,
+  RegisterDto,
+  AuthResponseDto,
+  LogoutResponseDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+} from './dto/auth.dto';
 import { SendVerificationEmailDto } from './dto/email-verification.dto';
 import { Throttle } from '@nestjs/throttler';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { ACCESS_TOKEN_COOKIE_OPTIONS, REFRESH_TOKEN_COOKIE_OPTIONS } from '../common/config/cookie.config';
+import {
+  ACCESS_TOKEN_COOKIE_OPTIONS,
+  REFRESH_TOKEN_COOKIE_OPTIONS,
+} from '../common/config/cookie.config';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -30,7 +35,7 @@ export class AuthController {
     private readonly emailVerificationService: EmailVerificationService,
     private readonly configService: ConfigService,
     private readonly turnstileService: TurnstileService,
-  ) { }
+  ) {}
 
   private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
     const isProd = this.configService.get<string>('NODE_ENV') === 'production';
@@ -70,7 +75,11 @@ export class AuthController {
   @ApiOperation({ summary: '註冊' })
   @ApiBody({ type: RegisterDto })
   @ApiCreatedResponseGeneric(AuthResponseDto)
-  async register(@Request() req: any, @Body() registerDto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+  async register(
+    @Request() req: any,
+    @Body() registerDto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const ip = req.ip;
     const userAgent = req.headers['user-agent'] || 'Unknown';
     const result = await this.authService.register(registerDto, ip, userAgent);
@@ -85,7 +94,11 @@ export class AuthController {
   @ApiOperation({ summary: '登入' })
   @ApiBody({ type: LoginDto })
   @ApiOkResponseGeneric(AuthResponseDto)
-  async login(@Request() req: any, @Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Request() req: any,
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const user = await this.authService.validateUser(loginDto);
     const ip = req.ip;
     const userAgent = req.headers['user-agent'] || 'Unknown';

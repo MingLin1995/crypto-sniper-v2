@@ -12,12 +12,20 @@ import { ConfigService } from '@nestjs/config';
 import { ExtendedPrismaService } from '../common/prisma/extended-prisma.service';
 import { RedisService } from '../common/redis/redis.service';
 import { AuthService } from './auth.service';
-import { ACCESS_TOKEN_COOKIE_OPTIONS, REFRESH_TOKEN_COOKIE_OPTIONS } from '../common/config/cookie.config';
+import {
+  ACCESS_TOKEN_COOKIE_OPTIONS,
+  REFRESH_TOKEN_COOKIE_OPTIONS,
+} from '../common/config/cookie.config';
 import { JwtService } from '@nestjs/jwt';
 import { JWT_CONFIG } from '../common/config/jwt.config';
-import { OAuthUserProfile, GoogleUserProfile, DiscordUserProfile, TelegramUserProfile } from './interfaces/oauth.interface';
+import {
+  OAuthUserProfile,
+  GoogleUserProfile,
+  DiscordUserProfile,
+  TelegramUserProfile,
+} from './interfaces/oauth.interface';
 import { TelegramWidgetLoginDto } from './dto/oauth.dto';
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { AuthenticatedUser, RequestUser } from './interfaces/auth.interface';
 import * as crypto from 'crypto';
 import axios from 'axios';
@@ -34,7 +42,9 @@ export class OAuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  getUserIdFromRequest(req: Request & { user?: RequestUser; cookies?: Record<string, string> }): string | null {
+  getUserIdFromRequest(
+    req: Request & { user?: RequestUser; cookies?: Record<string, string> },
+  ): string | null {
     if (req.user?.sub) {
       return req.user.sub;
     }
@@ -55,13 +65,16 @@ export class OAuthService {
   getDefaultFrontendUrl(): string {
     const rawFrontendUrl = this.configService.get<string>('FRONTEND_URL');
     const appDomain =
-      this.configService.get<string>('APP_DOMAIN') ||
-      this.configService.get<string>('WEB_DOMAIN');
+      this.configService.get<string>('APP_DOMAIN') || this.configService.get<string>('WEB_DOMAIN');
     const isProd = this.configService.get<string>('NODE_ENV') === 'production';
 
     // 生產環境防禦：若 FRONTEND_URL 未設定或指向 localhost，只要有線上網域立即強制使用線上網域
     if (isProd && appDomain) {
-      if (!rawFrontendUrl || rawFrontendUrl.includes('localhost') || rawFrontendUrl.includes('127.0.0.1')) {
+      if (
+        !rawFrontendUrl ||
+        rawFrontendUrl.includes('localhost') ||
+        rawFrontendUrl.includes('127.0.0.1')
+      ) {
         return `https://${appDomain}`;
       }
     }
@@ -80,8 +93,7 @@ export class OAuthService {
   getAllowedOrigins(): string[] {
     const defaultFrontendUrl = this.getDefaultFrontendUrl();
     const appDomain =
-      this.configService.get<string>('APP_DOMAIN') ||
-      this.configService.get<string>('WEB_DOMAIN');
+      this.configService.get<string>('APP_DOMAIN') || this.configService.get<string>('WEB_DOMAIN');
     const allowed = new Set<string>();
 
     try {
@@ -141,7 +153,7 @@ export class OAuthService {
   ): Promise<AuthenticatedUser> {
     const providerIdField =
       provider === 'google' ? 'googleId' : provider === 'discord' ? 'discordId' : 'telegramId';
-    
+
     let providerId: string;
     if (provider === 'google') {
       providerId = (profile as GoogleUserProfile).sub;
@@ -334,14 +346,18 @@ export class OAuthService {
     let frontendUrl = defaultFrontendUrl;
 
     if (!code || !state) {
-      return res.redirect(`${frontendUrl}/profile?status=error&message=${encodeURIComponent('缺少 code 或 state 參數')}`);
+      return res.redirect(
+        `${frontendUrl}/profile?status=error&message=${encodeURIComponent('缺少 code 或 state 參數')}`,
+      );
     }
 
     const redis = this.redisService.getClient();
     const stateDataStr = await redis.get(`oauth_state:${state}`);
 
     if (!stateDataStr) {
-      return res.redirect(`${defaultFrontendUrl}/profile?status=error&message=${encodeURIComponent('驗證時效已過期或無效的 state')}`);
+      return res.redirect(
+        `${defaultFrontendUrl}/profile?status=error&message=${encodeURIComponent('驗證時效已過期或無效的 state')}`,
+      );
     }
 
     const stateData = JSON.parse(stateDataStr);
@@ -354,7 +370,9 @@ export class OAuthService {
       if (provider === 'google') {
         const googleCallbackUrl =
           this.configService.get<string>('GOOGLE_CALLBACK_URL') ||
-          (apiDomain ? `https://${apiDomain}/api/auth/google/callback` : 'http://localhost:3000/api/auth/google/callback');
+          (apiDomain
+            ? `https://${apiDomain}/api/auth/google/callback`
+            : 'http://localhost:3000/api/auth/google/callback');
 
         const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
           client_id: this.configService.get<string>('GOOGLE_CLIENT_ID'),
@@ -372,18 +390,27 @@ export class OAuthService {
       } else {
         const discordCallbackUrl =
           this.configService.get<string>('DISCORD_CALLBACK_URL') ||
-          (apiDomain ? `https://${apiDomain}/api/auth/discord/callback` : 'http://localhost:3000/api/auth/discord/callback');
+          (apiDomain
+            ? `https://${apiDomain}/api/auth/discord/callback`
+            : 'http://localhost:3000/api/auth/discord/callback');
 
         const params = new URLSearchParams();
         params.append('client_id', this.configService.get<string>('DISCORD_CLIENT_ID') || '');
-        params.append('client_secret', this.configService.get<string>('DISCORD_CLIENT_SECRET') || '');
+        params.append(
+          'client_secret',
+          this.configService.get<string>('DISCORD_CLIENT_SECRET') || '',
+        );
         params.append('grant_type', 'authorization_code');
         params.append('code', code);
         params.append('redirect_uri', discordCallbackUrl);
 
-        const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', params.toString(), {
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        });
+        const tokenResponse = await axios.post(
+          'https://discord.com/api/oauth2/token',
+          params.toString(),
+          {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          },
+        );
 
         const accessToken = tokenResponse.data.access_token;
         const userResponse = await axios.get('https://discord.com/api/users/@me', {
@@ -401,7 +428,8 @@ export class OAuthService {
       res.cookie('access_token', loginRes.accessToken, ACCESS_TOKEN_COOKIE_OPTIONS(isProd));
       res.cookie('refresh_token', loginRes.refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS(isProd));
 
-      const redirectPath = stateData.action === 'link' ? `/profile?status=success&provider=${provider}` : '/';
+      const redirectPath =
+        stateData.action === 'link' ? `/profile?status=success&provider=${provider}` : '/';
       res.redirect(`${frontendUrl}${redirectPath}`);
     } catch (error: any) {
       let errMsg = '內部伺服器錯誤';
@@ -416,7 +444,10 @@ export class OAuthService {
           errMsg = error.message;
         }
       } else {
-        this.logger.error(`OAuth callback failed for ${provider}:`, error.stack || error.message || error);
+        this.logger.error(
+          `OAuth callback failed for ${provider}:`,
+          error.stack || error.message || error,
+        );
       }
 
       const isLinkAction = stateData?.action === 'link';
@@ -427,7 +458,9 @@ export class OAuthService {
       }
 
       const redirectPath = isLinkAction ? '/profile' : '/login';
-      res.redirect(`${frontendUrl}${redirectPath}?status=error&message=${encodeURIComponent(errMsg)}`);
+      res.redirect(
+        `${frontendUrl}${redirectPath}?status=error&message=${encodeURIComponent(errMsg)}`,
+      );
     }
   }
 
@@ -535,7 +568,7 @@ export class OAuthService {
           let nameConflict = await tx.savedStrategy.findFirst({
             where: { userId, name: mergedName },
           });
-          
+
           while (nameConflict) {
             suffixNum++;
             mergedName = `${strategy.name}(${suffixNum})`;

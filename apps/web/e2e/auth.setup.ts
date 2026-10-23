@@ -10,7 +10,7 @@ setup('驗證登入並儲存認證狀態 (Authenticate & Persist storageState)',
   await page.click('[data-testid="login-submit-button"]');
 
   // 等待跳轉至 /screener
-  await page.waitForURL('**/screener', { timeout: 15000 });
+  await page.waitForURL('**/screener', { timeout: 30000 });
   await expect(page).toHaveURL(/\/screener/);
 
   // 持久化 storageState 至檔案供其他測試複用

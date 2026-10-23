@@ -5,7 +5,7 @@ import { SkipTransform } from '../../common/decorators/skip-transform.decorator'
 import { OAuthService } from '../oauth.service';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../../common/redis/redis.service';
-import { Response } from 'express';
+import type { Response } from 'express';
 import * as crypto from 'crypto';
 
 @ApiTags('Authentication')
@@ -20,11 +20,7 @@ export class DiscordOAuthController {
   @Public()
   @Get('discord')
   @ApiOperation({ summary: '重導向至 Discord 登入/綁定頁面' })
-  async discordLogin(
-    @Query('action') action: string,
-    @Req() req: any,
-    @Res() res: Response,
-  ) {
+  async discordLogin(@Query('action') action: string, @Req() req: any, @Res() res: Response) {
     const state = crypto.randomUUID();
     const referer = req.headers.referer;
     const origin = this.oauthService.resolveSafeOrigin(referer);
@@ -39,13 +35,17 @@ export class DiscordOAuthController {
       stateData.userId = userId;
     }
 
-    await this.redisService.getClient().set(`oauth_state:${state}`, JSON.stringify(stateData), 'EX', 300);
+    await this.redisService
+      .getClient()
+      .set(`oauth_state:${state}`, JSON.stringify(stateData), 'EX', 300);
 
     const clientId = this.configService.get<string>('DISCORD_CLIENT_ID');
     const apiDomain = this.configService.get<string>('API_DOMAIN');
     const callbackUrl =
       this.configService.get<string>('DISCORD_CALLBACK_URL') ||
-      (apiDomain ? `https://${apiDomain}/api/auth/discord/callback` : 'http://localhost:3000/api/auth/discord/callback');
+      (apiDomain
+        ? `https://${apiDomain}/api/auth/discord/callback`
+        : 'http://localhost:3000/api/auth/discord/callback');
     const redirectUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(
       callbackUrl,
     )}&response_type=code&scope=identify%20email&state=${state}`;

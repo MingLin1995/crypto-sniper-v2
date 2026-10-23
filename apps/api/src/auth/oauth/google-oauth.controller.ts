@@ -5,7 +5,7 @@ import { SkipTransform } from '../../common/decorators/skip-transform.decorator'
 import { OAuthService } from '../oauth.service';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../../common/redis/redis.service';
-import { Response } from 'express';
+import type { Response } from 'express';
 import * as crypto from 'crypto';
 
 @ApiTags('Authentication')
@@ -20,11 +20,7 @@ export class GoogleOAuthController {
   @Public()
   @Get('google')
   @ApiOperation({ summary: '重導向至 Google 登入/綁定頁面' })
-  async googleLogin(
-    @Query('action') action: string,
-    @Req() req: any,
-    @Res() res: Response,
-  ) {
+  async googleLogin(@Query('action') action: string, @Req() req: any, @Res() res: Response) {
     const state = crypto.randomUUID();
     const referer = req.headers.referer;
     const origin = this.oauthService.resolveSafeOrigin(referer);
@@ -39,13 +35,17 @@ export class GoogleOAuthController {
       stateData.userId = userId;
     }
 
-    await this.redisService.getClient().set(`oauth_state:${state}`, JSON.stringify(stateData), 'EX', 300);
+    await this.redisService
+      .getClient()
+      .set(`oauth_state:${state}`, JSON.stringify(stateData), 'EX', 300);
 
     const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
     const apiDomain = this.configService.get<string>('API_DOMAIN');
     const callbackUrl =
       this.configService.get<string>('GOOGLE_CALLBACK_URL') ||
-      (apiDomain ? `https://${apiDomain}/api/auth/google/callback` : 'http://localhost:3000/api/auth/google/callback');
+      (apiDomain
+        ? `https://${apiDomain}/api/auth/google/callback`
+        : 'http://localhost:3000/api/auth/google/callback');
     const redirectUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(
       callbackUrl,
     )}&response_type=code&scope=openid%20profile%20email&state=${state}&prompt=select_account`;

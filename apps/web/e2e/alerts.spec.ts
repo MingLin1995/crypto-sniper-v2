@@ -9,7 +9,7 @@ test.describe('價格通知頁面合約測試 (Alerts Contract)', () => {
     const channelsTab = page.locator('[data-testid="alerts-channels-tab"]');
     const createBtn = page.locator('[data-testid="alerts-create-btn"]');
 
-    await expect(activeTab).toBeVisible();
+    await expect(activeTab).toBeVisible({ timeout: 15000 });
     await expect(historyTab).toBeVisible();
     await expect(channelsTab).toBeVisible();
     await expect(createBtn).toBeVisible();

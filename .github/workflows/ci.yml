@@ -40,12 +40,9 @@ jobs:
       - name: 執行全專案 TypeScript 與建置編譯檢查
         run: bun run build
 
-      - name: 執行 Jest 單元測試與覆蓋率報告 (產生 JUnit XML)
+      - name: 執行單元測試與覆蓋率報告 (產生 JUnit XML)
         working-directory: apps/api
-        run: bun run test:cov -- --reporters=default --reporters=jest-junit
-        env:
-          JEST_JUNIT_OUTPUT_DIR: '.'
-          JEST_JUNIT_OUTPUT_NAME: 'junit.xml'
+        run: bun run test:ci
         # 即使測試失敗也繼續，以便下一階段發布完整報告
         continue-on-error: true
 

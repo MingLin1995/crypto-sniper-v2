@@ -16,6 +16,7 @@
     "test": "bun test src",
     "test:watch": "bun test --watch src",
     "test:cov": "bun test --coverage src",
+    "test:ci": "bun test --coverage --reporter=junit --reporter-outfile=junit.xml src",
     "test:e2e": "bun test ./test/app.e2e-spec.ts",
     "dev": "bun run start:dev",
     "deploy": "cd ../.. && ./deploy.sh",

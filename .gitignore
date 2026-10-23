@@ -24,6 +24,8 @@ Thumbs.db
 **/playwright-report/
 **/test-results/
 **/playwright/.auth/
+junit.xml
+**/junit.xml
 
 # IDEs and editors
 /.idea

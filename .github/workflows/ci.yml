@@ -401,21 +401,28 @@ jobs:
           envs: ECR_PASSWORD
           script: |
             cd /home/${{ secrets.EC2_USERNAME }}/${{ secrets.PROJECT_NAME || 'crypto-sniper-v2' }}
+            # 部署前清理：釋放過時未用映像檔、Build 快取與過大系統日誌，避免拉取映像檔時磁碟爆滿
+            docker image prune -af || true
+            docker builder prune -af || true
+            sudo journalctl --vacuum-size=50M || true
+            sudo apt-get clean || true
             # 檢查並自動建立 traefik-public 外部網路 (供 Traefik 路由使用)
             docker network inspect traefik-public >/dev/null 2>&1 || docker network create traefik-public
             # 登入 AWS ECR 以便拉取映像檔 (直接使用 Runner 傳遞的 Token，免於在 EC2 安裝 AWS CLI)
             echo "$ECR_PASSWORD" | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
-            # 拉取最新映像檔
-            docker compose -f docker-compose.prod.yml pull
-            # 啟動/更新服務 (需先啟動，後續 exec 才能在運行中的容器內執行)
+            # 僅拉取應用程式映像檔 (app 與 web)，避免每次部署重複下載 1.8GB+ 的 grafana:latest 等基礎設施映像檔
+            docker compose -f docker-compose.prod.yml pull app web
+            # 啟動/更新服務 (若基礎設施映像檔尚未下載，up -d 會自動補拉；需先啟動，後續 exec 才能在運行中的容器內執行)
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
             # 等待資料庫健康檢查通過
             echo '等待資料庫就緒...'
             docker compose -f docker-compose.prod.yml exec -T db sh -c 'until pg_isready -U $POSTGRES_USER -d $POSTGRES_DB; do sleep 2; done'
             # 執行資料庫遷移
             docker compose -f docker-compose.prod.yml exec -T app bunx prisma migrate deploy
-            # 清理過期/無用的 Docker 資源
-            docker image prune -f
+            # 清理被新版容器替換下來的舊版映像檔與孤兒 Volume，維持磁碟餘裕
+            docker image prune -af
+            docker volume prune -f || true
+            df -h /
 
       - name: 撤銷 Runner IP 的 SSH 連線權限
         if: always() && env.RUNNER_IP != ''

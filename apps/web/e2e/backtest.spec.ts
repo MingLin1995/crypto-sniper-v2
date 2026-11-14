@@ -12,7 +12,11 @@ test.describe('量化回測頁面合約測試 (Backtest Contract)', () => {
     await expect(stratSelect).toBeVisible();
     await expect(symbolInput).toBeVisible();
 
-    // 初始狀態下因未選擇策略與標的，開始回測按鈕應為 disabled
+    // 頁面載入後會非同步預載預設策略與標的 (BTCUSDT, ETHUSDT)，完成後開始回測按鈕應為 enabled
+    await expect(startBtn).toBeEnabled();
+
+    // 當手動取消選擇策略（切回空值）時，開始回測按鈕應立即變為 disabled
+    await stratSelect.selectOption('');
     await expect(startBtn).toBeDisabled();
   });
 });

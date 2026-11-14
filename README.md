@@ -32,6 +32,7 @@ CryptoSniper v2 是一款基於 Monorepo 架構設計的企業級加密貨幣即
 - **跨時框向前填充 (Forward Fill)**：在大時框（如 1D）與主時框（如 4H/15m）對齊時，使用當時已確認閉合之大時框數值進行填充，防範未來行情穿越。
 - **風控與資金部位管理**：內建固定風險模型（如 1% 總資金風險換算動態下單價值），支援固定停損 (SL)、固定停利 (TP)、反向平倉 (Signal Reverse Exit) 與自訂技術指標平倉條件。
 - **BullMQ 非同步任務管線**：長週期與多幣種回測由背景 BullMQ Worker 執行並動態回傳進度百分比，前端即時更新權益曲線 (Equity Curve) 與 TradingView 圖表。
+- **Rust (WebAssembly) 混合運算核心 (`rust-quant-core`)**：技術指標計算 (`EMA`/`SMA`/`RSI`/`MACD`)、訊號條件掃描 (`Uint8Array` 遮罩)、跨時框向前填充與權益曲線績效統計皆由零外部依賴 Rust WASM 模組高速執行，結合 `Float64Array` 連續記憶體與雙指針 `Int32Array` 時間軸遊標取代巨型雜湊映射，並具備自動 TypeScript 回退保障。
 
 ---
 
@@ -126,7 +127,8 @@ CryptoSniper v2 是一款基於 Monorepo 架構設計的企業級加密貨幣即
 | :---------------- | :------------------------ | :-------------------------------------------------------- |
 | **Runtime**       | Bun 1.x                   | 超快速的 JavaScript 執行環境、套件管理器與 Test Runner    |
 | **Monorepo**      | Turborepo                 | 專案建置、打包與任務快取管線優化工具                      |
-| **Backend**       | NestJS 11.x (TS 5.x)      | 強型別、架構嚴謹的全功能 Node.js 後端框架                 |
+| **Backend**       | NestJS 12.x (TS 5.x)      | 強型別、架構嚴謹的全功能 Node.js 後端框架                 |
+| **Quant Core**    | Rust (WASM32)             | 零外部依賴量化指標、跨時框對齊與權益曲線高速運算核心      |
 | **Frontend**      | Next.js 14.x (App Router) | React 前端框架，支援伺服器渲染 (SSR) 與路由守衛           |
 | **Database**      | PostgreSQL 16             | 核心關聯式資料庫，支援 ACID 事務                          |
 | **ORM**           | Prisma 7.x (v7.2.0)       | 現代化強型別資料庫 ORM，支援 Client Extension 擴充        |
@@ -142,11 +144,12 @@ CryptoSniper v2 是一款基於 Monorepo 架構設計的企業級加密貨幣即
 ```
 crypto-sniper-v2/
 ├── apps/
-│   ├── api/                    # NestJS 11.x 後端 API 服務 (內部埠口 3000)
+│   ├── api/                    # NestJS 12.x 後端 API 服務 (內部埠口 3000)
+│   │   ├── rust-quant-core/    # Rust (WASM32) 零外部依賴量化運算核心
 │   │   ├── src/
 │   │   │   ├── auth/           # 認證與授權 (JWT、Passport、OAuth)
 │   │   │   ├── users/          # 使用者管理 (CRUD、軟刪除)
-│   │   │   ├── market/         # 行情模組 (Binance REST/WS、指標計算、Screener 篩選)
+│   │   │   ├── market/         # 行情模組 (Binance REST/WS、指標計算、WASM 橋接、Screener)
 │   │   │   ├── alerts/         # 到價告警比對與多管道通知 (TG, DC, Web Push)
 │   │   │   ├── backtest/       # 量化回測引擎 (撮合、風控、多時框對齊、BullMQ 佇列)
 │   │   │   └── common/         # 共用 Guard、Interceptor、Filter、Logger
@@ -228,7 +231,7 @@ docker compose -f docker-compose.dev.yml exec app bun run prisma:seed
 3. **[雲端基礎設施配置與 EC2 部署指南 (docs/CLOUD_INFRASTRUCTURE_SETUP.md)](./docs/CLOUD_INFRASTRUCTURE_SETUP.md)**
    - 記錄了 AWS ECR 私有庫建立、Cloudflare DNS 與 SSL Full (Strict) 原生憑證掛載、Docker Log Rotation 日誌旋轉策略、Prometheus 容量保護，以及動態 SSH 白名單機制。
 4. **[CryptoSniper v2 踩坑指南 (docs/GUIDE_TO_PITFALLS.md)](./docs/GUIDE_TO_PITFALLS.md)**
-   - 收錄了 19 個開發與運維過程中真實發生的「血淚踩坑案例」，涵蓋 Prisma client 擴充、半開連線看門狗、Discord 限流規避、Cloudflare 雙層子網域證書握手失敗、Redis Swap 懲罰、以及量化回測未來函數規避與跨時框對齊陷阱。
+   - 收錄了 26 個開發與運維過程中真實發生的「血淚踩坑案例」，涵蓋 Prisma client 擴充、半開連線看門狗、Discord 限流規避、Cloudflare 雙層子網域證書握手失敗、Redis Swap 懲罰與高流動性池遲滯帶、量化回測未來函數規避，以及 Rust (WASM) 混合量化核心加速與資安/可觀測性深度加固。
 5. **[補充技術設計細節 (docs/SUPPLEMENTARY_TECHNICAL_DETAILS.md)](./docs/SUPPLEMENTARY_TECHNICAL_DETAILS.md)**
    - 收錄了 Monorepo 工作空間架構、OAuth Email 衝突處理策略、Telegram Widget 簽名驗證、OAuth 解綁安全、WebSocket 重連防事件洩漏與定時清理排程等特色設計細節。
 6. **[第三方 API 金鑰配置說明 (docs/API_KEYS_SETUP.md)](./docs/API_KEYS_SETUP.md)**

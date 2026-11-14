@@ -1,6 +1,7 @@
 import { Controller, Post, Request, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { OAuthService } from './oauth.service';
+import { RebindOAuthDto } from './dto/oauth.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -34,7 +35,7 @@ export class AccountLinkController {
   @Post('rebind')
   @ApiBearerAuth()
   @ApiOperation({ summary: '強制覆蓋綁定社交帳號並合併臨時帳戶' })
-  async rebind(@Request() req: any, @Body() body: { rebindToken: string }) {
+  async rebind(@Request() req: any, @Body() body: RebindOAuthDto) {
     return this.oauthService.rebindProvider(req.user.sub, body.rebindToken);
   }
 }

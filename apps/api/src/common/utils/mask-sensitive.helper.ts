@@ -163,3 +163,57 @@ export function safeStringify(data: any): string | null {
     return `[Stringify Error: ${error instanceof Error ? error.message : String(error)}]`;
   }
 }
+
+const SENSITIVE_QUERY_KEY_PATTERN =
+  /token|secret|password|passwd|apikey|api_key|^code$|^key$|^hash$|^signature$/i;
+
+/**
+ * 遮罩 URL 路徑中的 Webhook Token 與 Query String 中的敏感參數
+ * 避免如 Telegram Webhook URL (/telegram/webhook/:token) 或 OAuth Callback (?code=...) 外洩至日誌
+ * @param url - 原始請求 URL
+ * @returns 已遮罩敏感資訊的安全 URL
+ */
+export function maskSensitiveUrl(url: string): string {
+  if (!url || typeof url !== 'string') {
+    return url;
+  }
+
+  // 1. 遮罩 Telegram Webhook Token 路徑參數
+  let masked = url.replace(
+    /\/telegram\/webhook\/[^/?#]+/gi,
+    '/telegram/webhook/*****',
+  );
+
+  // 2. 遮罩 Query String 中的敏感參數（例如 code, token, access_token, rebindToken, secret 等）
+  const queryIndex = masked.indexOf('?');
+  if (queryIndex !== -1) {
+    const basePath = masked.slice(0, queryIndex);
+    const rest = masked.slice(queryIndex + 1);
+    const hashIndex = rest.indexOf('#');
+    const rawQuery = hashIndex !== -1 ? rest.slice(0, hashIndex) : rest;
+    const hashSuffix = hashIndex !== -1 ? rest.slice(hashIndex) : '';
+
+    const maskedQuery = rawQuery
+      .split('&')
+      .map((pair) => {
+        const eqIdx = pair.indexOf('=');
+        if (eqIdx === -1) return pair;
+        const paramKey = pair.slice(0, eqIdx);
+        let decodedKey = paramKey;
+        try {
+          decodedKey = decodeURIComponent(paramKey);
+        } catch {
+          // 保留原始字面鍵名
+        }
+        if (SENSITIVE_QUERY_KEY_PATTERN.test(decodedKey)) {
+          return `${paramKey}=*****`;
+        }
+        return pair;
+      })
+      .join('&');
+
+    masked = `${basePath}?${maskedQuery}${hashSuffix}`;
+  }
+
+  return masked;
+}

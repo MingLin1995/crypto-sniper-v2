@@ -283,7 +283,14 @@ export class OAuthService {
 
     const hmac = crypto.createHmac('sha256', secretKey).update(checkParams).digest('hex');
 
-    if (hmac !== data.hash) {
+    // 使用 SHA-256 + timingSafeEqual 常數時間比對簽章，避免時序側信道攻擊
+    const expectedDigest = crypto.createHash('sha256').update(hmac).digest();
+    const providedDigest = crypto
+      .createHash('sha256')
+      .update(typeof data.hash === 'string' ? data.hash : '')
+      .digest();
+
+    if (!crypto.timingSafeEqual(expectedDigest, providedDigest)) {
       throw new UnauthorizedException('Telegram 雜湊驗證失敗');
     }
 
@@ -583,6 +590,12 @@ export class OAuthService {
           });
         }
       }
+
+      // 轉移 PriceAlert 至目標合併帳戶，避免臨時帳戶的價格警報在軟刪除後孤立遺失
+      await tx.priceAlert?.updateMany({
+        where: { userId: existingUserId },
+        data: { userId },
+      });
 
       // 2. 撤銷被合併用戶的所有 Refresh Token
       await tx.refreshToken.deleteMany({

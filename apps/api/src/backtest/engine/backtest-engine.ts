@@ -6,6 +6,8 @@ import { alignMultiTimeframe } from '../../market/helpers/multi-timeframe-aligne
 import { getIntervalMs } from '../../market/historical-kline.service';
 import { ExitEvaluator } from './exit-evaluator';
 import { EntryEvaluator } from '../../market/helpers/entry-evaluator';
+import { extractClosePricesFloat64 } from '../../market/helpers/indicator-evaluator';
+import { alignMultiTimeframeMask, isRustCoreActive } from '../../market/rust-core';
 
 export interface EngineInput {
   config: BacktestConfig;
@@ -13,9 +15,17 @@ export interface EngineInput {
   higherKlines?: Record<string, Record<string, OHLCVKline[]>>;
 }
 
+function extractCloseTimesFloat64(klines: OHLCVKline[]): Float64Array {
+  const out = new Float64Array(klines.length);
+  for (let i = 0; i < klines.length; i++) {
+    out[i] = klines[i].closeTime;
+  }
+  return out;
+}
+
 export class BacktestEngine {
   /**
-   * 運行回測模擬 (極簡架構：純四指標 + 固定停損停利 + 訊號平倉)
+   * 運行回測模擬 (Rust WASM 向量化指標計算 + 雙指針零配置時間軸游標)
    */
   static run(input: EngineInput): { state: BacktestState; warnings: string[] } {
     const { config, symbolKlines, higherKlines } = input;
@@ -32,94 +42,186 @@ export class BacktestEngine {
       stats: null as any,
     };
 
-    // 2. 預先計算各幣種的策略進場與反向平倉信號時間點 (防止迴圈中重複計算，提升效能)
-    const signalTimesBySymbol: Record<string, Set<number>> = {};
-    const reverseSignalTimesBySymbol: Record<string, Set<number>> = {};
+    const symbols = config.symbols;
+    const symbolCount = symbols.length;
+    const symbolIndexMap = new Map<string, number>();
+    for (let sIdx = 0; sIdx < symbolCount; sIdx++) {
+      symbolIndexMap.set(symbols[sIdx], sIdx);
+    }
 
-    for (const symbol of config.symbols) {
-      signalTimesBySymbol[symbol] = new Set<number>();
-      reverseSignalTimesBySymbol[symbol] = new Set<number>();
+    const mainBlock = config.timeframes.find((tf) => tf.interval === config.interval);
+    const higherBlock = config.timeframes.find((tf) => tf.interval !== config.interval);
+    const useRustAlign = isRustCoreActive();
+
+    const klinesByIdx: OHLCVKline[][] = new Array(symbolCount);
+    const entryMasks: Uint8Array[] = new Array(symbolCount);
+    const reverseMasks: Uint8Array[] = new Array(symbolCount);
+    const isSortedUnique: boolean[] = new Array(symbolCount).fill(true);
+
+    // 僅當輸入資料含重複時間戳或未升冪排序時才退回 Map/Set 查找（兼容異常測試樣本）
+    const fallbackKlineMaps: (Map<number, OHLCVKline> | null)[] = new Array(symbolCount).fill(null);
+    const fallbackEntrySets: (Set<number> | null)[] = new Array(symbolCount).fill(null);
+    const fallbackReverseSets: (Set<number> | null)[] = new Array(symbolCount).fill(null);
+
+    // 2. 預先計算各幣種的策略進場與反向平倉信號遮罩 (透過 Rust WASM 向量化計算)
+    for (let sIdx = 0; sIdx < symbolCount; sIdx++) {
+      const symbol = symbols[sIdx];
       const mainKlines = symbolKlines[symbol] || [];
-      if (mainKlines.length === 0) continue;
+      klinesByIdx[sIdx] = mainKlines;
 
-      const mainBlock = config.timeframes.find((tf) => tf.interval === config.interval);
-      const higherBlock = config.timeframes.find((tf) => tf.interval !== config.interval);
-
-      if (!mainBlock) {
+      if (mainKlines.length === 0) {
+        entryMasks[sIdx] = new Uint8Array(0);
+        reverseMasks[sIdx] = new Uint8Array(0);
         continue;
       }
 
-      const mainSignals = EntryEvaluator.scanTimeframeBlockSignals(mainKlines, mainBlock);
-      let combinedSignals = mainSignals;
-
-      if (higherBlock && higherKlines && higherKlines[symbol] && higherKlines[symbol][higherBlock.interval]) {
-        const hKlines = higherKlines[symbol][higherBlock.interval];
-        const hSignals = EntryEvaluator.scanTimeframeBlockSignals(hKlines, higherBlock);
-        const aligned = alignMultiTimeframe(mainKlines, hKlines, hSignals);
-        combinedSignals = mainSignals.map((sig, idx) => sig && !!aligned[idx]);
+      // 檢查時間序列是否嚴格升冪（100% 真實幣安資料皆為嚴格升冪，可用雙指針零配置游標）
+      let sorted = true;
+      for (let i = 1; i < mainKlines.length; i++) {
+        if (mainKlines[i].openTime <= mainKlines[i - 1].openTime) {
+          sorted = false;
+          break;
+        }
       }
+      isSortedUnique[sIdx] = sorted;
 
-      // 反向訊號 (快速自動反向如均線死叉，或自訂平倉指標條件)
-      let reverseSignals: boolean[] = [];
-      if (config.exitConditionMode === 'CUSTOM' && config.exitConditions && config.exitConditions.length > 0) {
-        reverseSignals = EntryEvaluator.scanTimeframeBlockSignals(mainKlines, { conditions: config.exitConditions });
-      } else if (config.exitConditionMode !== 'NONE' && config.useSignalExit !== false) {
-        reverseSignals = EntryEvaluator.scanReverseSignals(mainKlines, mainBlock);
+      if (!mainBlock) {
+        entryMasks[sIdx] = new Uint8Array(mainKlines.length);
+        reverseMasks[sIdx] = new Uint8Array(mainKlines.length);
       } else {
-        reverseSignals = new Array(mainKlines.length).fill(false);
-      }
+        const mainCloses = extractClosePricesFloat64(mainKlines);
+        const mainMask = EntryEvaluator.scanTimeframeBlockSignalsMask(
+          mainKlines,
+          mainBlock,
+          mainCloses,
+        );
 
-      for (let idx = 0; idx < mainKlines.length; idx++) {
-        if (combinedSignals[idx]) {
-          signalTimesBySymbol[symbol].add(mainKlines[idx].openTime);
+        if (higherBlock && higherKlines?.[symbol]?.[higherBlock.interval]) {
+          const hKlines = higherKlines[symbol][higherBlock.interval];
+          const hMask = EntryEvaluator.scanTimeframeBlockSignalsMask(hKlines, higherBlock);
+
+          if (useRustAlign) {
+            const alignedMask = alignMultiTimeframeMask(
+              extractCloseTimesFloat64(mainKlines),
+              extractCloseTimesFloat64(hKlines),
+              hMask,
+            );
+            for (let i = 0; i < mainMask.length; i++) {
+              mainMask[i] = mainMask[i] === 1 && alignedMask[i] === 1 ? 1 : 0;
+            }
+          } else {
+            const hSignals = Array.from(hMask, (v) => v === 1);
+            const aligned = alignMultiTimeframe(mainKlines, hKlines, hSignals);
+            for (let i = 0; i < mainMask.length; i++) {
+              mainMask[i] = mainMask[i] === 1 && !!aligned[i] ? 1 : 0;
+            }
+          }
         }
-        if (reverseSignals[idx]) {
-          reverseSignalTimesBySymbol[symbol].add(mainKlines[idx].openTime);
+
+        let reverseMask: Uint8Array;
+        if (
+          config.exitConditionMode === 'CUSTOM' &&
+          config.exitConditions &&
+          config.exitConditions.length > 0
+        ) {
+          reverseMask = EntryEvaluator.scanTimeframeBlockSignalsMask(
+            mainKlines,
+            { conditions: config.exitConditions },
+            mainCloses,
+          );
+        } else if (config.exitConditionMode !== 'NONE' && config.useSignalExit !== false) {
+          reverseMask = EntryEvaluator.scanReverseSignalsMask(mainKlines, mainBlock, mainCloses);
+        } else {
+          reverseMask = new Uint8Array(mainKlines.length);
+        }
+
+        entryMasks[sIdx] = mainMask;
+        reverseMasks[sIdx] = reverseMask;
+      }
+
+      if (!sorted) {
+        const kMap = new Map<number, OHLCVKline>();
+        const eSet = new Set<number>();
+        const rSet = new Set<number>();
+        const eMask = entryMasks[sIdx];
+        const rMask = reverseMasks[sIdx];
+        for (let i = 0; i < mainKlines.length; i++) {
+          const openTime = mainKlines[i].openTime;
+          kMap.set(openTime, mainKlines[i]);
+          if (eMask[i] === 1) eSet.add(openTime);
+          if (rMask[i] === 1) rSet.add(openTime);
+        }
+        fallbackKlineMaps[sIdx] = kMap;
+        fallbackEntrySets[sIdx] = eSet;
+        fallbackReverseSets[sIdx] = rSet;
+      }
+    }
+
+    // 3. 建立統一時間序列 (單幣種已排序時直接使用 Float64Array，省去 Set 與 Sort 配置)
+    let timeline: Float64Array | number[];
+    if (symbolCount === 1 && isSortedUnique[0]) {
+      const klines = klinesByIdx[0];
+      const arr = new Float64Array(klines.length);
+      for (let i = 0; i < klines.length; i++) {
+        arr[i] = klines[i].openTime;
+      }
+      timeline = arr;
+    } else {
+      const openTimesSet = new Set<number>();
+      for (let sIdx = 0; sIdx < symbolCount; sIdx++) {
+        const klines = klinesByIdx[sIdx];
+        for (let i = 0; i < klines.length; i++) {
+          openTimesSet.add(klines[i].openTime);
         }
       }
+      timeline = Array.from(openTimesSet).sort((a, b) => a - b);
     }
 
-    // 3. 建立統一時間序列 (所有幣種時間點的聯集)
-    const openTimesSet = new Set<number>();
-    for (const symbol of config.symbols) {
-      const klines = symbolKlines[symbol] || [];
-      for (const k of klines) {
-        openTimesSet.add(k.openTime);
-      }
-    }
-    const timeline = Array.from(openTimesSet).sort((a, b) => a - b);
-
-    // 建立時間快取結構，加速尋找各幣種對應的 K 線
-    const klinesBySymbolTime: Record<string, Record<number, OHLCVKline>> = {};
-    for (const symbol of config.symbols) {
-      klinesBySymbolTime[symbol] = {};
-      const klines = symbolKlines[symbol] || [];
-      for (const k of klines) {
-        klinesBySymbolTime[symbol][k.openTime] = k;
-      }
-    }
-
-    // 用於 forward fill 的最後已知 K 線
-    const lastKlineBySymbol: Record<string, OHLCVKline> = {};
+    // 雙指針游標與當前時間點視窗緩衝 (徹底移除 klinesBySymbolTime 巢狀物件配置)
+    const cursors = new Int32Array(symbolCount);
+    const currentBarIndices = new Int32Array(symbolCount).fill(-1);
+    const prevBarIndices = new Int32Array(symbolCount).fill(-1);
+    const currentBarKlines: (OHLCVKline | undefined)[] = new Array(symbolCount);
+    const lastKlineByIdx: (OHLCVKline | undefined)[] = new Array(symbolCount);
     const intervalMs = getIntervalMs(config.interval);
 
     // 4. 主時間軸狀態機循環
     for (let timelineIdx = 0; timelineIdx < timeline.length; timelineIdx++) {
       const openTime = timeline[timelineIdx];
 
-      // a. 取得當前時間點的所有幣種 K 線 (含缺口 Forward Fill)
-      const currentKlines: Record<string, OHLCVKline> = {};
-      for (const symbol of config.symbols) {
-        const originalKline = klinesBySymbolTime[symbol][openTime];
+      // a. 透過 O(1) 雙指針游標取得當前時間點的所有幣種 K 線 (含缺口 Forward Fill)
+      for (let sIdx = 0; sIdx < symbolCount; sIdx++) {
+        const symbol = symbols[sIdx];
+        let originalKline: OHLCVKline | undefined;
+
+        if (isSortedUnique[sIdx]) {
+          const klines = klinesByIdx[sIdx];
+          let cursor = cursors[sIdx];
+          while (cursor < klines.length && klines[cursor].openTime < openTime) {
+            cursor++;
+          }
+          cursors[sIdx] = cursor;
+
+          if (cursor < klines.length && klines[cursor].openTime === openTime) {
+            originalKline = klines[cursor];
+            currentBarIndices[sIdx] = cursor;
+          } else {
+            currentBarIndices[sIdx] = -1;
+          }
+        } else {
+          originalKline = fallbackKlineMaps[sIdx]?.get(openTime);
+          currentBarIndices[sIdx] = -1;
+        }
+
         if (originalKline) {
-          currentKlines[symbol] = originalKline;
-          lastKlineBySymbol[symbol] = originalKline;
+          currentBarKlines[sIdx] = originalKline;
+          lastKlineByIdx[sIdx] = originalKline;
         } else {
           // 資料缺口處理：如果已持倉則 Forward Fill
           const isHolding = state.positions.some((p) => p.symbol === symbol);
-          if (isHolding && lastKlineBySymbol[symbol]) {
-            const prev = lastKlineBySymbol[symbol];
-            currentKlines[symbol] = {
+          const prev = lastKlineByIdx[sIdx];
+          if (isHolding && prev) {
+            currentBarKlines[sIdx] = {
               openTime,
               open: prev.close,
               high: prev.close,
@@ -128,6 +230,8 @@ export class BacktestEngine {
               volume: 0,
               closeTime: openTime + intervalMs - 1,
             };
+          } else {
+            currentBarKlines[sIdx] = undefined;
           }
         }
       }
@@ -135,7 +239,8 @@ export class BacktestEngine {
       // b. 更新所有持倉的未實現損益 & 總權益
       let totalUnrealizedPnL = 0;
       for (const pos of state.positions) {
-        const kline = currentKlines[pos.symbol];
+        const sIdx = symbolIndexMap.get(pos.symbol)!;
+        const kline = currentBarKlines[sIdx];
         if (kline) {
           if (pos.side === 'LONG') {
             pos.unrealizedPnL = pos.quantity * (kline.close - pos.entryPrice);
@@ -152,9 +257,10 @@ export class BacktestEngine {
       const settlementsCount = this.countFundingSettlements(openTime, closeTime);
       if (settlementsCount > 0 && config.fundingRate !== 0) {
         for (const pos of state.positions) {
-          const kline = currentKlines[pos.symbol];
+          const sIdx = symbolIndexMap.get(pos.symbol)!;
+          const kline = currentBarKlines[sIdx];
           const price = kline ? kline.close : pos.entryPrice;
-          
+
           const fundingFee = pos.quantity * price * config.fundingRate * settlementsCount;
           state.currentBalance -= fundingFee;
           state.equity -= fundingFee;
@@ -164,13 +270,17 @@ export class BacktestEngine {
       // d. 檢查平倉觸發器
       const positionsToKeep: Position[] = [];
       for (const pos of state.positions) {
-        const kline = currentKlines[pos.symbol];
+        const sIdx = symbolIndexMap.get(pos.symbol)!;
+        const kline = currentBarKlines[sIdx];
         if (!kline) {
           positionsToKeep.push(pos);
           continue;
         }
 
-        const isReverseSignal = reverseSignalTimesBySymbol[pos.symbol]?.has(openTime) || false;
+        const isReverseSignal = isSortedUnique[sIdx]
+          ? currentBarIndices[sIdx] !== -1 && reverseMasks[sIdx][currentBarIndices[sIdx]] === 1
+          : fallbackReverseSets[sIdx]?.has(openTime) || false;
+
         const closed = ExitEvaluator.evaluateAndClosePosition(
           state,
           pos,
@@ -188,35 +298,46 @@ export class BacktestEngine {
       // e. 評估訊號與開倉 (訊號成交延遲至第 i+1 根 K 棒的 Open 價)
       if (timelineIdx > 0) {
         const prevOpenTime = timeline[timelineIdx - 1];
-        
-        const symbolsToEnter: string[] = [];
-        for (const symbol of config.symbols) {
-          const hasSignal = signalTimesBySymbol[symbol]?.has(prevOpenTime);
+
+        const enterCandidates: number[] = [];
+        for (let sIdx = 0; sIdx < symbolCount; sIdx++) {
+          const hasSignal = isSortedUnique[sIdx]
+            ? prevBarIndices[sIdx] !== -1 && entryMasks[sIdx][prevBarIndices[sIdx]] === 1
+            : fallbackEntrySets[sIdx]?.has(prevOpenTime) || false;
+
+          if (!hasSignal || !currentBarKlines[sIdx]) {
+            continue;
+          }
+
+          const symbol = symbols[sIdx];
           const isHolding = state.positions.some((p) => p.symbol === symbol);
-          if (hasSignal && !isHolding && currentKlines[symbol]) {
-            symbolsToEnter.push(symbol);
+          if (!isHolding) {
+            enterCandidates.push(sIdx);
           }
         }
 
         // 依據成交金額（成交量高低）大者優先買入，相同則按字母排序
-        symbolsToEnter.sort((a, b) => {
-          const klineA = currentKlines[a];
-          const klineB = currentKlines[b];
-          const volA = klineA ? klineA.volume * klineA.close : 0;
-          const volB = klineB ? klineB.volume * klineB.close : 0;
-          if (volB !== volA) {
-            return volB - volA;
-          }
-          return a.localeCompare(b);
-        });
+        if (enterCandidates.length > 1) {
+          enterCandidates.sort((idxA, idxB) => {
+            const klineA = currentBarKlines[idxA];
+            const klineB = currentBarKlines[idxB];
+            const volA = klineA ? klineA.volume * klineA.close : 0;
+            const volB = klineB ? klineB.volume * klineB.close : 0;
+            if (volB !== volA) {
+              return volB - volA;
+            }
+            return symbols[idxA].localeCompare(symbols[idxB]);
+          });
+        }
 
         const maxPositions = config.maxPositions ?? 5;
-        for (const symbol of symbolsToEnter) {
+        for (const sIdx of enterCandidates) {
           if (state.positions.length >= maxPositions) {
             break;
           }
 
-          const kline = currentKlines[symbol];
+          const symbol = symbols[sIdx];
+          const kline = currentBarKlines[sIdx]!;
           const rawPrice = kline.open;
           const slippageFactor = config.slippage / 100;
           const actualEntryPrice = rawPrice * (1 + slippageFactor);
@@ -227,7 +348,8 @@ export class BacktestEngine {
 
           // 2. 固定百分比停利 (Fixed Take Profit, 可選)
           const tpPercent = config.tpPercent;
-          const tpPrice = tpPercent && tpPercent > 0 ? actualEntryPrice * (1 + tpPercent / 100) : 0;
+          const tpPrice =
+            tpPercent && tpPercent > 0 ? actualEntryPrice * (1 + tpPercent / 100) : 0;
 
           const sizeInfo = PositionSizer.calculateSize(
             config,
@@ -243,9 +365,9 @@ export class BacktestEngine {
 
           if (sizeInfo.quantity > 0) {
             const entryFee = sizeInfo.quantity * actualEntryPrice * config.takerFeeRate;
-            
+
             state.currentBalance -= sizeInfo.margin + entryFee;
-            
+
             const newPos: Position = {
               symbol,
               side: 'LONG',
@@ -261,7 +383,10 @@ export class BacktestEngine {
             };
 
             // 入場當根 K 棒立即進行平倉檢查
-            const isReverseImmediate = reverseSignalTimesBySymbol[symbol]?.has(openTime) || false;
+            const isReverseImmediate = isSortedUnique[sIdx]
+              ? currentBarIndices[sIdx] !== -1 && reverseMasks[sIdx][currentBarIndices[sIdx]] === 1
+              : fallbackReverseSets[sIdx]?.has(openTime) || false;
+
             const closedImmediately = ExitEvaluator.evaluateAndClosePosition(
               state,
               newPos,
@@ -277,6 +402,9 @@ export class BacktestEngine {
         }
       }
 
+      // 儲存當前 K 棒索引作為下一時間點的 prevBarIndices
+      prevBarIndices.set(currentBarIndices);
+
       // f. 記錄權益曲線快照
       state.equityCurve.push({
         timestamp: openTime,
@@ -288,9 +416,18 @@ export class BacktestEngine {
     if (state.positions.length > 0 && timeline.length > 0) {
       const lastTime = timeline[timeline.length - 1];
       for (const pos of state.positions) {
-        const lastKline = lastKlineBySymbol[pos.symbol];
+        const sIdx = symbolIndexMap.get(pos.symbol)!;
+        const lastKline = lastKlineByIdx[sIdx];
         const exitPrice = lastKline ? lastKline.close : pos.entryPrice;
-        ExitEvaluator.executeClose(state, pos, exitPrice, lastTime, 'TIMEOUT', config.takerFeeRate, 0);
+        ExitEvaluator.executeClose(
+          state,
+          pos,
+          exitPrice,
+          lastTime,
+          'TIMEOUT',
+          config.takerFeeRate,
+          0,
+        );
       }
       state.positions = [];
     }
@@ -330,7 +467,9 @@ export class BacktestEngine {
 
         if (totalInvested > 0) {
           const finalDcaValue = totalCoins * endPrice;
-          state.stats.monthlyDcaRoi = Number((((finalDcaValue / totalInvested) - 1) * 100).toFixed(2));
+          state.stats.monthlyDcaRoi = Number(
+            (((finalDcaValue / totalInvested) - 1) * 100).toFixed(2),
+          );
         }
       }
     }

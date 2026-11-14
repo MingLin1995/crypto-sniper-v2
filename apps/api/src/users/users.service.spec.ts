@@ -24,6 +24,12 @@ describe('UsersService (使用者服務)', () => {
       delete: jest.fn(),
       deleteMany: jest.fn(),
     },
+    priceAlert: {
+      updateMany: jest.fn(),
+    },
+    webSubscription: {
+      deleteMany: jest.fn(),
+    },
   };
 
   const mockVerificationCodeService = {
@@ -221,6 +227,48 @@ describe('UsersService (使用者服務)', () => {
           where: { userId: 'user-id' },
         });
       });
+    });
+  });
+
+  describe('remove (軟刪除使用者)', () => {
+    it('軟刪除使用者時應撤銷 Refresh Token、停用價格警報並清除 Web Push 訂閱', async () => {
+      mockPrismaClient.user.findUnique.mockResolvedValueOnce({
+        id: 'user-id',
+        email: 'user@example.com',
+      });
+      mockPrismaClient.user.update.mockResolvedValueOnce({ id: 'user-id' });
+
+      const result = await service.remove('user-id');
+
+      expect(result).toEqual({ message: '用戶已刪除' });
+      expect(mockPrismaClient.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-id' },
+          data: expect.objectContaining({
+            deletedAt: expect.any(Date),
+            googleId: null,
+            discordId: null,
+            telegramId: null,
+            telegramChatId: null,
+          }),
+        }),
+      );
+      expect(mockPrismaClient.refreshToken.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-id' },
+      });
+      expect(mockPrismaClient.priceAlert.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-id', isActive: true },
+        data: { isActive: false },
+      });
+      expect(mockPrismaClient.webSubscription.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-id' },
+      });
+    });
+
+    it('若使用者不存在應拋出 NotFoundException', async () => {
+      mockPrismaClient.user.findUnique.mockResolvedValueOnce(null);
+
+      await expect(service.remove('non-existent')).rejects.toThrow(NotFoundException);
     });
   });
 });

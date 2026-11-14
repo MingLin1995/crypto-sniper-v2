@@ -6,7 +6,7 @@
 
 本專案使用 Turborepo + Bun Workspaces 建立，結構如下：
 
-- **`apps/api`**：NestJS 11.x 後端服務（對外埠口 `3000`）。
+- **`apps/api`**：NestJS 12.x 後端服務（對外埠口 `3000`）。
 - **`apps/web`**：Next.js App Router 前端介面（對外埠口 `3001`）。
 - **`packages/shared`**：前後端共享的資料型別與 DTO 規範。
 

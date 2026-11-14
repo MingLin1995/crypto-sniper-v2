@@ -185,6 +185,15 @@ export class UsersService {
     // 軟刪除時，撤銷該用戶所有的 Refresh Token
     await this.deleteUserRefreshTokens(id);
 
+    // 停用該用戶所有價格警報，並清除瀏覽器 Web Push 訂閱，避免背景 Worker 持續推送已刪除帳號
+    await this.prisma.client.priceAlert?.updateMany({
+      where: { userId: id, isActive: true },
+      data: { isActive: false },
+    });
+    await this.prisma.client.webSubscription?.deleteMany({
+      where: { userId: id },
+    });
+
     return { message: '用戶已刪除' };
   }
 

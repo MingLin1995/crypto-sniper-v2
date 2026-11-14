@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, Optional } from '@nestjs/common';
 import { Registry, collectDefaultMetrics, Counter, Histogram, Gauge } from 'prom-client';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -24,6 +24,7 @@ export class MetricsService implements OnModuleInit {
   constructor(
     @InjectQueue('price-check') private readonly priceCheckQueue: Queue,
     @InjectQueue('notification') private readonly notificationQueue: Queue,
+    @Optional() @InjectQueue('backtest') private readonly backtestQueue?: Queue,
   ) {
     this.registry = new Registry();
   }
@@ -96,17 +97,20 @@ export class MetricsService implements OnModuleInit {
 
   async collectQueueMetrics(): Promise<void> {
     try {
-      const pcCounts = await this.priceCheckQueue.getJobCounts('active', 'waiting', 'delayed', 'failed');
-      this.queueActiveJobs.set({ queue: 'price-check' }, pcCounts.active);
-      this.queueWaitingJobs.set({ queue: 'price-check' }, pcCounts.waiting);
-      this.queueDelayedJobs.set({ queue: 'price-check' }, pcCounts.delayed);
-      this.queueFailedJobs.set({ queue: 'price-check' }, pcCounts.failed);
+      const queues: Array<[string, Queue | undefined]> = [
+        ['price-check', this.priceCheckQueue],
+        ['notification', this.notificationQueue],
+        ['backtest', this.backtestQueue],
+      ];
 
-      const notifCounts = await this.notificationQueue.getJobCounts('active', 'waiting', 'delayed', 'failed');
-      this.queueActiveJobs.set({ queue: 'notification' }, notifCounts.active);
-      this.queueWaitingJobs.set({ queue: 'notification' }, notifCounts.waiting);
-      this.queueDelayedJobs.set({ queue: 'notification' }, notifCounts.delayed);
-      this.queueFailedJobs.set({ queue: 'notification' }, notifCounts.failed);
+      for (const [queueName, queue] of queues) {
+        if (!queue) continue;
+        const counts = await queue.getJobCounts('active', 'waiting', 'delayed', 'failed');
+        this.queueActiveJobs.set({ queue: queueName }, counts.active);
+        this.queueWaitingJobs.set({ queue: queueName }, counts.waiting);
+        this.queueDelayedJobs.set({ queue: queueName }, counts.delayed);
+        this.queueFailedJobs.set({ queue: queueName }, counts.failed);
+      }
     } catch (error) {
       // Ignore or log error
     }

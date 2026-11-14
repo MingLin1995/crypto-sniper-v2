@@ -50,6 +50,8 @@
 22. [全端 BFF Proxy 雙 Token 機制下 Playwright E2E 測試跨平台競態條件 (Race Condition)](#案例-22全端-bff-proxy-雙-token-機制下-playwright-e2e-測試跨平台競態條件-race-condition)
 23. [雲原生邊界反向代理 Traefik v3 動態標籤語法嚴格性與純文字 404 排查](#案例-23雲原生邊界反向代理-traefik-v3-動態標籤語法嚴格性與純文字-404-排查)
 24. [OWASP Open Redirect 防禦、OAuth 2.0 回呼與跨子網域 (Cross-Subdomain) Session 治理](#案例-24owasp-open-redirect-防禦oauth-20-回呼與跨子網域-cross-subdomain-session-治理)
+25. [Redis 極限記憶體淘汰 (volatile-lru)、高流動性池 (Active Universe) 遲滯帶與前 5 大主流幣錨點防禦](#案例-25redis-極限記憶體淘汰-volatile-lru高流動性池-active-universe-遲滯帶與前-5-大主流幣錨點防禦)
+26. [Rust (WASM) 混合量化核心加速、雙指針時間軸對齊與可觀測性/日誌資安加固](#案例-26rust-wasm-混合量化核心加速雙指針時間軸對齊與可觀測性日誌資安加固)
 
 ---
 
@@ -568,5 +570,30 @@
      - 單次篩選請求限制最多即時補拉 10 檔快取未命中的標的（例如剛釘選的自選幣），且在 API 權重 `> 1800` 時自動跳過，保護首頁 `/` 與 `/screener` 絕不觸發全市場 API 風暴。
 - **Result (成果)**：
   啟動預熱時間由數分鐘縮短至 25 秒內，Redis 記憶體穩定控制在 ~22MB 安全水位（遠低於 36MB 上限），核心時框 100% 穩定命中且零過期 K 線污染，首頁與 Screener 皆能秒級回傳精準訊號。
+
+---
+
+### 案例 26：Rust (WASM) 混合量化核心加速、雙指針時間軸對齊與可觀測性/日誌資安加固
+
+- **Situation (情境與困境)**：
+  隨著策略篩選與多幣種長時間區間回測普及，原純 TypeScript 引擎在處理長序列技術指標與多標的撮合時存在三大隱憂：
+  1. `BacktestEngine` 預建了巨型 `klinesBySymbolTime` 巢狀雜湊表與大量 `Set<number>` 訊號集合，容易造成 V8/JSC 堆記憶體尖峰與 GC 停頓，對 1GB RAM EC2 實例構成壓力。
+  2. 若為效能全面導入原生 Rust N-API Addon，將增加 Docker Multi-arch (`linux/arm64` + `linux/amd64`) 與本地無 Rust 環境測試之交叉編譯維護負擔。
+  3. 同時在高流量的正式環境審計中發現：Prometheus `routePath` 在未知 404 路徑時直接使用原始 `url` 易遭高基數攻擊、`RedisService` 重連事件未防護重複包裝 `client.get`、Telegram Webhook `/telegram/webhook/:token` 路徑 Token 未在 URL 日誌遮罩，以及 Webhook/Widget HMAC 採用非固定時間字串比對。
+- **Task (目標)**：
+  在「零部署複雜度與零原生依賴漂移」前提下，導入 Rust 高速運算核心降低 GC 與記憶體壓力，並一次性修補可觀測性基數膨脹、重連洩漏與認證側信道風險。
+- **Action (行動與解決方案)**：
+  1. **零外部依賴 Rust WASM 混合架構 (`Option B`)**：
+     - 建立獨立 `apps/api/rust-quant-core` Crate 編譯為約 **24.7KB** 的 `wasm32-unknown-unknown` 產物 (`quant_core.wasm`)，透過 `build:rust` 腳本內嵌 Base64 TS 模組 (`quant-core-wasm.bytes.ts`)，讓 `nest build`、CI 與 Docker 多架構映像檔免除原生編譯環境依賴，同時保留 100% 等價之 TypeScript 自動回退機制。
+     - 針對 Rust FFI 動態擴張線性記憶體 (`Vec<f64>` 可能觸發 `memory.grow`) 的 WASM 陷阱，固定採用「先呼叫 FFI，再於 FFI 回傳後建立 `Float64Array`/`Uint8Array` View 並 `slice()` 複製回安全 JS 緩衝，最後於 `finally` 釋放線性記憶體」規範。
+  2. **連續 `TypedArray` 與雙指針 `Int32Array` 時間軸遊標**：
+     - 將進出場訊號與跨時框向前填充全面改為 `Uint8Array` 位元遮罩與 `Float64Array` 連續數列，並以單調遞增時間軸之雙指針 `Int32Array` 遊標取代巨型 `klinesBySymbolTime` 與 `Set<number>`（同時保留對重複時間戳測試資料的自動 Map/Set 安全回退）。
+  3. **可觀測性、連線穩定性與認證/日誌安全加固**：
+     - 新增 `maskSensitiveUrl()` 遮罩 `/telegram/webhook/<token>` 與 `?code=` / `?rebindToken=` 等敏感查詢參數；`LoggingInterceptor` 未匹配路由改為固定標籤 `'UNMATCHED_ROUTE'` 防範高基數 DoS。
+     - `TelegramController` 與 `OAuthService.validateTelegramAuth` 改採 SHA-256 雜湊搭配 `crypto.timingSafeEqual` 常數時間比對；`POST /rebind` 補齊 `RebindOAuthDto` 白名單驗證。
+     - `RedisService` 遮罩連線 URL 密碼段並以 `isGetWrapped` 防止重連重複包裹；`UsersService.remove` 軟刪除時同步停用 `PriceAlert` 並刪除 `WebSubscription`，`rebindProvider` 事務補齊 `PriceAlert` 轉移。
+- **Result (成果)**：
+  透過 Rust WASM 單元測試、9 項高密度數值等價與 4×5,000 根多時框壓測（兩輪完整回測 ~20.6ms 且結果 100% 確定）、以及前後端完整測試套件驗證，在維持 1GB EC2 安全水位與零維運負擔下完成效能與資安雙重升級。
+
 
 

@@ -3,7 +3,7 @@ import { ModuleRef } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { LoggerService, LogLevel, LogType } from '../logger/logger.service';
-import { maskSensitiveData } from '../utils/mask-sensitive.helper';
+import { maskSensitiveData, maskSensitiveUrl } from '../utils/mask-sensitive.helper';
 import { MetricsService } from '../metrics/metrics.service';
 
 @Injectable()
@@ -40,7 +40,7 @@ export class LoggingInterceptor implements NestInterceptor {
           const response = context.switchToHttp().getResponse();
           const statusCode = response.statusCode;
           const duration = Date.now() - startTime;
-          const routePath = request.route?.path || url;
+          const routePath = request.route?.path || 'UNMATCHED_ROUTE';
 
           // 記錄 Prometheus 指標
           if (this.metricsService) {
@@ -69,17 +69,18 @@ export class LoggingInterceptor implements NestInterceptor {
             process.env.LOG_ALL_REQUESTS === 'true';
 
           if (shouldLog) {
+            const safeUrl = maskSensitiveUrl(url);
             this.logger.log({
               level: statusCode >= 400 ? LogLevel.WARN : LogLevel.INFO,
               type: LogType.REQUEST,
-              message: `${method} ${url} - ${statusCode}`,
+              message: `${method} ${safeUrl} - ${statusCode}`,
               method,
-              url,
+              url: safeUrl,
               statusCode,
               duration,
               requestBody: maskSensitiveData(body),
-              requestParams: params,
-              requestQuery: query,
+              requestParams: maskSensitiveData(params),
+              requestQuery: maskSensitiveData(query),
               clientIp: ip,
               userAgent,
               userId,
@@ -92,7 +93,7 @@ export class LoggingInterceptor implements NestInterceptor {
         error: (error: any) => {
           const statusCode = error instanceof HttpException ? error.getStatus() : 500;
           const duration = Date.now() - startTime;
-          const routePath = request.route?.path || url;
+          const routePath = request.route?.path || 'UNMATCHED_ROUTE';
 
           // 記錄 Prometheus 指標
           if (this.metricsService) {
@@ -122,19 +123,20 @@ export class LoggingInterceptor implements NestInterceptor {
             logMessage = error.message || '內部伺服器錯誤';
           }
 
+          const safeUrl = maskSensitiveUrl(url);
           this.logger.log({
             level: LogLevel.ERROR,
             type: LogType.ERROR,
-            message: `[${method}] ${url} - ${logMessage}`,
+            message: `[${method}] ${safeUrl} - ${logMessage}`,
             errorType: error.constructor.name,
             errorStack: error instanceof Error ? error.stack : undefined,
             method,
-            url,
+            url: safeUrl,
             statusCode,
             duration,
             requestBody: maskSensitiveData(body),
-            requestParams: params,
-            requestQuery: query,
+            requestParams: maskSensitiveData(params),
+            requestQuery: maskSensitiveData(query),
             clientIp: ip,
             userAgent,
             userId,

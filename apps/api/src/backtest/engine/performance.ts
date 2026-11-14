@@ -1,4 +1,66 @@
 import { CompletedTrade, PerformanceStats } from './types';
+import { calculateEquityCurveMetrics, isRustCoreActive } from '../../market/rust-core';
+
+function computeEquityMetricsFallback(
+  equities: Float64Array,
+  initialBalance: number,
+  annualizationFactor: number,
+): { maxDrawdown: number; maxDrawdownDuration: number; sharpeRatio: number } {
+  const len = equities.length;
+  if (len === 0) {
+    return { maxDrawdown: 0, maxDrawdownDuration: 0, sharpeRatio: 0 };
+  }
+
+  let peak = initialBalance;
+  let maxDrawdown = 0;
+  let currentPeakIdx = 0;
+  let maxDrawdownDuration = 0;
+
+  for (let i = 0; i < len; i++) {
+    const eq = equities[i];
+    if (eq > peak) {
+      peak = eq;
+      currentPeakIdx = i;
+    } else {
+      const dd = peak !== 0 ? (peak - eq) / peak : 0;
+      if (dd > maxDrawdown) {
+        maxDrawdown = dd;
+      }
+      const ddDuration = i - currentPeakIdx;
+      if (ddDuration > maxDrawdownDuration) {
+        maxDrawdownDuration = ddDuration;
+      }
+    }
+  }
+
+  let sharpeRatio = 0;
+  if (len > 1) {
+    const retCount = len - 1;
+    let sumReturns = 0;
+    for (let i = 1; i < len; i++) {
+      const prev = equities[i - 1];
+      const curr = equities[i];
+      sumReturns += prev === 0 ? 0 : (curr - prev) / prev;
+    }
+    const avgReturn = sumReturns / retCount;
+
+    let sumSqDiff = 0;
+    for (let i = 1; i < len; i++) {
+      const prev = equities[i - 1];
+      const curr = equities[i];
+      const ret = prev === 0 ? 0 : (curr - prev) / prev;
+      const diff = ret - avgReturn;
+      sumSqDiff += diff * diff;
+    }
+    const stdDev = Math.sqrt(sumSqDiff / retCount);
+
+    if (stdDev > 0) {
+      sharpeRatio = (avgReturn / stdDev) * Math.sqrt(annualizationFactor);
+    }
+  }
+
+  return { maxDrawdown, maxDrawdownDuration, sharpeRatio };
+}
 
 export class PerformanceCalculator {
   /**
@@ -12,14 +74,14 @@ export class PerformanceCalculator {
     interval: string,
   ): PerformanceStats {
     const totalTrades = trades.length;
-    
+
     const roi = finalEquity / initialBalance - 1;
 
     // 1. 年化因子
     const N = this.getAnnualizationFactor(interval);
     const totalBars = equityCurve.length;
     const years = Math.max(totalBars / N, 0.0001);
-    
+
     // CAGR
     let annualizedRoi = 0;
     if (finalEquity > 0) {
@@ -28,26 +90,19 @@ export class PerformanceCalculator {
       annualizedRoi = -1;
     }
 
+    // 使用連續 Float64Array + Rust WASM 核心一次算出 MDD、回撤持續期與 Sharpe Ratio
+    const equities = new Float64Array(totalBars);
+    for (let i = 0; i < totalBars; i++) {
+      equities[i] = equityCurve[i].equity;
+    }
+
+    const equityMetrics = isRustCoreActive()
+      ? calculateEquityCurveMetrics(equities, initialBalance, N)
+      : computeEquityMetricsFallback(equities, initialBalance, N);
+
+    const { maxDrawdown, maxDrawdownDuration, sharpeRatio } = equityMetrics;
+
     if (totalTrades === 0) {
-      // 計算 maxDrawdown 與 maxDrawdownDuration 即使沒有交易 (買入並持有期間或一直空倉)
-      let peak = initialBalance;
-      let maxDrawdown = 0;
-      let currentPeakIdx = 0;
-      let maxDrawdownDuration = 0;
-
-      for (let i = 0; i < equityCurve.length; i++) {
-        const eq = equityCurve[i].equity;
-        if (eq > peak) {
-          peak = eq;
-          currentPeakIdx = i;
-        } else {
-          const dd = (peak - eq) / peak;
-          maxDrawdown = Math.max(maxDrawdown, dd);
-          const ddDuration = i - currentPeakIdx;
-          maxDrawdownDuration = Math.max(maxDrawdownDuration, ddDuration);
-        }
-      }
-
       return {
         roi,
         annualizedRoi,
@@ -64,77 +119,44 @@ export class PerformanceCalculator {
       };
     }
 
-    // 2. 勝率與盈虧
-    const winningTrades = trades.filter((t) => t.pnl > 0);
-    const losingTrades = trades.filter((t) => t.pnl <= 0);
-    const winRate = winningTrades.length / totalTrades;
-
-    const totalProfit = winningTrades.reduce((acc, t) => acc + t.pnl, 0);
-    const totalLoss = losingTrades.reduce((acc, t) => acc + Math.abs(t.pnl), 0);
-    const profitFactor = totalLoss === 0 ? (totalProfit > 0 ? 999 : 0) : totalProfit / totalLoss;
-
-    // 3. 最大連續盈虧
+    // 2. 單次迭代統計勝率、盈虧比、最大連續勝負與平均持倉時間
+    let winCount = 0;
+    let totalProfit = 0;
+    let totalLoss = 0;
     let maxConsecutiveWins = 0;
     let maxConsecutiveLosses = 0;
     let currentWins = 0;
     let currentLosses = 0;
+    let totalDuration = 0;
 
-    for (const t of trades) {
+    for (let i = 0; i < totalTrades; i++) {
+      const t = trades[i];
+      totalDuration += t.exitTime - t.entryTime;
       if (t.pnl > 0) {
+        winCount++;
+        totalProfit += t.pnl;
         currentWins++;
         currentLosses = 0;
-        maxConsecutiveWins = Math.max(maxConsecutiveWins, currentWins);
+        if (currentWins > maxConsecutiveWins) {
+          maxConsecutiveWins = currentWins;
+        }
       } else {
+        totalLoss += Math.abs(t.pnl);
         currentLosses++;
         currentWins = 0;
-        maxConsecutiveLosses = Math.max(maxConsecutiveLosses, currentLosses);
+        if (currentLosses > maxConsecutiveLosses) {
+          maxConsecutiveLosses = currentLosses;
+        }
       }
     }
 
-    // 4. 平均持倉時間
-    const totalDuration = trades.reduce((acc, t) => acc + (t.exitTime - t.entryTime), 0);
+    const winRate = winCount / totalTrades;
+    const profitFactor = totalLoss === 0 ? (totalProfit > 0 ? 999 : 0) : totalProfit / totalLoss;
     const avgHoldDuration = totalDuration / totalTrades;
 
-    // 5. 權益曲線分析 (MDD, Sharpe, Calmar)
-    let peak = initialBalance;
-    let maxDrawdown = 0;
-    let currentPeakIdx = 0;
-    let maxDrawdownDuration = 0;
-
-    for (let i = 0; i < equityCurve.length; i++) {
-      const eq = equityCurve[i].equity;
-      if (eq > peak) {
-        peak = eq;
-        currentPeakIdx = i;
-      } else {
-        const dd = (peak - eq) / peak;
-        maxDrawdown = Math.max(maxDrawdown, dd);
-        const ddDuration = i - currentPeakIdx;
-        maxDrawdownDuration = Math.max(maxDrawdownDuration, ddDuration);
-      }
-    }
-
-    // Sharpe Ratio
-    let sharpeRatio = 0;
-    if (equityCurve.length > 1) {
-      const returns: number[] = [];
-      for (let i = 1; i < equityCurve.length; i++) {
-        const prev = equityCurve[i - 1].equity;
-        const curr = equityCurve[i].equity;
-        returns.push(prev === 0 ? 0 : (curr - prev) / prev);
-      }
-
-      const avgReturn = returns.reduce((acc, val) => acc + val, 0) / returns.length;
-      const variance = returns.reduce((acc, val) => acc + Math.pow(val - avgReturn, 2), 0) / returns.length;
-      const stdDev = Math.sqrt(variance);
-
-      if (stdDev > 0) {
-        sharpeRatio = (avgReturn / stdDev) * Math.sqrt(N);
-      }
-    }
-
     // Calmar Ratio
-    const calmarRatio = maxDrawdown === 0 ? (annualizedRoi > 0 ? 999 : 0) : annualizedRoi / maxDrawdown;
+    const calmarRatio =
+      maxDrawdown === 0 ? (annualizedRoi > 0 ? 999 : 0) : annualizedRoi / maxDrawdown;
 
     return {
       roi,
@@ -154,16 +176,26 @@ export class PerformanceCalculator {
 
   private static getAnnualizationFactor(interval: string): number {
     switch (interval) {
-      case '5m': return 105120;
-      case '15m': return 35040;
-      case '30m': return 17520;
-      case '1h': return 8760;
-      case '2h': return 4380;
-      case '4h': return 2190;
-      case '1d': return 365;
-      case '1w': return 52;
-      case '1M': return 12;
-      default: return 365;
+      case '5m':
+        return 105120;
+      case '15m':
+        return 35040;
+      case '30m':
+        return 17520;
+      case '1h':
+        return 8760;
+      case '2h':
+        return 4380;
+      case '4h':
+        return 2190;
+      case '1d':
+        return 365;
+      case '1w':
+        return 52;
+      case '1M':
+        return 12;
+      default:
+        return 365;
       // 依合約時間週期換算
     }
   }

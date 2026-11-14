@@ -599,6 +599,9 @@ sequenceDiagram
    - **固定停損 (Fixed SL) / 固定停利 (Fixed TP)**：價格觸及閾值立刻離場保本或鎖利。
    - **反向平倉 (Signal Reverse Exit)**：若持有多單時市場出現空方訊號，立即平倉多單，無需等待停利。
    - **自訂指標平倉條件**：支援依據 `EMA`, `SMA`, `RSI`, `MACD`, `PRICE` 組合自訂出場邏輯。
+6. **Rust (WebAssembly) 混合運算核心與零配置雙指針時間軸 (Zero-Allocation Hybrid Compute Core)**：
+   - 技術指標 (`EMA`/`SMA`/`RSI`/`MACD`)、訊號條件掃描 (`scanConditionMask`)、跨時框向前填充 (`alignMultiTimeframeMask`) 與權益曲線績效計算 (`calculateEquityCurveMetrics`) 優先由零依賴 Rust WASM 核心 (`apps/api/rust-quant-core`) 以線性記憶體連續處理，並具備透明 TypeScript 自動回退機制。
+   - 回測撮合主迴圈採連續 `Float64Array`、`Uint8Array` 訊號遮罩與 `Int32Array` 雙指針時間軸遊標掃描所有標的與時框，取代傳統巢狀物件雜湊映射與大規模 `Set<number>` 分配，顯著降低 GC 壓力與記憶體峰值。
 
 ---
 
@@ -618,4 +621,4 @@ sequenceDiagram
 7. **雙 Token 認證與 Session 劫持防禦**：Access Token (30min) + Refresh Token (7d) 架構搭配 HttpOnly Secure Cookie 傳輸、Token Rotation（每次刷新舊 Token 廢棄）、User-Agent 比對偵測 Session 劫持，以及 CSPRNG 驗證碼防暴力破解機制。
 8. **策略篩選引擎效能優化**：SHA-256 配置 Hash 快取去重、行情預熱偵測（10% 覆蓋率門檻）、高流動性池精準掃描、20 並發批次控制、受預算保護（單次上限 10 筆）的 K 線回退即時拉取，確保在多時框複合條件下依然秒級回應且訊號零延遲。
 9. **NestJS 七層全域管線**：IP 黑名單 → 速率限制 → JWT 認證 → RBAC 授權 → DTO 白名單驗證 → 業務邏輯 → 日誌/指標/回應格式化，每層獨立可配置，搭配 `__systemLogged` 標記防止日誌重複寫入。
-10. **量化回測引擎與撮合機制**：針對量化交易常見的未來函數問題，採次根 K 棒開盤價 (Bar $i+1$ Open) 撮合、跨時框向前填充 (Forward Fill) 對齊、雙向手續費與滑價磨損計入，配合 BullMQ 非同步任務佇列與風險部位動態換算，提供更貼近真實市場的回測評估。
+10. **量化回測引擎與 Rust WASM 混合撮合架構**：針對量化交易常見的未來函數問題，採次根 K 棒開盤價 (Bar $i+1$ Open) 撮合、跨時框向前填充 (Forward Fill) 對齊、雙向手續費與滑價磨損計入；同時透過零外部依賴 Rust (WASM32) 混合計算核心搭配連續 `Float64Array`/`Uint8Array` 遮罩與雙指針 `Int32Array` 時間軸遊標，在 BullMQ 非同步佇列中實現低記憶體佔用與確定性回測評估。

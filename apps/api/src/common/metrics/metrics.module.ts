@@ -7,7 +7,8 @@ import { MetricsController } from './metrics.controller';
   imports: [
     BullModule.registerQueue(
       { name: 'price-check' },
-      { name: 'notification' }
+      { name: 'notification' },
+      { name: 'backtest' },
     ),
   ],
   controllers: [MetricsController],

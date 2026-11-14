@@ -8,12 +8,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
   private client!: Redis;
   private metricsService?: MetricsService;
+  private isGetWrapped = false;
 
   constructor(private readonly moduleRef: ModuleRef) {}
 
   onModuleInit() {
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-    this.logger.log(`Connecting to Redis at ${redisUrl}...`);
+    const safeRedisUrl = redisUrl.replace(/:\/\/([^:@]*:)([^@]+)@/, '://$1*****@');
+    this.logger.log(`Connecting to Redis at ${safeRedisUrl}...`);
 
     this.client = new Redis(redisUrl, {
       maxRetriesPerRequest: null, // Required by BullMQ
@@ -29,19 +31,22 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         this.logger.warn('MetricsService 在此階段尚未註冊或解析完成');
       }
 
-      // Proxy client.get 以追蹤快取命中率 (使用 Optional Chaining 防範 MetricsService.onModuleInit 尚未執行的啟動期競態)
-      const originalGet = this.client.get.bind(this.client);
-      this.client.get = async (key: string, ...rest: any[]) => {
-        const result = await originalGet(key, ...rest);
-        if (this.metricsService) {
-          if (result !== null) {
-            this.metricsService.redisCacheHitsTotal?.inc();
-          } else {
-            this.metricsService.redisCacheMissesTotal?.inc();
+      // Proxy client.get 以追蹤快取命中率 (加註冪等旗標，避免 Redis 重連時重複嵌套包裝造成記憶體洩漏)
+      if (!this.isGetWrapped) {
+        this.isGetWrapped = true;
+        const originalGet = this.client.get.bind(this.client);
+        this.client.get = async (key: string, ...rest: any[]) => {
+          const result = await originalGet(key, ...rest);
+          if (this.metricsService) {
+            if (result !== null) {
+              this.metricsService.redisCacheHitsTotal?.inc();
+            } else {
+              this.metricsService.redisCacheMissesTotal?.inc();
+            }
           }
-        }
-        return result;
-      };
+          return result;
+        };
+      }
     });
 
     this.client.on('error', (err) => {

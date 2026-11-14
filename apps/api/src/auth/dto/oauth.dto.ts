@@ -61,3 +61,16 @@ export class TelegramWidgetLoginDto {
   @IsNotEmpty()
   hash!: string;
 }
+
+/**
+ * 強制覆蓋綁定 OAuth 帳號並合併臨時帳戶 DTO
+ */
+export class RebindOAuthDto {
+  @ApiProperty({
+    description: '高安全性一次性覆蓋綁定憑證 (Rebind Token)',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsString()
+  @IsNotEmpty({ message: 'rebindToken 不可為空' })
+  rebindToken!: string;
+}

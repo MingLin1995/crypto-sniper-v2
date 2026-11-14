@@ -1,4 +1,8 @@
-import { maskSensitiveData, safeStringify } from './mask-sensitive.helper';
+import {
+  maskSensitiveData,
+  maskSensitiveUrl,
+  safeStringify,
+} from './mask-sensitive.helper';
 
 describe('maskSensitiveData (敏感資料遮罩工具)', () => {
   it('憑證與密碼欄位應被完全遮蔽 (full mask)', () => {
@@ -51,5 +55,38 @@ describe('maskSensitiveData (敏感資料遮罩工具)', () => {
     expect(maskSensitiveData(null)).toBeNull();
     expect(maskSensitiveData(undefined)).toBeUndefined();
     expect(safeStringify(null)).toBeNull();
+  });
+
+  describe('maskSensitiveUrl', () => {
+    it('應遮罩 Telegram Webhook 路徑中的 Bot Token', () => {
+      expect(
+        maskSensitiveUrl('/api/auth/telegram/webhook/123456:ABC-DEF_secret'),
+      ).toBe('/api/auth/telegram/webhook/*****');
+    });
+
+    it('應遮罩 Query String 中的敏感參數並保留一般查詢參數', () => {
+      expect(
+        maskSensitiveUrl(
+          '/api/auth/google/callback?code=4/0AsecretCode&state=normalState&page=1',
+        ),
+      ).toBe('/api/auth/google/callback?code=*****&state=normalState&page=1');
+
+      expect(
+        maskSensitiveUrl(
+          '/api/auth/rebind?rebindToken=jwt.secret.token&access_token=abc&symbol=BTCUSDT',
+        ),
+      ).toBe(
+        '/api/auth/rebind?rebindToken=*****&access_token=*****&symbol=BTCUSDT',
+      );
+    });
+
+    it('一般安全路徑應保持不變', () => {
+      expect(maskSensitiveUrl('/api/users?page=1&limit=20')).toBe(
+        '/api/users?page=1&limit=20',
+      );
+      expect(maskSensitiveUrl('/api/market/screener')).toBe(
+        '/api/market/screener',
+      );
+    });
   });
 });

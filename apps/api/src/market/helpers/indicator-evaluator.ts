@@ -1,10 +1,15 @@
 import { MAConditionDto } from '../dto/screener.dto';
 import {
-  calculateSMA,
-  calculateEMA,
-  calculateRSI,
-  calculateMACD,
+  calculateSMAFloat64Series,
+  calculateEMAFloat64Series,
+  calculateRSIFloat64Series,
+  calculateMACDFloat64Series,
 } from '../indicators';
+import {
+  float64ToNullableArray,
+  isRustCoreActive,
+  scanConditionMask,
+} from '../rust-core';
 
 export interface NormalizedCondition {
   type: 'SMA' | 'EMA' | 'RSI' | 'MACD' | 'PRICE';
@@ -24,10 +29,17 @@ export interface NormalizedCondition {
   compareValue?: number;
 }
 
-export type KlineInput = number[] | { close: number; high?: number; low?: number; volume?: number; open?: number }[];
+export type KlineInput =
+  | number[]
+  | { close: number; high?: number; low?: number; volume?: number; open?: number }[];
 
 export function normalizeCondition(cond: MAConditionDto): NormalizedCondition {
-  if (cond.ma1Type && cond.ma1Period !== undefined && cond.ma2Type && cond.ma2Period !== undefined) {
+  if (
+    cond.ma1Type &&
+    cond.ma1Period !== undefined &&
+    cond.ma2Type &&
+    cond.ma2Period !== undefined
+  ) {
     return {
       type: cond.ma1Type as any,
       period: cond.ma1Period,
@@ -56,6 +68,67 @@ export function normalizeCondition(cond: MAConditionDto): NormalizedCondition {
   };
 }
 
+/**
+ * Extract close prices from KlineInput into a contiguous Float64Array without allocating dummy kline objects.
+ */
+export function extractClosePricesFloat64(input: KlineInput | Float64Array): Float64Array {
+  if (input instanceof Float64Array) {
+    return input;
+  }
+  const len = input.length;
+  if (len === 0) {
+    return new Float64Array(0);
+  }
+  if (typeof input[0] === 'number') {
+    return Float64Array.from(input as number[]);
+  }
+  const out = new Float64Array(len);
+  const klines = input as { close: number }[];
+  for (let i = 0; i < len; i++) {
+    out[i] = klines[i].close;
+  }
+  return out;
+}
+
+export function getIndicatorSeriesFloat64(
+  input: KlineInput | Float64Array,
+  type: 'SMA' | 'EMA' | 'RSI' | 'MACD' | 'PRICE',
+  params: {
+    period?: number;
+    macdFast?: number;
+    macdSlow?: number;
+    macdSignal?: number;
+    macdProperty?: 'macd' | 'signal' | 'hist';
+  },
+): Float64Array {
+  const prices = extractClosePricesFloat64(input);
+
+  switch (type) {
+    case 'SMA':
+      return calculateSMAFloat64Series(prices, params.period || 14);
+    case 'EMA':
+      return calculateEMAFloat64Series(prices, params.period || 14);
+    case 'RSI':
+      return calculateRSIFloat64Series(prices, params.period || 14);
+    case 'MACD': {
+      const fast = params.macdFast || 12;
+      const slow = params.macdSlow || 26;
+      const sig = params.macdSignal || 9;
+      const macdRes = calculateMACDFloat64Series(prices, fast, slow, sig);
+      if (params.macdProperty === 'signal') return macdRes.signal;
+      if (params.macdProperty === 'hist') return macdRes.histogram;
+      return macdRes.macd;
+    }
+    case 'PRICE':
+      return prices;
+    default: {
+      const nanArr = new Float64Array(prices.length);
+      nanArr.fill(Number.NaN);
+      return nanArr;
+    }
+  }
+}
+
 export function getIndicatorSeries(
   input: KlineInput,
   type: 'SMA' | 'EMA' | 'RSI' | 'MACD' | 'PRICE',
@@ -67,34 +140,8 @@ export function getIndicatorSeries(
     macdProperty?: 'macd' | 'signal' | 'hist';
   },
 ): (number | null)[] {
-  // If inputs are number[], map them to dummy KLines to avoid crash and retain compatibility
-  const klines = Array.isArray(input) && typeof input[0] === 'number'
-    ? (input as number[]).map(c => ({ open: c, high: c, low: c, close: c, volume: 0, openTime: 0, closeTime: 0 }))
-    : (input as any[]);
-
-  const prices = klines.map(k => k.close);
-
-  switch (type) {
-    case 'SMA':
-      return calculateSMA(prices, params.period || 14);
-    case 'EMA':
-      return calculateEMA(prices, params.period || 14);
-    case 'RSI':
-      return calculateRSI(prices, params.period || 14);
-    case 'MACD': {
-      const fast = params.macdFast || 12;
-      const slow = params.macdSlow || 26;
-      const sig = params.macdSignal || 9;
-      const macdRes = calculateMACD(prices, fast, slow, sig);
-      if (params.macdProperty === 'signal') return macdRes.signal;
-      if (params.macdProperty === 'hist') return macdRes.histogram;
-      return macdRes.macd;
-    }
-    case 'PRICE':
-      return prices;
-    default:
-      return Array(prices.length).fill(null);
-  }
+  const series = getIndicatorSeriesFloat64(input, type, params);
+  return float64ToNullableArray(series);
 }
 
 export function isNormalizedCondition(cond: any): cond is NormalizedCondition {
@@ -109,10 +156,14 @@ export function isNormalizedCondition(cond: any): cond is NormalizedCondition {
   );
 }
 
-export function evaluateCondition(prices: KlineInput, cond: MAConditionDto | NormalizedCondition): boolean {
+export function evaluateCondition(
+  prices: KlineInput,
+  cond: MAConditionDto | NormalizedCondition,
+): boolean {
   const norm = isNormalizedCondition(cond) ? cond : normalizeCondition(cond);
+  const closes = extractClosePricesFloat64(prices);
 
-  const series1 = getIndicatorSeries(prices, norm.type, {
+  const series1 = getIndicatorSeriesFloat64(closes, norm.type, {
     period: norm.period,
     macdFast: norm.macdFast,
     macdSlow: norm.macdSlow,
@@ -124,8 +175,7 @@ export function evaluateCondition(prices: KlineInput, cond: MAConditionDto | Nor
   if (idx1 < 0) return false;
 
   const val1 = series1[idx1];
-
-  if (val1 === null || val1 === undefined || isNaN(val1)) {
+  if (val1 === undefined || Number.isNaN(val1)) {
     return false;
   }
 
@@ -135,7 +185,7 @@ export function evaluateCondition(prices: KlineInput, cond: MAConditionDto | Nor
   } else {
     const compType = norm.compareIndicatorType || norm.type;
     const compPeriod = norm.comparePeriod !== undefined ? norm.comparePeriod : norm.period;
-    const series2 = getIndicatorSeries(prices, compType, {
+    const series2 = getIndicatorSeriesFloat64(closes, compType, {
       period: compPeriod,
       macdFast: norm.compareMacdFast !== undefined ? norm.compareMacdFast : norm.macdFast,
       macdSlow: norm.compareMacdSlow !== undefined ? norm.compareMacdSlow : norm.macdSlow,
@@ -147,7 +197,7 @@ export function evaluateCondition(prices: KlineInput, cond: MAConditionDto | Nor
     val2 = series2[idx2];
   }
 
-  if (val2 === null || val2 === undefined || isNaN(val2)) {
+  if (val2 === null || val2 === undefined || Number.isNaN(val2)) {
     return false;
   }
 
@@ -160,8 +210,15 @@ export function evaluateCondition(prices: KlineInput, cond: MAConditionDto | Nor
   return false;
 }
 
-export function scanSignals(prices: KlineInput, cond: NormalizedCondition): number[] {
-  const series1 = getIndicatorSeries(prices, cond.type, {
+/**
+ * Scan signals across a price series and return a compact Uint8Array mask (1 = matched, 0 = not matched).
+ */
+export function scanSignalsMask(
+  prices: KlineInput | Float64Array,
+  cond: NormalizedCondition,
+): Uint8Array {
+  const closes = extractClosePricesFloat64(prices);
+  const series1 = getIndicatorSeriesFloat64(closes, cond.type, {
     period: cond.period,
     macdFast: cond.macdFast,
     macdSlow: cond.macdSlow,
@@ -170,13 +227,15 @@ export function scanSignals(prices: KlineInput, cond: NormalizedCondition): numb
   });
 
   const len = series1.length;
-  const signalIndices: number[] = [];
+  if (len === 0) {
+    return new Uint8Array(0);
+  }
 
-  let series2: (number | null)[] | null = null;
+  let series2: Float64Array | null = null;
   if (cond.compareType !== 'value') {
     const compType = cond.compareIndicatorType || cond.type;
     const compPeriod = cond.comparePeriod !== undefined ? cond.comparePeriod : cond.period;
-    series2 = getIndicatorSeries(prices, compType, {
+    series2 = getIndicatorSeriesFloat64(closes, compType, {
       period: compPeriod,
       macdFast: cond.compareMacdFast !== undefined ? cond.compareMacdFast : cond.macdFast,
       macdSlow: cond.compareMacdSlow !== undefined ? cond.compareMacdSlow : cond.macdSlow,
@@ -185,33 +244,48 @@ export function scanSignals(prices: KlineInput, cond: NormalizedCondition): numb
     });
   }
 
-  for (let idx = 0; idx < len; idx++) {
-    const val1 = series1[idx];
-    if (val1 === null || val1 === undefined || isNaN(val1)) {
-      continue;
-    }
-
-    let val2: number | null = null;
-    if (cond.compareType === 'value') {
-      val2 = cond.compareValue !== undefined ? cond.compareValue : null;
-    } else if (series2) {
-      val2 = series2[idx];
-    }
-
-    if (val2 === null || val2 === undefined || isNaN(val2)) {
-      continue;
-    }
-
-    if (cond.operator === 'gt') {
-      if (val1 > val2) {
-        signalIndices.push(idx);
-      }
-    } else if (cond.operator === 'lt') {
-      if (val1 < val2) {
-        signalIndices.push(idx);
-      }
-    }
+  if (isRustCoreActive()) {
+    return scanConditionMask(
+      series1,
+      series2,
+      cond.compareType,
+      cond.compareValue !== undefined ? cond.compareValue : Number.NaN,
+      cond.operator,
+    );
   }
 
+  const mask = new Uint8Array(len);
+  for (let idx = 0; idx < len; idx++) {
+    const val1 = series1[idx];
+    if (Number.isNaN(val1)) continue;
+
+    const val2 =
+      cond.compareType === 'value'
+        ? cond.compareValue !== undefined
+          ? cond.compareValue
+          : Number.NaN
+        : series2
+          ? series2[idx]
+          : Number.NaN;
+
+    if (Number.isNaN(val2)) continue;
+
+    if (cond.operator === 'gt' && val1 > val2) {
+      mask[idx] = 1;
+    } else if (cond.operator === 'lt' && val1 < val2) {
+      mask[idx] = 1;
+    }
+  }
+  return mask;
+}
+
+export function scanSignals(prices: KlineInput, cond: NormalizedCondition): number[] {
+  const mask = scanSignalsMask(prices, cond);
+  const signalIndices: number[] = [];
+  for (let idx = 0; idx < mask.length; idx++) {
+    if (mask[idx] === 1) {
+      signalIndices.push(idx);
+    }
+  }
   return signalIndices;
 }

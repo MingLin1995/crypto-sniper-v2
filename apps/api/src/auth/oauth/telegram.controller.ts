@@ -100,7 +100,14 @@ export class TelegramController {
   @ApiOperation({ summary: '接收 Telegram Webhook 更新訊息' })
   async telegramWebhook(@Param('token') token: string, @Body() update: any) {
     const botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
-    if (!botToken || token !== botToken) {
+    if (!botToken || !token) {
+      throw new UnauthorizedException('無效的 Webhook 憑證');
+    }
+
+    // 使用 SHA-256 + timingSafeEqual 常數時間比對，防止側信道時序推敲 Token 長度或內容
+    const expectedDigest = crypto.createHash('sha256').update(botToken).digest();
+    const actualDigest = crypto.createHash('sha256').update(token).digest();
+    if (!crypto.timingSafeEqual(expectedDigest, actualDigest)) {
       throw new UnauthorizedException('無效的 Webhook 憑證');
     }
     await this.telegramBotService.handleWebhookUpdate(update);

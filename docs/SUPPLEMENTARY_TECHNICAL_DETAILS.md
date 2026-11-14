@@ -128,7 +128,7 @@ Telegram Login Widget 在用戶授權後回傳一組資料（`id`, `first_name`,
 2. 使用 SHA-256(Bot Token) 作為 HMAC 金鑰
    → secretKey = SHA256(TELEGRAM_BOT_TOKEN)
 3. 計算 HMAC-SHA256(secretKey, dataCheckString)
-4. 比對計算結果與回傳的 hash 是否一致
+4. 將兩端摘要統一進行 SHA-256 後，以 crypto.timingSafeEqual 進行常數時間比對（防範時序側信道攻擊）
 ```
 
 ### 時效性檢查
@@ -137,11 +137,11 @@ Telegram Login Widget 在用戶授權後回傳一組資料（`id`, `first_name`,
 
 ### 安全設計要點
 
-| 要點                    | 說明                                                    |
-| :---------------------- | :------------------------------------------------------ |
-| **防偽造**              | 攻擊者無法在不知道 Bot Token 的情況下偽造合法 HMAC 簽名 |
-| **防重放**              | `auth_date` 超過 24 小時即失效                          |
-| **與 OAuth State 配合** | 仍搭配 Redis State Token 進行 CSRF 防禦                 |
+| 要點                    | 說明                                                                       |
+| :---------------------- | :------------------------------------------------------------------------- |
+| **防偽造與常數時間驗證** | 搭配 `crypto.timingSafeEqual` 比對 HMAC（Webhook Token 亦採同機制），防時序推測 |
+| **防重放**              | `auth_date` 超過 24 小時即失效                                             |
+| **與 OAuth State 配合** | 仍搭配 Redis State Token 進行 CSRF 防禦                                    |
 
 ### 面試延伸
 
